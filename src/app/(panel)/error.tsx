@@ -1,26 +1,36 @@
 "use client";
 
-import { RotateCw, TriangleAlert } from "lucide-react";
+import { useEffect } from "react";
 
-import { useT } from "@/shared/i18n/locale";
-import { Button } from "@/shared/ui/button";
+import { ErrorView } from "@/components/kit/state-views";
 
-/** Render xatosi (kutilmagan). Kutilgan xatolar — sahifa ichidagi holatlar. */
-export default function PanelError({ reset }: { error: Error; reset: () => void }) {
-  const t = useT();
+/**
+ * Panel ichidagi kutilmagan xatolik uchun to'siq.
+ *
+ * Bittagina komponent yiqilsa ham butun ilova oq ekranga aylanib qolmasin —
+ * operator "Qayta urinish" bosib ishni davom ettiradi.
+ */
+export default function PanelError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error("[panel] kutilmagan xatolik:", error);
+  }, [error]);
+
   return (
-    <div role="alert" className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-line-strong px-6 py-16 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-danger-soft text-danger">
-        <TriangleAlert className="size-6" aria-hidden />
-      </span>
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold">{t.states.pageErrorTitle}</h1>
-        <p className="max-w-md text-sm text-ink-muted">{t.states.pageErrorText}</p>
-      </div>
-      <Button variant="outline" onClick={reset}>
-        <RotateCw aria-hidden />
-        {t.common.retry}
-      </Button>
+    <div className="flex min-h-full items-center justify-center p-6">
+      <ErrorView
+        message={
+          error.message ||
+          "Kutilmagan xatolik yuz berdi. Sahifani qayta yuklab ko'ring."
+        }
+        onRetry={reset}
+        className="border-line bg-surface w-full max-w-md rounded-2xl border"
+      />
     </div>
   );
 }

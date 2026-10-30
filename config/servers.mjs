@@ -1,8 +1,12 @@
 /**
  * Backend serverlari — butun loyiha uchun yagona manba.
  *
- * Host dev-proxy (`scripts/dev.mjs`) va `next.config.ts` orqali brauzer
- * kodiga yetib boradi. Oddiy `.mjs` — uni ham Node skriptlari, ham Next o'qiydi.
+ * Bu yerdagi host quyidagilarning hammasini boshqaradi:
+ *   • dev-proxy (`scripts/dev.mjs`) — `/api`, `/media`, `/ws` qayerga ketadi;
+ *   • nginx konfiguratsiyasi (`nginx.conf`, shablondan generatsiya qilinadi);
+ *   • brauzer kodidagi zaxira host (`src/lib/api-constants.ts`).
+ *
+ * Oddiy `.mjs` — chunki uni ham Node skriptlari, ham `next.config.ts` o'qiydi.
  */
 
 export const SERVERS = {
@@ -11,10 +15,13 @@ export const SERVERS = {
 };
 
 /**
- * Sukut — test server (admin API hozircha faqat shu yerda).
- * Vaqtincha almashtirish: `APP_SERVER=prod npm run dev`.
+ * ⬇︎ SERVERNI ALMASHTIRISH UCHUN FAQAT SHU QATORNI O'ZGARTIRING.
+ *
+ * Vaqtincha almashtirish uchun esa `APP_SERVER` yetarli, faylga tegmasdan:
+ *   APP_SERVER=test npm run dev
+ *   APP_SERVER=test npm run build
  */
-export const DEFAULT_SERVER = "prod";
+export const DEFAULT_SERVER = "test";
 
 /** Nomi bo'yicha serverni beradi; noto'g'ri nom jimgina o'tib ketmaydi. */
 export function resolveServer(name = process.env.APP_SERVER || DEFAULT_SERVER) {

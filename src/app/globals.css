@@ -4,187 +4,1735 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ═════════════════════════════════════════════════════════════════════════
-   MEHRIGIYO ADMIN — DIZAYN TOKENLARI
+/* ═════════════════════════════════════════════════════════════════════════════
+   MEHRIGIYO LOGIST — DIZAYN TIZIMI
 
-   Komponentlar faqat semantik nomlarni ishlatadi (`bg-surface`, `text-ink`,
-   `border-line`, `bg-brand`…). Qorong'i rejim — shu tokenlarning `.dark`
-   dagi qiymati; komponent kodida `dark:` va hex yo'q.
+   Barcha ranglar semantik tokenlar orqali beriladi: `bg-surface`, `text-ink`,
+   `border-line` va h.k. Tokenlar yorug' va qorong'i rejimda turli qiymat
+   oladi, komponentlar esa buni bilmaydi — hech qayerda `dark:` prefiksi yo'q.
 
-   Identitet: tinch neytral sirtlar (yashilga zo'rg'a og'gan, H≈155) + bitta
-   ishonchli "organik" yashil aksent. Holat ranglari (ok/warn/danger/info)
-   faqat ma'no uchun, bezak uchun emas.
+   Identitet CRM'dan ataylab farq qiladi — logist "tungi dispetcherlik"
+   tilida: chuqur indigo-navy (H≈265, yo'l va harita ohangi) + amber (H≈75,
+   kuryer nishoni/yo'l varaqasi ohangi). HAMMA neytral ham H≈258, chroma
+   deyarli nolga tushirilgan — sirtlar kulrang emas, tun osmonining
+   suyultirilgani. Buyurtma/transfer status ranglari ekotizim bilan umumiy
+   qoladi (bir status — bir rang, hamma saytda).
+
+   Kontrast: matn tokenlari sirtlarga qarshi WCAG 2.2 AA (matn 4.5:1,
+   chegara 3:1) mo'ljalida tanlangan.
    ═════════════════════════════════════════════════════════════════════════ */
 
+/* ── Shrift ───────────────────────────────────────────────────────────────
+   Inter Variable, o'zimizda joylashgan (`public/fonts/`), to'rtta subsetga
+   bo'lingan. `unicode-range` tufayli brauzer faqat sahifada haqiqatan
+   uchraydigan diapazonni yuklaydi:
+
+     lotin rejimi   → latin (73 KB)
+     kirill rejimi  → latin + cyrillic + cyrillic-ext (144 KB)
+     latin-ext      → faqat mijoz ma'lumotida chet belgi bo'lsa (133 KB)
+
+   MUHIM: o'zbek kirilli ғ (U+0493), қ (U+049B), ҳ (U+04B3) harflarini
+   ishlatadi — ular `cyrillic` emas, `cyrillic-ext` diapazonida. Shuning
+   uchun cyrillic-ext majburiy, ixtiyoriy emas.
+
+   `opsz` o'qi (14–32) tufayli katta o'lchamlar avtomatik ravishda "display"
+   kesimini oladi — `font-optical-sizing: auto` sukut bo'yicha yoqilgan.
+   Ikkinchi shrift oilasi kerak emas.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-cyrillic.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* O'zbek kirillining ғ/қ/ҳ harflari aynan shu faylda. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-cyrillic-ext.woff2") format("woff2");
+  unicode-range:
+    U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * Zaxira shrift — Inter yuklanguncha turadi. O'lchamlari Inter'ga
+ * moslashtirilgan (`ascent`/`descent` = Inter'ning hhea qiymatlari, 105%
+ * size-adjust bilan bo'lingan), shuning uchun shrift almashganda satrlar
+ * joyidan qimirlamaydi — CLS nol.
+ */
+@font-face {
+  font-family: "Inter Fallback";
+  src:
+    local("Segoe UI"),
+    local("Helvetica Neue"),
+    local("Arial");
+  size-adjust: 105%;
+  ascent-override: 92.27%;
+  descent-override: 22.97%;
+  line-gap-override: 0%;
+}
+
 @theme inline {
-  /* ── Sirtlar ─────────────────────────────────────────────────────────── */
+  /* ── Sirtlar ────────────────────────────────────────────────────────── */
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
+  --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-elevated: var(--elevated);
+  --color-subtle: var(--subtle);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-scrim: var(--scrim);
+  /* Bosiladigan/yoziladigan narsalarning chegarasi — 3:1 kafolatlangan. */
+  --color-border-control: var(--border-control);
 
-  /* ── Matn ────────────────────────────────────────────────────────────── */
+  /* ── Matn ───────────────────────────────────────────────────────────── */
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
 
-  /* ── Brend ───────────────────────────────────────────────────────────── */
+  /* ── Brend ──────────────────────────────────────────────────────────── */
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
-  --color-brand-soft-ink: var(--brand-soft-ink);
+  --color-accent: var(--accent);
+  --color-gold: var(--gold);
+  --color-gold-mark: var(--gold-mark);
+  --color-gold-soft: var(--gold-soft);
+  /*
+   * Logist aksenti — to'yingan amber (tasdiqlangan dizayn, 2026-09-29):
+   * asosiy harakat tugmasi ("Yo'lga chiqarish"), faol bo'lim chizig'i,
+   * rail hisoblagichi va "o'zgargan maydon" belgisi. `gold` — matn uchun
+   * to'q ohang, `amber` esa oq matn ko'taradigan to'ldirilgan sirt.
+   */
+  --color-amber: var(--amber);
+  --color-amber-hover: var(--amber-hover);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-soft: var(--amber-soft);
+  --color-amber-line: var(--amber-line);
 
-  /* ── Holat ───────────────────────────────────────────────────────────── */
+  /* ── Yon panel (har doim to'q) ──────────────────────────────────────── */
+  --color-rail: var(--rail);
+  --color-rail-elevated: var(--rail-elevated);
+  --color-rail-hover: var(--rail-hover);
+  --color-rail-ink: var(--rail-ink);
+  --color-rail-ink-muted: var(--rail-ink-muted);
+  --color-rail-line: var(--rail-line);
+  --color-rail-accent: var(--rail-accent);
+  --color-rail-gold: var(--rail-gold);
+  --color-rail-danger: var(--rail-danger);
+  --color-unread: var(--unread);
+  --color-unread-ink: var(--unread-ink);
+
+  /* ── Holat ranglari ─────────────────────────────────────────────────── */
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --color-danger-ink: var(--danger-ink);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  /* Havola — matn ichida ajralib turadigan och ko'k; brend fonda och osmon. */
+  --color-link: var(--link);
+  --color-link-on-brand: var(--link-on-brand);
 
-  /* ── shadcn/ui nomlari (primitivlar ichida) ──────────────────────────── */
+  /* ── shadcn/ui tokenlari ────────────────────────────────────────────── */
   --color-background: var(--surface);
   --color-foreground: var(--ink);
-  --color-popover: var(--surface);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--elevated);
   --color-popover-foreground: var(--ink);
   --color-primary: var(--brand);
   --color-primary-foreground: var(--brand-ink);
-  --color-muted: var(--surface-2);
+  --color-secondary: var(--subtle);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--subtle);
   --color-muted-foreground: var(--ink-muted);
+  --color-accent-foreground: var(--brand);
   --color-destructive: var(--danger);
   --color-border: var(--line);
-  --color-input: var(--line-strong);
+  --color-input: var(--line);
   --color-ring: var(--brand);
 
-  /* ── Shakl ───────────────────────────────────────────────────────────── */
+  /* ── Shakl ──────────────────────────────────────────────────────────── */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
 
-  /* ── Yozuv ───────────────────────────────────────────────────────────── */
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+  /* ── Yozuv ──────────────────────────────────────────────────────────── */
+  --font-sans: "Inter", "Inter Fallback", system-ui, sans-serif;
 
-  /* ── Soyalar: uch pog'ona, boshqasi ishlatilmaydi ───────────────────── */
-  --shadow-card: 0 1px 2px oklch(0.2 0.02 160 / 0.04), 0 1px 3px oklch(0.2 0.02 160 / 0.04);
-  --shadow-raised: 0 2px 4px oklch(0.2 0.02 160 / 0.05), 0 8px 24px oklch(0.2 0.02 160 / 0.08);
-  --shadow-overlay: 0 8px 16px oklch(0.15 0.02 160 / 0.12), 0 24px 56px oklch(0.15 0.02 160 / 0.18);
+  /*
+   * O'lcham shkalasi. Ilgari 11 xil o'lcham ikki xil yozuvda ishlatilardi
+   * (`text-[13px]` 82 marta!). Endi har birining nomi bor va xom `px`
+   * yozuvi kodda umuman qolmadi — shkaladan tashqarida o'lcham yo'q.
+   * 11px dan kichigi umuman yo'q — zaif monitorda o'qib bo'lmasdi.
+   */
+  --text-micro: 0.6875rem; /* 11px — faqat katta harfli ustun sarlavhalari */
+  --text-micro--line-height: 1rem;
+  --text-micro--letter-spacing: 0.06em;
+  --text-micro--font-weight: 600;
 
-  /* ── Harakat ─────────────────────────────────────────────────────────── */
+  /*
+   * 11px, lekin oddiy yozuvda — `micro` ning katta harfsiz jufti.
+   *
+   * Shkalada shu pog'ona yetishmasdi: `micro` da 0.06em interval va 600
+   * qalinlik pishirib qo'yilgan (ustun sarlavhasi uchun), oddiy 11px matnda
+   * esa ular noto'g'ri ko'rinadi. Shuning uchun kartochka tagidagi mayda
+   * qatorlar xom `px` bilan 34 joyda qo'lda yozilardi — ya'ni pog'ona
+   * amalda bor edi, faqat nomi yo'q edi. 9px va 10px yozuvlar ham shu
+   * yerga yig'ildi: ular shkalaning 11px chegarasidan pastda edi.
+   */
+  --text-fine: 0.6875rem; /* 11px — kartochka tagidagi mayda qatorlar */
+  --text-fine--line-height: 1rem;
+
+  --text-meta: 0.75rem; /* 12px — vaqt, izoh, hisoblagich */
+  --text-meta--line-height: 1.125rem;
+
+  --text-dense: 0.8125rem; /* 13px — jadval va kartochka matni */
+  --text-dense--line-height: 1.25rem;
+
+  --text-body: 0.875rem; /* 14px */
+  --text-body--line-height: 1.375rem;
+
+  --text-lg2: 1rem; /* 16px — inputlar (iOS zoom qilmasin) */
+  --text-lg2--line-height: 1.5rem;
+
+  --text-title: 1.25rem; /* 20px */
+  --text-title--line-height: 1.625rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-title--font-weight: 600;
+
+  --text-h1: 1.5rem; /* 24px */
+  --text-h1--line-height: 1.875rem;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h1--font-weight: 600;
+
+  --text-display: 2rem; /* 32px */
+  --text-display--line-height: 2.375rem;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 600;
+
+  --text-stat: 2.75rem; /* 44px — statistika raqamlari */
+  --text-stat--line-height: 3rem;
+  --text-stat--letter-spacing: -0.03em;
+  --text-stat--font-weight: 600;
+
+  /*
+   * Sahifaning YETAKCHI soni — bo'limda aynan bittasi shu o'lchamda bo'ladi.
+   * Ikkitasi bo'lsa ikkalasi ham yetakchi bo'lmay qoladi.
+   *
+   * `opsz` o'qi shu o'lchamda "display" kesimiga o'tadi — alohida sarlavha
+   * shrifti kerak emas. Bu yerda `tabular` ISHLATILMAYDI: teng kenglikdagi
+   * raqamlar faqat ustunda tikka tizilishi uchun, katta yakka son esa ular
+   * bilan bo'shashib ko'rinadi.
+   */
+  --text-hero: 3.5rem; /* 56px */
+  --text-hero--line-height: 3.75rem;
+  --text-hero--letter-spacing: -0.035em;
+  --text-hero--font-weight: 600;
+
+  /* ── Balandlik shkalasi ─────────────────────────────────────────────────
+     Aynan 5 pog'ona. Har biri ikki soyadan: zich "tegish" soyasi va keng
+     "muhit" soyasi. Shkaladan tashqaridagi soya ishlatilmaydi.
+     ──────────────────────────────────────────────────────────────────── */
+  --shadow-e0: none;
+  --shadow-e1:
+    0 1px 2px hsl(var(--shadow-color) / 0.05),
+    0 1px 3px hsl(var(--shadow-color) / 0.04);
+  --shadow-e2:
+    0 1px 2px hsl(var(--shadow-color) / 0.06),
+    0 4px 10px hsl(var(--shadow-color) / 0.06);
+  --shadow-e3:
+    0 2px 4px hsl(var(--shadow-color) / 0.07),
+    0 8px 22px hsl(var(--shadow-color) / 0.1);
+  --shadow-e4:
+    0 4px 10px hsl(var(--shadow-color) / 0.1),
+    0 18px 48px hsl(var(--shadow-color) / 0.16);
+
+  /* ── Harakat ────────────────────────────────────────────────────────────
+     Uchta davomiylik va uchta egri — inline `cubic-bezier` yozilmaydi.
+     ──────────────────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ── O'lcham tokenlari (Tailwind shkalasida yo'q joylar uchun) ─────────
-   Komponentda `max-h-(--sheet-max-h)` ko'rinishida o'qiladi.            */
-:root {
-  --sidebar-w: 16rem;
-  --topbar-h: 3.5rem;
-  --bottomnav-h: 4rem;
-  --sheet-max-h: 92dvh;
-  --dialog-max-h: 88dvh;
-  --list-max-h: 18rem;
-  --content-max-w: 90rem;
-  /* iPhone "uy" chizig'i ostida tugma qolmasin. */
-  --safe-pad-sm: max(0.75rem, env(safe-area-inset-bottom));
-  --safe-pad-lg: max(1.25rem, env(safe-area-inset-bottom));
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* Eski nom — hali ishlatilayotgan bo'lishi mumkin. */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ── Yorug' rejim ──────────────────────────────────────────────────────── */
 :root {
-  --canvas: oklch(0.975 0.004 155);
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.966 0.006 155);
-  --surface-3: oklch(0.93 0.009 155);
-  --line: oklch(0.912 0.008 155);
-  --line-strong: oklch(0.845 0.011 155);
-  --scrim: oklch(0.2 0.02 160 / 0.4);
+  /*
+   * Sirt zinapoyasi qaytadan chizildi.
+   *
+   * Ilgari kanvas #eef1f9 — kulrang-moviy o'rta ohang, kartochka esa
+   * #fdfdff edi: ikkalasi bir-biriga juda yaqin, shuning uchun kartochkalar
+   * fondan "ko'tarilmasdi" va butun ekran yuvilgan ko'rinardi. Endi kanvas
+   * ochroq, kartochka esa toza oq — chegara ham, chuqurlik ham aniq
+   * o'qiladi. Ohangda moviy tomchi qoldi (H≈265), ya'ni neytral sovuq.
+   */
+  --canvas: #f4f6fa;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f9;
+  --surface-3: #e6eaf2;
+  /* Eski nomlar — 143 ta fayl shulardan foydalanadi. */
+  --surface: var(--surface-1);
+  --elevated: var(--surface-1);
+  --subtle: var(--surface-2);
 
-  --ink: oklch(0.23 0.02 160);
-  --ink-muted: oklch(0.46 0.016 160);
-  --ink-faint: oklch(0.56 0.013 160);
+  --line: #d8dce5;
+  --line-strong: #c2c7d3;
+  --border-control: #7e8698;
 
-  --brand: oklch(0.52 0.13 152);
-  --brand-hover: oklch(0.46 0.12 152);
-  --brand-ink: oklch(1 0 0);
-  --brand-soft: oklch(0.95 0.04 152);
-  --brand-soft-ink: oklch(0.4 0.1 152);
+  --ink: #131a2a;
+  --ink-muted: #5b6374;
+  --ink-faint: #69707f;
 
-  --ok: oklch(0.5 0.13 150);
-  --ok-soft: oklch(0.95 0.045 150);
-  --warn: oklch(0.52 0.12 65);
-  --warn-soft: oklch(0.96 0.05 85);
-  --danger: oklch(0.54 0.19 27);
-  --danger-soft: oklch(0.96 0.025 27);
-  --danger-ink: oklch(1 0 0);
-  --info: oklch(0.5 0.12 245);
-  --info-soft: oklch(0.95 0.025 245);
+  --brand: #3e60e5;
+  --brand-hover: #2f4bcf;
+  --brand-ink: #ffffff;
+  --accent: #82a1f6;
+  /*
+   * Amber ikki qiymatda: matn uchun to'q (AA), belgi uchun yorqin.
+   * Ilgari bitta #96570a bor edi va u chiziq/nishon sifatida loyqa
+   * jigarrang bo'lib ko'rinardi.
+   */
+  --gold: #926000;
+  --gold-mark: #d28f0e;
+  --amber: #c26a04;
+  --amber-hover: #a95c03;
+  --amber-ink: #ffffff;
+
+  /* Rail — to'q indigo-navy (dizayn: tun osmoni, qora emas). */
+  --rail: #1b2447;
+  --rail-elevated: #27315c;
+  --rail-hover: #ffffff14;
+  --rail-ink: #eef2fa;
+  --rail-ink-muted: #a1a9bc;
+  --rail-line: #ffffff1f;
+  --rail-accent: #91b2ff;
+  /* Rail ustidagi amber — rail har doim to'q, shuning uchun bitta qiymat. */
+  --rail-gold: #f0b04f;
+  /* Yon paneldagi "yangi xabar" nuqtasi — och qizil, qorong'i railda o'qiladi. */
+  --rail-danger: #ff8a95;
+  /*
+   * "Yangi xabar" belgisi — och qizil. `danger` dan alohida: bu xato emas,
+   * e'tibor so'rovi, va to'yingan qizil kartochkani bezovta qilardi.
+   */
+  --unread: #ff6b7a;
+  --unread-ink: #ffffff;
+
+  --ok: #236c1c;
+  --warn: #854c00;
+  --danger: #983432;
+  --info: #00639b;
+  --link: #1a82d9;
+  --link-on-brand: #d2ebff;
+
+  /* ── Holat ranglari: IKKI QATLAM ─────────────────────────────────────────
+     Ilgari har status uchun bitta qiymat bor edi va u matn kontrasti
+     (AA 4.5:1) bo'yicha tanlangan — ya'ni to'q va to'yinmagan. O'sha
+     rangning o'zi ustun, umurtqa va nishon fonida ham ishlatilardi va
+     natijada grafiklar loyqa, "iflos" ko'rinardi: sakkizta to'q dog'.
+
+     Endi rol bo'yicha ikkiga bo'lindi:
+       --order-X        matn/yorliq — to'q, sirtga qarshi AA;
+       --order-X-mark   belgi (ustun, umurtqa, nuqta) — yorqin, to'yingan.
+
+     Belgi qatlami `dataviz` tekshiruvidan o'tkazilgan: yorug'lik kamari,
+     xroma poli, CVD ajralishi va sirtga qarshi 3:1 kontrast. Ohanglar
+     ataylab uzoqlashtirilgan.
+
+     Statuslar 5 ta (`02_DOMAIN_MODEL` §2.1): pending · confirmed ·
+     shipping · delivered · cancelled. Eski `confirming/paid/preparing`
+     tokenlari o'chirilgan — kodda ham ular yo'q.
+     ──────────────────────────────────────────────────────────────────── */
+  --order-pending: #854c00;
+  --order-confirmed: #006f78;
+  --order-shipping: #3b54a6;
+  --order-delivered: #007142;
+  --order-cancelled: #983432;
+
+  --order-pending-mark: #ac6000;
+  /* «Jarayonda» (logist yakunlashi kutilmoqda) — logistga `pending`
+     ko'rinmaydi, amber shu ustunga o'tdi (2026-10-30). */
+  --order-review: var(--order-pending);
+  --order-review-mark: var(--order-pending-mark);
+  --order-confirmed-mark: #008f9b;
+  --order-shipping-mark: #4a6bd7;
+  --order-delivered-mark: #009154;
+  --order-cancelled-mark: #d8514e;
+
+  /* Doskadagi yig'ilgan ustun (`Kutilmoqda` kuzatuv reykasi, 05 §4
+     `--pending-collapsed`): dizayndagi 64px — count, vertikal yorliq va
+     "faqat kuzatuv" izohi sig'adi. */
+  --kanban-col-collapsed-w: 4rem;
+  /* Yon rail kengligi (dizayn: 72px) — to'liq kenglikdagi kartochka shundan
+     keyin boshlanadi. */
+  --rail-w: 4.5rem;
+
+  /* Filiallararo transfer holatlari — buyurtma oilasi bilan bir xil qurilma. */
+  --transfer-requested: #854c00;
+  --transfer-accepted: #00639b;
+  --transfer-preparing: #744091;
+  --transfer-in-transit: #3b54a6;
+  --transfer-received: #236c1c;
+  --transfer-rejected: #983432;
+  --transfer-cancelled: #5b6374;
+
+  --transfer-requested-mark: #ac6000;
+  --transfer-accepted-mark: #0091db;
+  --transfer-preparing-mark: #be78e6;
+  --transfer-in-transit-mark: #4a6bd7;
+  --transfer-received-mark: #278b1e;
+  --transfer-rejected-mark: #d8514e;
+  --transfer-cancelled-mark: #8c93a3;
+
+  --shadow-color: 228 32% 18%;
+  --tint-strength: 8%;
+  --spine-w: 3px;
+  --scrim: #10173040;
 }
 
-/* ── Qorong'i rejim — alohida chizilgan, teskari aylantirilmagan ───────── */
+/* ── Qorong'i rejim ──────────────────────────────────────────────────────
+   Teskari aylantirilgan emas, alohida chizilgan: yorug'da sirtlar oqqa
+   qarab ko'tariladi (0.968 → 0.995), qorong'ida qoradan uzoqlashadi
+   (0.175 → 0.300). Chuqurlik ikkalasida bir xil o'qiladi.
+   ────────────────────────────────────────────────────────────────────── */
 .dark {
-  --canvas: oklch(0.165 0.008 160);
-  --surface: oklch(0.205 0.01 160);
-  --surface-2: oklch(0.245 0.011 160);
-  --surface-3: oklch(0.29 0.012 160);
-  --line: oklch(0.3 0.012 160);
-  --line-strong: oklch(0.38 0.014 160);
-  --scrim: oklch(0 0 0 / 0.55);
+  --canvas: #080c14;
+  --surface-1: #121721;
+  --surface-2: #1d2330;
+  --surface-3: #282f3e;
+  --surface: var(--surface-1);
+  --elevated: var(--surface-2);
+  --subtle: var(--surface-2);
 
-  --ink: oklch(0.95 0.008 155);
-  --ink-muted: oklch(0.75 0.012 155);
-  --ink-faint: oklch(0.63 0.012 155);
+  --line: #2f3746;
+  --line-strong: #444d60;
+  --border-control: #70798c;
 
-  --brand: oklch(0.74 0.15 152);
-  --brand-hover: oklch(0.8 0.14 152);
-  --brand-ink: oklch(0.2 0.04 152);
-  --brand-soft: oklch(0.3 0.06 152);
-  --brand-soft-ink: oklch(0.86 0.1 152);
+  --ink: #ebf0fa;
+  --ink-muted: #a7b0c1;
+  --ink-faint: #8891a2;
 
-  --ok: oklch(0.8 0.14 150);
-  --ok-soft: oklch(0.3 0.06 150);
-  --warn: oklch(0.83 0.13 80);
-  --warn-soft: oklch(0.32 0.06 75);
-  --danger: oklch(0.74 0.15 25);
-  --danger-soft: oklch(0.31 0.07 25);
-  --danger-ink: oklch(0.18 0.04 25);
-  --info: oklch(0.78 0.11 245);
-  --info-soft: oklch(0.3 0.05 245);
+  --brand: #7fa3ff;
+  --brand-hover: #97b9ff;
+  --brand-ink: #0a1130;
+  --accent: #94b4ff;
+  --gold: #f2b65f;
+  --gold-mark: #e4a02f;
+  --amber: #d97706;
+  --amber-hover: #e48a1c;
+  --amber-ink: #1b1003;
+
+  --rail: #111833;
+  --rail-elevated: #1d2547;
+  --rail-hover: #ffffff12;
+  --rail-ink: #eef2fa;
+  --rail-ink-muted: #a1a9bc;
+  --rail-line: #ffffff1a;
+  --rail-accent: #91b2ff;
+  /* Yon paneldagi "yangi xabar" nuqtasi — och qizil, qorong'i railda o'qiladi. */
+  --rail-danger: #ff8a95;
+  /* Qorong'ida fon ochroq, matn esa to'q — kontrast teskari. */
+  --unread: #ff8a95;
+  --unread-ink: #2a0d12;
+
+  --ok: #92d18b;
+  --warn: #e9b364;
+  --danger: #ffa098;
+  --info: #6cc9fd;
+  --link: #6fbcff;
+  --link-on-brand: #d2ebff;
+
+  /*
+   * Matn qatlami — och (to'q fonda AA), belgi qatlami — to'yingan.
+   * Qorong'ida ohang farqi ko'zga sustroq urilgani uchun belgi qatlamida
+   * qo'shni statuslar yorug'lik bilan ham navbatlashadi (och/to'q/och…),
+   * aks holda protanopiyada indigo bilan binafsha qo'shilib ketardi.
+   */
+  --order-pending: #e9b364;
+  --order-confirmed: #4dd4db;
+  --order-shipping: #9ebbff;
+  --order-delivered: #73d5a7;
+  --order-cancelled: #ffa098;
+
+  --order-pending-mark: #d07800;
+  --order-confirmed-mark: #008b9a;
+  --order-shipping-mark: #4061db;
+  --order-delivered-mark: #00b06a;
+  --order-cancelled-mark: #c52b30;
+
+  /* Filiallararo transfer holatlari — qorong'ida och ohanglar (AA kontrast). */
+  --transfer-requested: #e9b364;
+  --transfer-accepted: #6cc9fd;
+  --transfer-preparing: #d7a8f4;
+  --transfer-in-transit: #9ebbff;
+  --transfer-received: #92d18b;
+  --transfer-rejected: #ffa098;
+  --transfer-cancelled: #a7b0c1;
+
+  --transfer-requested-mark: #d07800;
+  --transfer-accepted-mark: #0079cb;
+  --transfer-preparing-mark: #b566e1;
+  --transfer-in-transit-mark: #4061db;
+  --transfer-received-mark: #38aa2f;
+  --transfer-rejected-mark: #c52b30;
+  --transfer-cancelled-mark: #6b7385;
+
+  --shadow-color: 230 45% 3%;
+  /* Qorong'ida rangli fon yorug'dagidan kuchliroq bo'lishi kerak. */
+  --tint-strength: 16%;
+  --scrim: #00000066;
+}
+
+/* ── Rangli fonlar: yopiq ro'yxat ────────────────────────────────────────
+   Ilgari 50 xil ad-hoc shaffoflik klassi bor edi (`bg-subtle/60`,
+   `bg-canvas/50`, `bg-surface/70|80|95`…) — chuqurlik har joyda qaytadan
+   o'ylab topilardi. Endi yagona zinapoya: ohang tokendan, kuchi mavzudan.
+   ────────────────────────────────────────────────────────────────────── */
+:root,
+.dark {
+  --brand-soft: color-mix(in oklab, var(--brand) var(--tint-strength), var(--surface-1));
+  /* Amber fon belgi qatlamidan olinadi — to'q matn ohangi 8% da loyqa
+     bej beradi, yorqin ohang esa toza issiq tus. */
+  --gold-soft: color-mix(in oklab, var(--gold-mark) var(--tint-strength), var(--surface-1));
+  --ok-soft: color-mix(in oklab, var(--ok) var(--tint-strength), var(--surface-1));
+  --warn-soft: color-mix(in oklab, var(--warn) var(--tint-strength), var(--surface-1));
+  --danger-soft: color-mix(in oklab, var(--danger) var(--tint-strength), var(--surface-1));
+  --info-soft: color-mix(in oklab, var(--info) var(--tint-strength), var(--surface-1));
+  --amber-soft: color-mix(in oklab, var(--amber) 9%, var(--surface-1));
+  --amber-line: color-mix(in oklab, var(--amber) 38%, var(--surface-1));
+
+  /*
+   * shadcn `radix-nova` komponentlari shu ikkitasini xom `var()` sifatida
+   * `color-mix()` ichida chaqiradi. Ilgari ular hech qayerda e'lon
+   * qilinmagandi, shuning uchun `variant="secondary"` tugmasining hover
+   * holati butunlay ishlamasdi (`color-mix` yaroqsiz bo'lib qolardi).
+   */
+  --foreground: var(--ink);
+  --secondary: var(--subtle);
+  /*
+   * `input-group.tsx` `calc(var(--radius) - 3px)` yozadi. Xom `--radius`
+   * e'lon qilinmagani uchun calc yaroqsiz edi va burchaklar to'g'ri
+   * (0px) chiqardi.
+   */
+  --radius: 0.75rem;
+}
+
+/* ── Zichlik ─────────────────────────────────────────────────────────────
+   Kun bo'yi jadval bilan ishlaydigan operatorga `compact` kerak.
+
+   Qiymatlar brauzerda O'LCHANGAN (Chrome, 1440px, comfortable):
+   jadval qatori 70px, kanban kartochkasi 124–174px (izohli/izohsiz).
+
+   MUHIM: `contain-intrinsic-size` qiymatlari shu yerdan o'qiydi. Ilgari
+   ular utilita ichiga qattiq yozilgan edi (61px / 104px / 132px), ya'ni
+   paddingni o'zgartirish brauzerning skroll balandligi taxminini jimgina
+   buzardi. Endi ular bitta manbadan keladi — zichlik o'zgarsa, taxmin ham
+   avtomatik o'zgaradi.
+   ────────────────────────────────────────────────────────────────────── */
+:root,
+[data-density="comfortable"] {
+  --row-h: 70px;
+  --card-h: 132px;
+  /* Kanban kartasi yaratuvchi/tasdiq qatorlari bilan balandroq (05 §8). */
+  --kanban-card-h: 156px;
+  --control-h: 2.25rem; /* 36px */
+  --gutter: 1rem;
+}
+
+[data-density="compact"] {
+  --row-h: 56px;
+  --card-h: 116px;
+  --kanban-card-h: 136px;
+  --control-h: 2rem; /* 32px */
+  --gutter: 0.75rem;
+}
+
+/* ── Unumdorlik pog'onalari ──────────────────────────────────────────────
+   `low` — dizaynning o'zi, "buzilgan versiya" emas. Shisha va harakat
+   uddalay oladigan mashinaga qo'shiladi, aksincha emas.
+
+     low     zaif ofis kompyuteri  → qattiq sirt, blur yo'q, o'tish ≤120ms
+     medium  oddiy noutbuk         → faqat karkasda shisha
+     high    kuchli mashina        → + chekka yorug'lik, + ko'tarilish
+
+   `--glass-blur: 0px` bo'lganda `backdrop-filter: blur(0)` hech narsa
+   qilmaydi, lekin baribir qatlam yaratadi — shuning uchun `low` da
+   `backdrop-filter` butunlay `none` ga tushadi.
+   ────────────────────────────────────────────────────────────────────── */
+:root,
+[data-perf="medium"] {
+  --glass-blur: 10px;
+  --glass-chrome: color-mix(in oklab, var(--canvas) 82%, transparent);
+  --glass-panel: color-mix(in oklab, var(--elevated) 92%, transparent);
+  --edge-light: 0 0 0 0 transparent;
+  --lift-y: 0px;
+  --dur-micro: 120ms;
+  --dur-standard: 180ms;
+  --dur-overlay: 240ms;
+}
+
+[data-perf="high"] {
+  --glass-blur: 14px;
+  --glass-chrome: color-mix(in oklab, var(--canvas) 74%, transparent);
+  --glass-panel: color-mix(in oklab, var(--elevated) 88%, transparent);
+  /* Shishani shisha qiladigan narsa — blur emas, chekkadagi yorug'lik. */
+  --edge-light: inset 0 1px 0 0 hsl(0 0% 100% / 0.14);
+  --lift-y: -2px;
+  --dur-micro: 120ms;
+  --dur-standard: 200ms;
+  --dur-overlay: 280ms;
+}
+
+[data-perf="low"] {
+  --glass-blur: 0px;
+  --glass-chrome: var(--canvas);
+  --glass-panel: var(--elevated);
+  --edge-light: 0 0 0 0 transparent;
+  --lift-y: 0px;
+  --dur-micro: 80ms;
+  --dur-standard: 120ms;
+  --dur-overlay: 120ms;
+}
+
+/* Kontrastni oshirish so'ralgan bo'lsa chegaralar kuchayadi. */
+@media (prefers-contrast: more) {
+  :root {
+    --line: var(--line-strong);
+    --line-strong: var(--border-control);
+    --ink-faint: var(--ink-muted);
+    --spine-w: 4px;
+  }
 }
 
 @layer base {
   * {
-    @apply border-line outline-ring/50;
+    @apply border-line;
   }
 
   html {
+    @apply font-sans;
     -webkit-tap-highlight-color: transparent;
-    text-size-adjust: 100%;
+    /* `opsz` o'qi o'lchamga qarab avtomatik qo'llansin. */
+    font-optical-sizing: auto;
+    font-synthesis-weight: none;
   }
 
   body {
-    @apply bg-canvas text-ink font-sans antialiased;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-canvas text-ink;
+    text-rendering: optimizeLegibility;
+    /*
+     * Fon ataylab tekis.
+     *
+     * Ilgari bu yerda nuqtali to'r + uchta radial "yorug'lik dog'i" bor edi,
+     * `background-attachment: fixed` bilan. U bir vaqtning o'zida ikki
+     * muammo edi: dizaynda — eng ko'p uchraydigan shablon belgisi;
+     * unumdorlikda — har scroll da butun ekranni qayta chizish, ya'ni aynan
+     * zaif mashinada eng qimmat narsa.
+     *
+     * Chuqurlik endi sirt zinapoyasi va balandlik shkalasidan keladi,
+     * rasmdan emas.
+     */
   }
 
-  /* Raqamlar ustunda tikka tizilsin — jadval va statistikada. */
-  .tabular {
-    font-variant-numeric: tabular-nums;
+  /*
+   * Klaviatura fokusi — bitta halqa.
+   *
+   * Ilgari bu qoida HAR elementga, jumladan matn maydonlariga ham, `ring-2
+   * ring-offset-2` qo'yardi. Maydonlarning o'z fokus uslubi bor
+   * (`inputClass`: `focus:ring-[3px]`, qidiruv qutisi: `focus-within`),
+   * va ikkalasi ustma-ust tushardi: ichki halqa + 2px oraliq + tashqi
+   * halqa — "ikki qavat ramka" (tepa paneldagi qidiruv, filtr ichidagi
+   * qidiruv, kuryer biriktirish, transferlar). Endi:
+   *   • matn kiritiladigan maydonlar bu qoidadan chiqarilgan — fokusni
+   *     ularning o'z chegarasi/halqasi ko'rsatadi;
+   *   • halqani O'RAB TURGAN konteyner chizsa (`data-focus-ring="host"`:
+   *     filtr pilli, qidiruv qutisi, radio kartochka) — ichidagi element
+   *     ikkinchisini chizmaydi.
+   */
+  :focus-visible:not(
+      textarea,
+      [contenteditable]:not([contenteditable="false"]),
+      input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"]),
+      [data-focus-ring="host"] *
+    ) {
+    @apply ring-brand/60 ring-offset-canvas rounded-sm ring-2 ring-offset-2 outline-none;
   }
 
+  textarea:focus-visible,
+  [contenteditable]:not([contenteditable="false"]):focus-visible,
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"]):focus-visible,
+  [data-focus-ring="host"] :focus-visible {
+    outline: none;
+  }
+
+  /* Harakatni kamaytirish sozlamasini hurmat qilamiz. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Balandlik: shkaladagi beshta pog'ona ─────────────────────────────
+     Eski nomlar (`shadow-card`, `shadow-raised`, `shadow-overlay`) shkalaga
+     ulanadi — 20 ta ishlatilish joyi o'zgarmasdan qoladi.
+     ─────────────────────────────────────────────────────────────────── */
+  .elev-0 {
+    box-shadow: var(--shadow-e0);
+  }
+  .elev-1,
+  .shadow-card {
+    box-shadow: var(--shadow-e1);
+  }
+  .elev-2,
+  .shadow-raised {
+    box-shadow: var(--shadow-e2);
+  }
+  .elev-3 {
+    box-shadow: var(--shadow-e3);
+  }
+  .elev-4,
+  .shadow-overlay {
+    box-shadow: var(--shadow-e4);
+  }
+
+  /* ── Shisha: uch pog'ona, boshqasi yo'q ───────────────────────────────
+     `chrome` — karkas (yon panel, tepa panel, ⌘K);
+     `panel`  — oyna, tortma, popover;
+     qolgani  — qattiq sirt. Jadval va uzun matn hech qachon shishada emas.
+     ─────────────────────────────────────────────────────────────────── */
+  .glass-chrome {
+    background-color: var(--glass-chrome);
+    box-shadow: var(--edge-light);
+  }
+  .glass-panel {
+    background-color: var(--glass-panel);
+    box-shadow: var(--edge-light);
+  }
+  /* `low` pog'onada blur umuman qatlam yaratmasin. */
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-chrome,
+    .glass-panel {
+      backdrop-filter: blur(var(--glass-blur));
+    }
+    [data-perf="low"] .glass-chrome,
+    [data-perf="low"] .glass-panel {
+      backdrop-filter: none;
+    }
+  }
+
+  /* ── Imzo elementi: quvur umurtqasi ───────────────────────────────────
+     Statusga tegishli har bir obyekt oldingi chetida o'sha statusning
+     rangini ko'taradi. To'liq to'yingan rang chiqishiga ruxsat berilgan
+     yagona joy shu.
+
+     Narxi: bitta `inset box-shadow`. Yangi element yo'q, blur yo'q,
+     scroll da qayta chizish yo'q — shuning uchun `low` pog'onada ham
+     aynan o'zgarishsiz ishlaydi.
+     ─────────────────────────────────────────────────────────────────── */
+  .spine {
+    box-shadow: inset var(--spine-w, 3px) 0 0 0 var(--spine, var(--line-strong));
+  }
+  .spine-strong {
+    --spine-w: 5px;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Gorizontal siljish chekkalarida yumshoq belgi.
+   *
+   * Nomi ataylab `.fade-edges`: `filter-chips.tsx` (9 ta importer, deyarli
+   * har sahifada) shu nomni chaqirardi, utilita esa `.fade-edges-x` deb
+   * yozilgandi — ya'ni belgi hech qachon chizilmagan. Eski nom ham
+   * qoldirildi.
+   */
+  .fade-edges,
+  .fade-edges-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 12px,
+      black calc(100% - 12px),
+      transparent 100%
+    );
+  }
+
+  /**
+   * Ekrandan tashqaridagi qatorlarni brauzer umuman chizmaydi.
+   * Virtualizatsiya kutubxonasisiz katta ro'yxatlarni tez qiladi va
+   * Ctrl+F, nusxalash, skrinrider ishlayveradi.
+   *
+   * Balandlik taxmini zichlik tokenidan o'qiydi — qattiq yozilgan emas.
+   */
+  .row-virtual {
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--row-h);
+  }
+
+  .card-virtual {
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--card-h);
+  }
+
+  /* Kanban ustunlari uchun — kartochka balandligi o'zgaruvchan. */
+  .kanban-card-virtual {
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--kanban-card-h);
+  }
+
+  /* Yig'ilgan ustun reykasidagi vertikal yozuv (05 §4) — pastdan tepaga. */
+  .writing-vertical {
+    writing-mode: vertical-rl;
+  }
+  .writing-vertical-up {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  /*
+   * Bosqich chizig'i (stage bar) — "strelka" segmentlar. Birinchisi chapda
+   * tekis, qolganlari oldingisiga kirib turadi. Shakl faqat `clip-path`:
+   * kompozitorda chiziladi, qo'shimcha element yo'q.
+   */
+  .stage-chevron {
+    clip-path: polygon(
+      0 0,
+      calc(100% - 12px) 0,
+      100% 50%,
+      calc(100% - 12px) 100%,
+      0 100%,
+      12px 50%
+    );
+  }
+  .stage-chevron:first-child {
+    clip-path: polygon(
+      0 0,
+      calc(100% - 12px) 0,
+      100% 50%,
+      calc(100% - 12px) 100%,
+      0 100%
+    );
+    border-radius: 6px 0 0 6px;
+  }
+
+  /*
+   * Sudralayotgan kartochka "qo'lga olingandek" ko'tariladi.
+   *
+   * Faqat `transform` — kompozitorda chiziladi, layout qayta
+   * hisoblanmaydi. Soya endi shkaladan (`--shadow-e3`), inline emas.
+   */
+  .kanban-lift {
+    transform: scale(1.025);
+    box-shadow: var(--shadow-e3);
+    will-change: transform;
+  }
+
+  /*
+   * Bo'limga kirilganda kontent chiziqli tezlikda ochiladi.
+   *
+   * Faqat shaffoflik — siljish yoki ketma-ket chiqish qo'shilsa, kanban
+   * ustunlari birin-ketin sakragandek ko'rinadi. `key={pathname}` bilan
+   * qayta o'rnatiladi, shuning uchun har o'tishda qaytadan o'ynaydi.
+   */
+  .section-enter {
+    animation: section-enter var(--dur-standard, 180ms) linear both;
+  }
+}
+
+@keyframes section-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   HARAKAT VA CHUQURLIK (fx) — operator loyihasidan meros qolgan qatlam.
+
+   Barcha animatsiyalar faqat `transform` va `opacity` ustida ishlaydi —
+   brauzer ularni kompozitor qatlamida, asosiy oqimga tegmasdan bajaradi.
+   `prefers-reduced-motion` base qoidada avtomatik o'chiriladi; JS tomonidagi
+   effektlar (tilt, sanagich) buni o'zi alohida tekshiradi.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --glare: color-mix(in oklab, var(--brand) 8%, transparent);
+}
+.dark {
+  --glare: rgb(255 255 255 / 0.07);
+}
+
+/* Orqa fondagi nur dog'ining sokin suzishi. */
+@keyframes fx-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4%, -7%, 0) scale(1.06);
+  }
+  66% {
+    transform: translate3d(-5%, 5%, 0) scale(0.95);
+  }
+}
+
+/* Havoda muallaq turgandek yengil tebranish. */
+@keyframes fx-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+/* Kirish: pastdan yumshoq ko'tarilib paydo bo'lish. */
+@keyframes fx-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@layer utilities {
+  /* `--fx-i` — ketma-ketlikdagi tartib raqami: har biri 60ms kechikadi. */
+  .fx-rise {
+    animation: fx-rise 550ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--fx-i, 0) * 60ms);
+  }
+
+  .fx-float {
+    animation: fx-float 7s ease-in-out infinite;
+  }
+
+  /* Zaif mashinada kirish harakati yo'q — kontent darhol turadi. */
+  [data-perf="low"] .fx-rise {
+    animation: none;
+  }
+
+  /* Aurora dog'i — o'lcham, rang va tezlikni komponent inline beradi. */
+  .fx-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: fx-drift 30s ease-in-out infinite;
+  }
+
+  /* Yuqoridan pastga so'nib boruvchi nozik chizma to'ri. */
+  .fx-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(
+        to right,
+        var(--fx-grid-line, var(--line)) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        var(--fx-grid-line, var(--line)) 1px,
+        transparent 1px
+      );
+    background-size: 56px 56px;
+    mask-image: radial-gradient(70% 55% at 50% 0%, black, transparent 85%);
+  }
+
+  /* 3D og'ish — burchaklarni sichqoncha harakati CSS o'zgaruvchiga yozadi
+     (`tilt-card.tsx`), React qayta chizilmaydi. */
+  .fx-tilt {
+    transform: perspective(900px) rotateX(var(--fx-rx, 0deg))
+      rotateY(var(--fx-ry, 0deg));
+    transition: transform 200ms ease-out;
+  }
+
+  /* Og'ish paytida sirt bo'ylab yuruvchi yorug' aks. */
+  .fx-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--fx-glare, 0);
+    transition: opacity 250ms;
+    background: radial-gradient(
+      340px circle at var(--fx-gx, 50%) var(--fx-gy, 50%),
+      var(--glare),
+      transparent 70%
+    );
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   BOY QATLAM (rich) — rangni "qimmatbaho" ko'rsatadigan gradient va nurlar.
+
+   Hammasi tokenlardan chiqariladi (color-mix), shuning uchun light/dark
+   ikkala rejimda o'zi moslashadi va hech qayerda `dark:` prefiksi yo'q.
+   Faqat background-image/box-shadow — kompozitorga og'irlik qilmaydi.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Jonli fon: yuqori-o'ngda indigo nur, past-chapda amber shu'la.
+   Sahifa tekis rang emas — chuqurlik his qilinadi. */
+body {
+  background-image:
+    radial-gradient(
+      1100px 700px at 88% -12%,
+      color-mix(in oklab, var(--brand) 8%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      900px 640px at -12% 112%,
+      color-mix(in oklab, var(--gold) 7%, transparent),
+      transparent 60%
+    );
+  background-attachment: fixed;
+}
+
+@layer utilities {
+  /* Asosiy tugma: tekis rang o'rniga hajmli gradient + brend rangli soya.
+     Ustki ingichka oq chiziq (inset) — "shisha" qirra effekti. */
+  .btn-rich {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--brand) 82%, #ffffff),
+      var(--brand) 45%,
+      color-mix(in oklab, var(--brand) 88%, #000000)
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.25),
+      0 4px 16px -4px color-mix(in oklab, var(--brand) 55%, transparent);
+    transition: filter var(--dur-micro) var(--ease-out);
+  }
+  .btn-rich:hover {
+    filter: brightness(1.08);
+  }
+  .btn-rich:active {
+    filter: brightness(0.96);
+  }
+
+  /* Yon panel: tepadan indigo shu'la tushib turadi — tekis navy emas. */
+  .rail-grad {
+    background-image:
+      radial-gradient(
+        460px 300px at 50% -10%,
+        color-mix(in oklab, var(--rail-accent) 15%, transparent),
+        transparent 70%
+      ),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.04), transparent 220px);
+  }
+
+  /* Faol bo'lim: ichki hoshiya + aksent rangli yumshoq nur. */
+  .rail-active-glow {
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.08),
+      0 6px 20px -8px color-mix(in oklab, var(--rail-accent) 55%, transparent);
+  }
+
+  /* Status "atmosferasi": karta o'z rangining yumshoq gradientida turadi.
+     Rang `--spine` dan olinadi — KPI, statistika va detal kartalari
+     allaqachon shu o'zgaruvchini qo'yadi. */
+  .tile-tint {
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--spine, var(--brand)) 11%, transparent),
+      transparent 58%
+    );
+  }
+
+  /* Doska ustuni tanasi: tepadan status rangining nafasi tushadi. */
+  .kanban-tint {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--accent, transparent) 8%, transparent),
+      transparent 170px
+    );
+  }
+}
+
+@layer utilities {
+  /* Ikonka chiplari: brend→aksent yumshoq gradienti — tekis rang emas. */
+  .chip-grad {
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--brand) 16%, var(--surface-1)),
+      color-mix(in oklab, var(--accent) 26%, var(--surface-1))
+    );
+  }
+}
+
+/* ── Xodimlar chati: "asl xabarga o'tish" chaqnashi ───────────────────────
+   Reply-quote bosilganda topilgan xabar bir marta brend rangida "yonib
+   o'chadi". Vertikal padding va manfiy margin bir-birini yo'qqa chiqaradi —
+   atrofdagi layout qimirlamaydi. */
+@keyframes reply-flash {
+  0%,
+  40% {
+    background-color: color-mix(in oklab, var(--brand) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.reply-flash {
+  animation: reply-flash 2s var(--ease-out) both;
+  border-radius: 0.75rem;
+  padding-block: 4px;
+  margin-block: -4px;
+}
+
+/* ── Logist doskasi: "YANGI" (hali hech kim olmagan) buyurtma ─────────────
+   Amber tashqi ramka (umurtqa `.spine` inset soyasiga tegmaydi) va uch
+   marta sekin "nafas" — keyin statik qoladi, ekran doimiy miltillamasin.
+   `prefers-reduced-motion` da animatsiya base qoida bilan o'chadi. */
+@keyframes fresh-pulse {
+  0%,
+  100% {
+    outline-color: var(--amber);
+  }
+  50% {
+    outline-color: color-mix(in oklab, var(--amber) 30%, transparent);
+  }
+}
+
+.card-fresh {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+  animation: fresh-pulse 1.8s var(--ease-out) 3;
+}
+
+/* ── Logist doskasi: hozirgina kelgan buyurtma ───────────────────────────
+   Karta ustun tepasiga yuqoridan silliq "tushadi" va bir zum brend rangida
+   yonadi; ustun esa bir marta o'z rangida yonib o'chadi — logist yangi
+   buyurtmani ovozsiz ham ko'radi. Faqat `transform`/`opacity`/fon;
+   `prefers-reduced-motion` da base qoida o'chiradi. */
+@keyframes card-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes card-arrive-glow {
+  0%,
+  45% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.card-arrive {
+  /* Karta `rounded-xl` — porlash uning burchagiga mos. */
+  border-radius: var(--radius-xl, 1rem);
+  animation:
+    card-arrive 420ms var(--ease-out) both,
+    card-arrive-glow 2.4s var(--ease-out) 420ms both;
+}
+
+/* ── Dostavka/Baza doskasi: katta ustunlar ────────────────────────────────
+   Ekrandan tashqaridagi karta chizilmaydi (`content-visibility`), joyi esa
+   taxminiy balandlik bilan saqlanadi — yuzlab kartali ustun skrollda
+   og'irlashmaydi, skroll paneli sakramaydi. */
+.cv-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 7rem;
+}
+
+@keyframes column-arrive {
+  0%,
+  35% {
+    background-color: color-mix(in oklab, var(--accent, var(--brand)) 14%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.column-arrive {
+  border-radius: 0.75rem;
+  animation: column-arrive 1.8s var(--ease-out) both;
+}
+
+/*
+ * Til qo'llanguncha (boot skripti → LocaleProvider) sahifa ko'rinmaydi:
+ * aks holda rus/kirill tanlangan foydalanuvchi bir kadr lotin matnni ko'rardi.
+ * Fon (`body` foni kanvasga o'tadi) qoladi — oq miltillash yo'q.
+ */
+html[data-i18n-pending] body > * {
+  visibility: hidden;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   TUNGI YO'L (2026-10-17) — motion-dizayn qatlami.
+
+   Nima qo'shildi: har bo'limning o'z fon sahnasi (foto → rang tusi → to'r →
+   scrim), sahna ustida turadigan shisha kartalar, imzo harakat — marshrut
+   chizig'i bo'ylab yuguradigan amber nuqta, hamda rail/tepa paneldagi
+   sirpanuvchi faol indikator (`motion` layoutId).
+
+   Uch pog'ona SAQLANADI (`data-perf`, izoh yuqorida):
+     low     foto statik va xira, blur yo'q, kartalar qattiq sirt;
+     medium  foto + shisha kartalar, drift yo'q;
+     high    + sekin "Ken Burns" drift, + hover ko'tarilish (`--lift-y`).
+
+   Ranglar tokenlardan: yorug' rejimda sahna och tuman, qorong'ida tun.
+   Fotolar `public/scenes/` (ro'yxat `components/fx/scenes.ts` da).
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Foto qatlami kuchi — matn o'qilishi uchun pastda qattiq scrim bor. */
+  --scene-photo-opacity: 0.42;
+  --scene-tint: color-mix(in oklab, var(--brand) 16%, transparent);
+  --scene-scrim: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--canvas) 58%, transparent) 0%,
+    color-mix(in oklab, var(--canvas) 84%, transparent) 55%,
+    color-mix(in oklab, var(--canvas) 96%, transparent) 100%
+  );
+  --scene-grid-line: color-mix(in oklab, var(--brand) 9%, transparent);
+  /* Shisha karta — sahna ustidagi kontent sirti. */
+  --glass-card: color-mix(in oklab, var(--surface-1) 80%, transparent);
+  --glass-card-line: color-mix(in oklab, var(--line) 85%, transparent);
+  --scene-drift: none;
+}
+
+.dark {
+  --scene-photo-opacity: 0.5;
+  --scene-tint: color-mix(in oklab, var(--rail) 55%, transparent);
+  --scene-scrim: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--canvas) 42%, transparent) 0%,
+    color-mix(in oklab, var(--canvas) 76%, transparent) 55%,
+    color-mix(in oklab, var(--canvas) 94%, transparent) 100%
+  );
+  --scene-grid-line: color-mix(in oklab, var(--rail-accent) 12%, transparent);
+  --glass-card: color-mix(in oklab, var(--surface-1) 68%, transparent);
+  --glass-card-line: color-mix(in oklab, var(--line) 70%, transparent);
+}
+
+/* `.dark` dan KEYIN turadi — zaif mashinada qorong'i rejimda ham qattiq sirt. */
+[data-perf="low"] {
+  --scene-photo-opacity: 0.26;
+  --glass-card: var(--surface-1);
+  --glass-card-line: var(--line);
+}
+
+[data-perf="high"] {
+  --scene-drift: scene-drift 70s ease-in-out infinite alternate;
+}
+
+@layer utilities {
+  /* ── Sahna qatlamlari ────────────────────────────────────────────────── */
+  .scene-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .scene-photo {
+    object-fit: cover;
+    opacity: var(--scene-photo-opacity);
+    filter: saturate(0.72);
+    transform-origin: 50% 50%;
+    animation: var(--scene-drift);
+  }
+  .scene-tint {
+    position: absolute;
+    inset: 0;
+    background: var(--scene-tint);
+  }
+  .scene-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, var(--scene-grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--scene-grid-line) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(80% 70% at 60% 30%, black, transparent 90%);
+  }
+  .scene-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--scene-scrim);
+  }
+
+  /* ── Shisha karta ────────────────────────────────────────────────────── */
+  .glass-card {
+    background-color: var(--glass-card);
+    border-color: var(--glass-card-line);
+    box-shadow: var(--edge-light), var(--shadow-e1);
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-card {
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+    }
+    [data-perf="low"] .glass-card {
+      backdrop-filter: none;
+    }
+  }
+
+  /* Hover ko'tarilishi — balandlik `--lift-y` pog'onadan (low/medium: 0). */
+  .lift {
+    transition:
+      transform var(--dur-standard) var(--ease-out),
+      box-shadow var(--dur-standard) var(--ease-out);
+  }
+  .lift:hover {
+    transform: translateY(var(--lift-y));
+  }
+
+  /* KPI kartasi: tepada belgi rangli ingichka chiziq va burchakdan tus. */
+  .kpi-tile {
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--t, var(--brand)), transparent 85%);
+  }
+  .kpi-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      260px 120px at 0% 0%,
+      color-mix(in oklab, var(--t, var(--brand)) var(--tint-strength), transparent),
+      transparent 70%
+    );
+  }
+
+  /* Status rangli plashka ostidagi yumshoq nur (ustun sarlavhasi, oqim bloki). */
+  .mark-glow {
+    box-shadow: 0 10px 24px -14px color-mix(in oklab, var(--mark, var(--brand)) 85%, transparent);
+  }
+  /* Amber indikator nuri (tepa panel chizig'i). */
+  .amber-glow {
+    box-shadow: 0 0 12px color-mix(in oklab, var(--amber) 70%, transparent);
+  }
+  /* Rail faol belgisi: indikator ichida, rail chap chetiga yopishgan. */
+  .rail-active-tick {
+    position: absolute;
+    top: 0.75rem;
+    left: calc((var(--rail-w) - 2.75rem) / -2);
+    width: 3px;
+    height: 1.25rem;
+    border-radius: 0 3px 3px 0;
+    background: var(--rail-gold);
+    box-shadow: 0 0 10px var(--rail-gold);
+  }
+
+  /* ── Imzo harakat: marshrut chizig'i (SVG) ───────────────────────────── */
+  .route-path {
+    stroke-dasharray: 6 10;
+    animation: route-dash 1.6s linear infinite;
+  }
+  .route-ring {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: route-ring 3.4s ease-out infinite;
+  }
+  /* Nuqta SMIL (`animateMotion`) bilan yuradi — CSS uni to'xtata olmaydi,
+     shuning uchun zaif mashinada va reduced-motion'da butunlay yashirinadi. */
+  [data-perf="low"] .route-path,
+  [data-perf="low"] .route-ring {
+    animation: none;
+  }
+  [data-perf="low"] .route-dot,
+  [data-perf="low"] .route-ring {
+    display: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .route-dot,
+    .route-ring {
+      display: none;
+    }
+  }
+}
+
+@keyframes scene-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.06) translate3d(-1%, -1.5%, 0);
+  }
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+@keyframes route-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Jonli xarita (Leaflet + OpenFreeMap/MapLibre, zaxira — OSM) — kuryer markerlari.
+   Holat `data-*` atributlarda (`live-map/marker-icon.ts`), ranglar tokenlardan.
+   ───────────────────────────────────────────────────────────────────────── */
+.courier-map {
+  background: var(--subtle);
+  font-family: inherit;
+}
+.courier-map .leaflet-tile-pane {
+  transition: filter var(--dur-standard) var(--ease-out);
+}
+/*
+ * Raster zaxira (OSM) faqat yorug' — "Qorong'i" tanlanganda invers + rang
+ * saqlanadi. Vektor fonda haqiqiy qorong'i uslub bor, filtr kerak emas.
+ */
+.courier-map[data-basemap="raster"][data-basemap-dark="true"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+/*
+ * Yandex fon (`live-map/yandex-base-layer.tsx`) — Leaflet panellari ostida,
+ * sichqoncha hodisalarini Leaflet oladi. Yandex'da qorong'i uslub yo'q —
+ * raster bilan bir xil filtr.
+ */
+.courier-map-yandex {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: filter var(--dur-standard) var(--ease-out);
+}
+.courier-map[data-basemap="yandex"][data-basemap-dark="true"] .courier-map-yandex {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}
+.courier-map .leaflet-tooltip {
+  background: var(--elevated);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-e2);
+}
+.courier-map .leaflet-tooltip-top::before {
+  border-top-color: var(--line);
+}
+.courier-map .leaflet-control-attribution {
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  color: var(--ink-faint);
+  font-size: var(--text-fine);
+}
+.courier-map .leaflet-control-attribution a {
+  color: var(--ink-muted);
+}
+
+/* ── Kuryer rasmi o'rnidagi belgi: id dan barqaror rang (`features/couriers/avatar.ts`) ── */
+[data-avatar-hue="0"] {
+  --avatar-hue: var(--order-shipping-mark);
+}
+[data-avatar-hue="1"] {
+  --avatar-hue: var(--order-confirmed-mark);
+}
+[data-avatar-hue="2"] {
+  --avatar-hue: var(--transfer-preparing-mark);
+}
+[data-avatar-hue="3"] {
+  --avatar-hue: var(--amber);
+}
+[data-avatar-hue="4"] {
+  --avatar-hue: var(--transfer-accepted-mark);
+}
+[data-avatar-hue="5"] {
+  --avatar-hue: var(--order-pending-mark);
+}
+[data-avatar-hue="6"] {
+  --avatar-hue: var(--brand);
+}
+[data-avatar-hue="7"] {
+  --avatar-hue: var(--info);
+}
+.avatar-fallback {
+  background: color-mix(in oklab, var(--avatar-hue, var(--brand)) 18%, var(--surface));
+  color: color-mix(in oklab, var(--avatar-hue, var(--brand)) 78%, var(--ink));
+}
+
+/*
+ * Kuryer markeri: 40 px dumaloq rasm, halqa — yangilik rangi, harakatda
+ * halqa chetida yo'nalish strelkasi, pastda ism yorlig'i. Leaflet ildiz
+ * elementning `transform` ini o'zi boshqaradi — kattalashtirish ichki
+ * `__body` da.
+ */
+.courier-marker {
+  --marker: var(--ink-faint);
+  background: transparent;
+  border: 0;
+  /* Yangi nuqta kelganda marker sakramaydi, sirg'aladi (≤ 1 s). */
+  transition:
+    transform 0.8s linear,
+    opacity var(--dur-standard) var(--ease-out);
+}
+/* Zoom animatsiyasida Leaflet transformni o'zi boshqaradi — o'tish xalaqit bermasin. */
+.leaflet-zoom-anim .courier-marker {
+  transition: opacity var(--dur-standard) var(--ease-out);
+}
+.courier-marker[data-tone="fresh"] {
+  --marker: var(--ok);
+}
+.courier-marker[data-tone="aging"] {
+  --marker: var(--warn);
+}
+.courier-marker[data-tone="lost"] {
+  --marker: var(--ink-faint);
+}
+.courier-marker[data-tone="alert"] {
+  --marker: var(--danger);
+}
+.courier-marker[data-dimmed="true"] {
+  opacity: 0.5;
+}
+.courier-marker:focus-visible {
+  outline: none;
+}
+.courier-marker:focus-visible .courier-marker__pin {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--brand);
+}
+.courier-marker__body {
+  position: absolute;
+  inset: 0;
+  transition: transform var(--dur-standard) var(--ease-out);
+}
+.courier-marker[data-focused="true"] .courier-marker__body,
+.courier-marker[data-highlight="true"] .courier-marker__body,
+.courier-marker:hover .courier-marker__body {
+  transform: scale(1.15);
+}
+.courier-marker__pin {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 2px solid var(--marker);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    var(--shadow-e2);
+  transition: border-color var(--dur-standard) var(--ease-out);
+}
+.courier-marker__initials {
+  font-size: var(--text-fine);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.courier-marker__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--dur-standard) var(--ease-out);
+}
+.courier-marker[data-img="loaded"] .courier-marker__img {
+  opacity: 1;
+}
+.courier-marker[data-img="none"] .courier-marker__img,
+.courier-marker[data-img="failed"] .courier-marker__img {
+  display: none;
+}
+/* Yo'nalish: halqa chetidagi kichik strelka, `--heading` bo'yicha aylanadi. */
+.courier-marker__heading {
+  position: absolute;
+  inset: 0;
+  display: none;
+  transform: rotate(var(--heading, 0deg));
+  transition: transform 0.8s linear;
+  pointer-events: none;
+}
+.courier-marker[data-moving="true"] .courier-marker__heading {
+  display: block;
+}
+.courier-marker__badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--marker);
+  color: var(--surface);
+  box-shadow: 0 0 0 2px var(--surface);
+  transform: translate(-50%, -55%);
+}
+.courier-marker__badge svg {
+  width: 10px;
+  height: 10px;
+  fill: currentColor;
+}
+/* Ism yorlig'i: yorug' va qorong'i plitkada o'qiladi (sirt + soya). */
+.courier-marker__name {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  max-width: 7rem;
+  overflow: hidden;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-e2);
+  font-size: var(--text-fine);
+  font-weight: 600;
+  line-height: var(--text-fine--line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition: opacity var(--dur-standard) var(--ease-out);
+  pointer-events: none;
+}
+.courier-marker[data-pill="above"] .courier-marker__name {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+/* Uzoq zoomda (< 12) yorliqlar yashirin — hover, fokus va ro'yxatdagi tanlovda chiqadi. */
+.courier-map[data-names="off"] .courier-marker__name {
+  opacity: 0;
+}
+.courier-map[data-names="off"] .courier-marker:hover .courier-marker__name,
+.courier-map[data-names="off"] .courier-marker[data-focused="true"] .courier-marker__name,
+.courier-map[data-names="off"] .courier-marker[data-highlight="true"] .courier-marker__name {
+  opacity: 1;
+}
+/* Fokus halqasi — kamera yetib kelganda ~3 s puls (`data-pulse`, har tanlovda qayta). */
+.courier-marker__ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 2px solid var(--brand);
+  opacity: 0;
+  pointer-events: none;
+}
+.courier-marker[data-focused="true"][data-pulse="on"] .courier-marker__ring {
+  animation: courier-marker-pulse 1s var(--ease-out) 3;
+}
+@keyframes courier-marker-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes courier-marker-blink {
+  0% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .courier-marker,
+  .courier-marker__body,
+  .courier-marker__img,
+  .courier-marker__heading {
+    transition: none;
+  }
+  .courier-marker[data-focused="true"] .courier-marker__ring {
+    opacity: 0.9;
+  }
+  /* Kattalashmaydi — faqat bir marta yonib-o'chadi. */
+  .courier-marker[data-focused="true"][data-pulse="on"] .courier-marker__ring {
+    animation: courier-marker-blink 0.6s var(--ease-out) 1;
   }
 }

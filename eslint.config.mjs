@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Ko'chirilgan uchinchi tomon fayli (`npm run vendor:maplibre`).
+    "public/vendor/**",
   ]),
 ]);
 

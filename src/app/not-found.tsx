@@ -1,24 +1,23 @@
-"use client";
-
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-import { ROUTES } from "@/shared/config/routes";
-import { useT } from "@/shared/i18n/locale";
-import { BrandMark } from "@/shared/ui/brand-mark";
-import { Button } from "@/shared/ui/button";
-
+/** Mavjud bo'lmagan manzil ochilganda. */
 export default function NotFound() {
-  const t = useT();
   return (
-    <main className="grid min-h-dvh place-items-center bg-canvas px-4">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <BrandMark className="size-12" />
-        <h1 className="text-2xl font-semibold tracking-tight">{t.states.notFoundTitle}</h1>
-        <p className="text-sm text-ink-muted">{t.states.notFoundText}</p>
-        <Button asChild>
-          <Link href={ROUTES.home}>{t.states.toHome}</Link>
-        </Button>
-      </div>
-    </main>
+    <div className="bg-canvas flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      <p className="text-brand text-5xl font-semibold tracking-tight">404</p>
+      <h1 className="text-ink mt-3 text-lg font-semibold">Sahifa topilmadi</h1>
+      <p className="text-ink-muted mt-1.5 max-w-sm text-body text-balance">
+        Siz izlagan sahifa mavjud emas yoki manzili o&apos;zgargan.
+      </p>
+
+      <Link
+        href="/"
+        className="bg-brand text-brand-ink hover:bg-brand-hover mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-body font-semibold transition-colors"
+      >
+        <ArrowLeft className="size-4" />
+        Boshqaruv paneliga qaytish
+      </Link>
+    </div>
   );
 }
