@@ -12,34 +12,33 @@ import type { QueryValue } from "@/lib/api-client";
 import { isEndpointMissing } from "@/lib/api-availability";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
-import { asOptionalString, asRecord, isRecord } from "@/lib/parse";
+import { asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
 import {
-  mapAutoAssignOutcome,
-  mapChiefCash,
   mapChiefCouriers,
-  mapChiefHandover,
-  mapChiefHandovers,
   mapChiefMe,
-  mapChiefOptions,
-  mapChiefStats,
+  mapAutoAssignPreview,
+  mapAutoAssignResult,
+  mapChiefFilials,
+  mapChiefOrderDetail,
   mapChiefZones,
 } from "./types";
 import type {
-  AutoAssignOutcome,
-  ChiefCash,
-  ChiefHandover,
+  AddressFixReason,
+  AutoAssignPreviewRow,
+  AutoAssignResult,
+  ChiefFilial,
   ChiefMe,
-  ChiefOption,
+  ChiefOrderDetail,
   ChiefOrderScope,
-  ChiefStats,
   ChiefZones,
+  ReturnReason,
 } from "./types";
 
 /**
  * Bosh kuryer tarmoq qatlami (backend K1, 2026-10-30 §C). Endpoint hali
- * chiqmagan bo'lsa (404) — `endpoint_missing`: logist tomoni tugmani
- * yashiradi, bo'lim navigatsiyada ko'rinmaydi.
+ * chiqmagan bo'lsa (404) — `endpoint_missing`: sayt «backend kutilmoqda»
+ * holatini ko'rsatadi.
  */
 function notReady(): ApiError {
   return new ApiError("Bosh kuryer uchun backend hali chiqmagan", 404, { code: "endpoint_missing" }, "endpoint_missing");
@@ -54,66 +53,54 @@ async function call<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-// ── Logist tomoni ─────────────────────────────────────────────────────────
-
-export function fetchChiefOptions(region: string | null, signal?: AbortSignal): Promise<ChiefOption[]> {
-  return call(async () =>
-    mapChiefOptions(
-      await api.get<unknown>(ENDPOINTS.logistChiefs, { searchParams: { region }, signal }),
-    ),
-  );
-}
-
-export function fetchChiefHandovers(
-  params: { status?: string | null; chiefId?: number | null; page?: number },
-  signal?: AbortSignal,
-): Promise<{ results: ChiefHandover[]; count: number }> {
-  return call(async () =>
-    mapChiefHandovers(
-      await api.get<unknown>(ENDPOINTS.logistChiefHandovers, {
-        searchParams: { status: params.status ?? null, chief_id: params.chiefId ?? null, page: params.page ?? 1 },
-        signal,
-      }),
-    ),
-  );
-}
-
-/** `confirmedAmount` berilmasa — e'lon qilingan summa bilan teng (`confirmed`). */
-export function confirmChiefHandover(id: number, input: { confirmedAmount?: number; note?: string }): Promise<ChiefHandover | null> {
-  const json: Record<string, unknown> = {};
-  if (input.confirmedAmount !== undefined) json.confirmed_amount = input.confirmedAmount;
-  if (input.note) json.note = input.note;
-  return call(async () =>
-    mapChiefHandover(
-      await api.post<unknown>(ENDPOINTS.logistChiefHandoverConfirm(id), {
-        json,
-        fallbackError: "Topshiriqni qabul qilishda xatolik",
-      }),
-    ),
-  );
-}
-
 // ── Bosh kuryer bo'limi ───────────────────────────────────────────────────
 
 export function fetchChiefMe(signal?: AbortSignal): Promise<ChiefMe> {
   return call(async () => mapChiefMe(await api.get<unknown>(ENDPOINTS.chiefMe, { signal })));
 }
 
-export type ChiefOrdersQuery = {
-  scope: ChiefOrderScope;
+/** Zakazlar filtri — URLdagi qiymatlar. */
+export type ChiefOrderFilters = {
+  q?: string | null;
+  from?: string | null;
+  to?: string | null;
+  zoneId?: number | null;
   courierId?: number | null;
+  filialId?: number | null;
+  region?: string | null;
+  district?: string | null;
+};
+
+export type ChiefOrdersQuery = ChiefOrderFilters & {
+  scope: ChiefOrderScope;
   page?: number;
 };
+
+/**
+ * Server filtrlari (K1 §2.2 + V3): `scope`, `status`, `courier_id`, sana,
+ * `q` (raqam, mijoz, telefon, manzil, mahsulot), `zone_id`, `filial_id`,
+ * `region`, `district`, `page` (10 tadan). «Yetkazilgan» — `scope=all&status=delivered`.
+ */
+function orderFilterParams(query: ChiefOrdersQuery): Record<string, QueryValue> {
+  return {
+    scope: query.scope === "delivered" ? "all" : query.scope,
+    status: query.scope === "delivered" ? "delivered" : null,
+    q: query.q?.trim() || null,
+    courier_id: query.courierId ?? null,
+    zone_id: query.zoneId ?? null,
+    filial_id: query.filialId ?? null,
+    region: query.region ?? null,
+    district: query.district ?? null,
+    date_from: query.from ?? null,
+    date_to: query.to ?? null,
+  };
+}
 
 export function fetchChiefOrders(
   query: ChiefOrdersQuery,
   signal?: AbortSignal,
 ): Promise<{ orders: LogistOrder[]; count: number; hasMore: boolean }> {
-  const searchParams: Record<string, QueryValue> = {
-    scope: query.scope,
-    courier_id: query.courierId ?? null,
-    page: query.page ?? 1,
-  };
+  const searchParams: Record<string, QueryValue> = { ...orderFilterParams(query), page: query.page ?? 1 };
   return call(async () => {
     const page = asPage(await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams, signal }));
     return { orders: page.items.map(mapLogistOrder), count: page.total ?? page.items.length, hasMore: page.hasMore };
@@ -149,15 +136,81 @@ export function assignChiefOrder(
   });
 }
 
-export function autoAssignChiefOrders(orderIds?: string[]): Promise<AutoAssignOutcome> {
+/** Kelgan zakazlar — sahifasiz (`page` berilmasa server oddiy ro'yxat qaytaradi, V3). */
+export function fetchIncomingOrders(signal?: AbortSignal): Promise<LogistOrder[]> {
   return call(async () =>
-    mapAutoAssignOutcome(
-      await api.post<unknown>(ENDPOINTS.chiefAutoAssign, {
-        json: orderIds?.length ? { order_ids: orderIds } : {},
+    asPage(await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams: { scope: "incoming" }, signal })).items.map(mapLogistOrder),
+  );
+}
+
+/** Zakaz detali va tarixi (`chief/orders/{id}/`, V4). */
+export function fetchChiefOrderDetail(id: string, signal?: AbortSignal): Promise<ChiefOrderDetail> {
+  return call(async () =>
+    mapChiefOrderDetail(await api.get<unknown>(ENDPOINTS.chiefOrder(id), { signal, fallbackError: "Zakazni yuklashda xatolik" })),
+  );
+}
+
+/** Avto-taqsimlash rejasi (V5) — server qoidasi bilan; hech narsa yozilmaydi. */
+export function previewAutoAssign(signal?: AbortSignal): Promise<AutoAssignPreviewRow[]> {
+  return call(async () =>
+    mapAutoAssignPreview(
+      await api.post<unknown>(ENDPOINTS.chiefAutoAssignPreview, { json: {}, signal, fallbackError: "Rejani tuzishda xatolik" }),
+    ),
+  );
+}
+
+/** Tasdiqlangan rejani yuborish (V5): `assigned` va `failed[{id, code}]`. */
+export function applyAutoAssign(
+  assignments: ReadonlyArray<{ orderId: string; courierId: number }>,
+  clientActionId: string,
+): Promise<AutoAssignResult> {
+  return call(async () =>
+    mapAutoAssignResult(
+      await api.post<unknown>(ENDPOINTS.chiefAutoAssignApply, {
+        json: {
+          assignments: assignments.map((row) => ({ order_id: row.orderId, courier_id: row.courierId })),
+          client_action_id: clientActionId,
+        },
         fallbackError: "Avto taqsimlashda xatolik",
       }),
     ),
   );
+}
+
+// ── Manzilni tuzatish va logistga qaytarish (`25_MANZIL_OZGARISHI` §5.1–5.2) ──
+
+export type AddressFixInput = {
+  district: string;
+  addressText: string;
+  landmark: string;
+  reason: AddressFixReason;
+  note: string;
+};
+
+/** Faqat o'z viloyatlari ichida; begona tuman — `403 zone_other_region`. Javob — yangilangan zakaz. */
+export function fixChiefOrderAddress(orderId: string, input: AddressFixInput): Promise<LogistOrder> {
+  const json: Record<string, unknown> = { district: input.district, reason: input.reason };
+  if (input.addressText.trim()) json.address_text = input.addressText.trim();
+  if (input.landmark.trim()) json.landmark = input.landmark.trim();
+  if (input.note.trim()) json.note = input.note.trim();
+  return call(async () => {
+    const raw = await api.patch<unknown>(ENDPOINTS.chiefOrderAddress(orderId), { json, fallbackError: "Manzilni saqlashda xatolik" });
+    return mapLogistOrder(isRecord(asRecord(raw).order) ? asRecord(raw).order : raw);
+  });
+}
+
+/** Zakazni logistga qaytarish: bosh kuryer va kuryer olinadi, zakaz logist taqsimlashiga. */
+export function returnChiefOrder(orderId: string, input: { reason: ReturnReason; note: string }): Promise<void> {
+  const json: Record<string, unknown> = { reason: input.reason };
+  if (input.note.trim()) json.note = input.note.trim();
+  return call(async () => {
+    await api.post<unknown>(ENDPOINTS.chiefOrderReturn(orderId), { json, fallbackError: "Logistga qaytarishda xatolik" });
+  });
+}
+
+/** Filiallar (V14) — filtrlar uchun. */
+export function fetchChiefFilials(signal?: AbortSignal): Promise<ChiefFilial[]> {
+  return call(async () => mapChiefFilials(await api.get<unknown>(ENDPOINTS.chiefFilials, { signal })));
 }
 
 export function fetchChiefCouriers(signal?: AbortSignal): Promise<Courier[]> {
@@ -193,10 +246,10 @@ export function createChiefCourier(input: ChiefCourierInput): Promise<{ courier:
   });
 }
 
-export function updateChiefCourier(
-  id: number,
-  patch: { fullName?: string; phone?: string; isActive?: boolean; zoneIds?: number[] },
-): Promise<Courier> {
+/** Kuryer o'zgarishi: zona — bitta (§5b), bloklash — `isActive: false` + zonasiz. */
+export type ChiefCourierPatch = { fullName?: string; phone?: string; isActive?: boolean; zoneIds?: number[] };
+
+export function updateChiefCourier(id: number, patch: ChiefCourierPatch): Promise<Courier> {
   const json: Record<string, unknown> = {};
   if (patch.fullName !== undefined) json.full_name = patch.fullName;
   if (patch.phone !== undefined) json.phone = patch.phone;
@@ -205,18 +258,6 @@ export function updateChiefCourier(
   return call(async () =>
     mapCourier(await api.patch<unknown>(ENDPOINTS.chiefCourier(id), { json, fallbackError: "Kuryerni saqlashda xatolik" })),
   );
-}
-
-export function attachChiefCourier(id: number): Promise<void> {
-  return call(async () => {
-    await api.post<unknown>(ENDPOINTS.chiefCourierAttach(id), { fallbackError: "Kuryerni jamoaga qo'shishda xatolik" });
-  });
-}
-
-export function detachChiefCourier(id: number): Promise<void> {
-  return call(async () => {
-    await api.post<unknown>(ENDPOINTS.chiefCourierDetach(id), { fallbackError: "Kuryerni jamoadan chiqarishda xatolik" });
-  });
 }
 
 export function fetchChiefZones(signal?: AbortSignal): Promise<ChiefZones> {
@@ -251,36 +292,13 @@ export function updateChiefZone(id: number, input: ChiefZoneInput): Promise<Zone
   );
 }
 
-export function fetchChiefCash(range: { from: string; to: string }, signal?: AbortSignal): Promise<ChiefCash> {
-  return call(async () =>
-    mapChiefCash(
-      await api.get<unknown>(ENDPOINTS.chiefCash, { searchParams: { date_from: range.from, date_to: range.to }, signal }),
-    ),
-  );
+/** Ro'yxatda yo'q joyni qo'lda qo'shish — lug'atga tushadi va zonaga biriktiriladi. */
+export function createChiefPlace(input: { region: string; name: string }): Promise<{ code: string; name: string }> {
+  return call(async () => {
+    const json = asRecord(
+      await api.post<unknown>(ENDPOINTS.chiefPlaces, { json: input, fallbackError: "Joyni qo'shishda xatolik" }),
+    );
+    return { code: asString(json.code), name: asString(json.name_uz ?? json.name) };
+  });
 }
 
-export function submitChiefHandover(input: {
-  amount: number;
-  periodFrom?: string | null;
-  periodTo?: string | null;
-  note?: string;
-  clientActionId: string;
-}): Promise<ChiefHandover | null> {
-  const json: Record<string, unknown> = { amount: input.amount, client_action_id: input.clientActionId };
-  if (input.periodFrom) json.period_from = input.periodFrom;
-  if (input.periodTo) json.period_to = input.periodTo;
-  if (input.note) json.note = input.note;
-  return call(async () =>
-    mapChiefHandover(
-      await api.post<unknown>(ENDPOINTS.chiefCashHandover, { json, fallbackError: "Pulni topshirishda xatolik" }),
-    ),
-  );
-}
-
-export function fetchChiefStats(range: { from: string; to: string }, signal?: AbortSignal): Promise<ChiefStats> {
-  return call(async () =>
-    mapChiefStats(
-      await api.get<unknown>(ENDPOINTS.chiefStats, { searchParams: { date_from: range.from, date_to: range.to }, signal }),
-    ),
-  );
-}

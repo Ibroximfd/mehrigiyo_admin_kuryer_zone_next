@@ -6,13 +6,21 @@ import { EmptyView } from "@/components/kit/state-views";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useChiefMe } from "../use-chief-me";
-import type { ChiefMe } from "../types";
+import { chiefCan } from "../types";
+import type { ChiefMe, ChiefPermission } from "../types";
 
 /**
  * Bo'lim eshigi: rol so'rovi kelguncha skelet, backend yo'q — «kutilmoqda»,
  * rol yo'q — qulf. Rol bor bo'lsa sahifa `me` bilan chiziladi.
  */
-export function ChiefGate({ children }: { children: (me: ChiefMe) => React.ReactNode }) {
+export function ChiefGate({
+  children,
+  permission,
+}: {
+  children: (me: ChiefMe) => React.ReactNode;
+  /** Sahifa uchun dopusk — yo'q bo'lsa so'rov yuborilmaydi, tushunarli izoh chiqadi (403 emas). */
+  permission?: ChiefPermission;
+}) {
   const { me, missing, isPending } = useChiefMe();
   if (isPending) return <Skeleton className="h-64 rounded-2xl" />;
   if (missing) {
@@ -31,6 +39,16 @@ export function ChiefGate({ children }: { children: (me: ChiefMe) => React.React
         Icon={Lock}
         title="Faqat bosh kuryer uchun"
         description="Bu bo'lim bosh kuryer roli berilgan akkauntda ochiladi. Rolni bosh logist beradi."
+        className="border-line bg-surface rounded-xl border"
+      />
+    );
+  }
+  if (permission && !chiefCan(me, permission)) {
+    return (
+      <EmptyView
+        Icon={Lock}
+        title="Bu bo'lim sizga ochilmagan"
+        description="Dopuskni asosiy filialning bosh logisti beradi."
         className="border-line bg-surface rounded-xl border"
       />
     );

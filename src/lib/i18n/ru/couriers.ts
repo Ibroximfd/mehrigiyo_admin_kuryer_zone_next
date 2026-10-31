@@ -192,7 +192,7 @@ export const COURIERS: Dictionary = {
   "Yangi stavka: {x} / manzil": "Новая ставка: {x} / адрес",
   "Manzil sonini tuzatish uchun backend hali chiqmagan": "Бэкенд для корректировки числа адресов ещё не выпущен",
   "Logist qo'lda tuzatgan": "Логист исправил вручную",
-  "qo'lda {x}{x}": "вручную {x}{x}",
+  "qo'lda {x}{x2}": "вручную {x}{x2}",
   "Manzil ayirish": "Убрать адрес",
   "Manzil qo'shish": "Добавить адрес",
   "Manzil qo'shildi": "Адрес добавлен",

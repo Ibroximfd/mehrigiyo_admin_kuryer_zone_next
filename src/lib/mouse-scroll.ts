@@ -30,7 +30,3 @@ export function wheelTarget(start: ScrollBox | null, deltaY: number): ScrollBox 
   }
   return null;
 }
-
-/** Bosilgan joy surishni boshlay oladimi: karta, tugma, havola, maydon — yo'q. */
-export const PAN_BLOCKERS =
-  "a,button,input,textarea,select,label,summary,[role='button'],[role='tab'],[role='menuitem'],[aria-roledescription],[contenteditable='true'],[data-no-pan]";

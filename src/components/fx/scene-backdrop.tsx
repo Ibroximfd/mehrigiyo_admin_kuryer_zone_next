@@ -2,14 +2,13 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 
-import { sceneForPath, type Scene } from "@/components/fx/scenes";
+import type { Scene } from "@/components/fx/scenes";
 import { usePerfTier } from "@/hooks/use-perf-tier";
 import { cn } from "@/lib/utils";
 
 /**
- * Bo'lim fon sahnasi ("Tungi yo'l"): foto → rang tusi → to'r → scrim.
+ * Fon sahnasi ("Tungi yo'l"): foto → rang tusi → to'r → scrim.
  *
  * Ota element `relative`, kontent esa shu qatlamdan KEYIN va `relative`
  * bo'lishi kerak — qatlam mutlaq joylashgan, bosishga sezgir emas va
@@ -25,14 +24,12 @@ export function SceneBackdrop({
   preload = false,
   className,
 }: {
-  /** Berilmasa manzildan aniqlanadi. */
-  scene?: Scene;
+  scene: Scene;
   /** Kirish sahifasi LCP'si — foto `<head>` dan oldindan yuklanadi. */
   preload?: boolean;
   className?: string;
 }) {
-  const pathname = usePathname();
-  const active = scene ?? sceneForPath(pathname);
+  const active = scene;
   const reduced = useReducedMotion();
   const tier = usePerfTier();
   const instant = reduced === true || tier === "low";

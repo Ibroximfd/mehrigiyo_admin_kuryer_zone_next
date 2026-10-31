@@ -23,6 +23,25 @@ export const SERVERS = {
  */
 export const DEFAULT_SERVER = "test";
 
+/**
+ * ⬇︎ DEMO REJIM. `true` — sayt backendga umuman chiqmaydi: har so'rovga
+ * brauzerdagi namuna baza (`src/lib/demo/mock/`) javob beradi. Kirish —
+ * demo telefon va parol (login sahifasida ko'rinadi). Sahifa yangilansa
+ * namuna boshlang'ich holatiga qaytadi.
+ *
+ * Sukut — haqiqiy backend (v2 tayyor, 2026-10-31). Demo vaqtincha, faylga
+ * tegmasdan:
+ *   APP_DEMO=1 npm run dev
+ */
+export const DEFAULT_DEMO = false;
+
+/** `APP_DEMO=1` / `APP_DEMO=0` fayldagi qiymatdan ustun turadi. */
+export function isDemoMode(value = process.env.APP_DEMO) {
+  if (value === "1" || value === "true") return true;
+  if (value === "0" || value === "false") return false;
+  return DEFAULT_DEMO;
+}
+
 /** Nomi bo'yicha serverni beradi; noto'g'ri nom jimgina o'tib ketmaydi. */
 export function resolveServer(name = process.env.APP_SERVER || DEFAULT_SERVER) {
   const server = SERVERS[name];

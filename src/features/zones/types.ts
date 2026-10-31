@@ -83,45 +83,6 @@ export function districtName(district: District, locale: Locale): string {
   return district.nameUz;
 }
 
-/** Kod bo'yicha tuman (topilmasa `null`). */
-export function findDistrict(
-  dictionary: readonly RegionDistricts[] | undefined,
-  code: string | null | undefined,
-): District | null {
-  if (!dictionary || !code) return null;
-  for (const region of dictionary) {
-    const found = region.districts.find((district) => district.code === code);
-    if (found) return found;
-  }
-  return null;
-}
-
-/** Tanlov uchun: viloyat berilsa — faqat uning faol tumanlari. */
-export function districtOptions(
-  dictionary: readonly RegionDistricts[] | undefined,
-  region: string | null,
-): District[] {
-  if (!dictionary) return [];
-  return dictionary
-    .filter((item) => !region || item.region === region)
-    .flatMap((item) => item.districts)
-    .filter((district) => district.isActive);
-}
-
-/**
- * Tuman shu viloyatda faol holda bormi — eski/nofaol yoki boshqa viloyat
- * kodini aniqlash uchun (tahrir formasida "tumanni qayta tanlang").
- * Viloyat tanlanmagan bo'lsa tuman unga mos kela olmaydi — `false`.
- */
-export function isActiveDistrictOf(
-  dictionary: readonly RegionDistricts[] | undefined,
-  region: string | null | undefined,
-  code: string | null | undefined,
-): boolean {
-  if (!region || !code) return false;
-  return districtOptions(dictionary, region).some((district) => district.code === code);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Kassa nuqtasi va zona
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,13 +111,6 @@ export function mapCashPoint(raw: unknown): CashPoint | null {
     name: asOptionalString(raw.name),
   };
   return Object.values(point).some((value) => value !== null) ? point : null;
-}
-
-/** Kassa nuqtasining o'qiladigan nomi. */
-export function cashPointLabel(point: CashPoint | null): string {
-  if (!point) return "";
-  if (point.name) return point.name;
-  return point.kind === "person" ? "Mas'ul xodim" : "Filial kassasi";
 }
 
 export type Zone = {
@@ -193,12 +147,6 @@ export function mapZone(raw: unknown): Zone | null {
   };
 }
 
-export function mapZones(raw: unknown): Zone[] {
-  const json = asRecord(raw);
-  const list = Array.isArray(raw) ? raw : asArray(json.results);
-  return list.map(mapZone).filter((zone): zone is Zone => zone !== null);
-}
-
 /** `{id, name}` — kuryer va buyurtmadagi qisqa zona havolasi. */
 export type ZoneRef = { id: number; name: string };
 
@@ -212,22 +160,3 @@ export function mapZoneRef(raw: unknown): ZoneRef | null {
 // ─────────────────────────────────────────────────────────────────────────────
 // Viloyat sozlamasi
 // ─────────────────────────────────────────────────────────────────────────────
-
-export type AutoAssignMode = "off" | "suggest" | "full";
-
-export type RegionSettings = { region: string; autoAssign: AutoAssignMode };
-
-export function mapRegionSettings(raw: unknown): RegionSettings {
-  const json = asRecord(raw);
-  const mode = asString(json.auto_assign);
-  return {
-    region: asString(json.region),
-    autoAssign: mode === "suggest" || mode === "full" ? mode : "off",
-  };
-}
-
-export const AUTO_ASSIGN_MODE_LABELS: Record<AutoAssignMode, string> = {
-  off: "Avto taqsimlash o'chiq",
-  suggest: "Avto taqsimlash: faqat taklif",
-  full: "Avto taqsimlash: to'liq",
-};

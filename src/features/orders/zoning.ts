@@ -1,6 +1,6 @@
-import { asCandidateReason, asTier, tierLabel } from "@/features/couriers/candidates";
+import { asCandidateReason, asTier } from "@/features/couriers/candidates";
 import type { CandidateReason, CandidateTier } from "@/features/couriers/candidates";
-import { formatTime, parseDate } from "@/lib/format";
+import { parseDate } from "@/lib/format";
 import {
   asOptionalBool,
   asOptionalInt,
@@ -56,17 +56,6 @@ export type OrderZoning = {
   autoAssigned: boolean | null;
 };
 
-export const EMPTY_ZONING: OrderZoning = {
-  district: null,
-  districtDisplay: null,
-  zoneId: null,
-  zoneName: null,
-  zoneMatch: null,
-  suggestion: null,
-  districtGuess: null,
-  autoAssigned: null,
-};
-
 export function mapSuggestion(raw: unknown): AssignmentSuggestion | null {
   if (!isRecord(raw)) return null;
   return {
@@ -97,11 +86,6 @@ export function mapDistrictGuess(raw: unknown): DistrictGuess | null {
   };
 }
 
-function has(record: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key);
-}
-
-
 /** To'liq buyurtma javobidan (REST yoki WS dagi to'liq karta). */
 export function mapOrderZoning(raw: unknown): OrderZoning {
   const json = asRecord(raw);
@@ -120,104 +104,7 @@ export function mapOrderZoning(raw: unknown): OrderZoning {
   };
 }
 
-/**
- * Qisqa karta (WS) — faqat **kelgan** kalitlar qo'llanadi, qolgani joyida.
- */
-export function mergeZoningSnapshot(zoning: OrderZoning, raw: unknown): OrderZoning {
-  if (!isRecord(raw)) return zoning;
-  const next: OrderZoning = { ...zoning };
-  const delivery = isRecord(raw.delivery) ? raw.delivery : null;
-  if (delivery) {
-    if (has(delivery, "district")) next.district = asOptionalString(delivery.district);
-    if (has(delivery, "district_display")) {
-      next.districtDisplay = asOptionalString(delivery.district_display);
-    } else if (next.district !== zoning.district) {
-      // Kod o'zgardi-yu nom kelmadi (WS qisqa kartasi) — eski nom endi
-      // boshqa tumanniki; UI kodga tushadi (`withDistrictDisplay` nomlamagan).
-      next.districtDisplay = null;
-    }
-    if (has(delivery, "zone_id")) next.zoneId = asOptionalInt(delivery.zone_id);
-    if (has(delivery, "zone_name")) next.zoneName = asOptionalString(delivery.zone_name);
-  }
-  if (has(raw, "zone_match")) next.zoneMatch = asOptionalBool(raw.zone_match);
-  if (has(raw, "assignment_suggestion")) {
-    next.suggestion = mapSuggestion(raw.assignment_suggestion);
-  }
-  if (has(raw, "district_guess")) next.districtGuess = mapDistrictGuess(raw.district_guess);
-  if (has(raw, "assigned_auto")) next.autoAssigned = asOptionalBool(raw.assigned_auto);
-  return next;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Ko'rinish qoidalari (sof funksiyalar — komponentlar shu yerdan o'qiydi)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Hudud holati — kartadagi belgi uchun bitta qiymat. */
-export type ZoneState =
-  /** Tuman ham, zona ham bor. */
-  | "zoned"
-  /** Tuman bor, lekin u hech bir zonaga kirmagan — admin qo'shishi kerak. */
-  | "district_without_zone"
-  /** Tuman umuman aniqlanmagan ("Hududi noma'lum" savati). */
-  | "unknown";
-
-export function zoneState(zoning: OrderZoning): ZoneState {
-  if (!zoning.district) return zoning.zoneId !== null ? "zoned" : "unknown";
-  return zoning.zoneId !== null ? "zoned" : "district_without_zone";
-}
-
-type SuggestionHost = {
-  status: string;
-  courier: { id: number } | null;
-  zoning: OrderZoning;
-};
-
-/** Bir bosishda biriktiriladigan taklif — faqat tasdiqlangan, kuryersiz. */
-export function actionableSuggestion(order: SuggestionHost): AssignmentSuggestion | null {
-  const suggestion = order.zoning.suggestion;
-  if (!suggestion || order.courier || order.status !== "confirmed") return null;
-  return suggestion.courierId !== null ? suggestion : null;
-}
-
-/** "Taklif: Aziz (asosiy zona)". */
-export function suggestionText(suggestion: AssignmentSuggestion): string {
-  const tier = tierLabel(suggestion.tier);
-  const name = suggestion.courierName || `#${suggestion.courierId ?? "—"}`;
-  return tier ? `Taklif: ${name} (${tier})` : `Taklif: ${name}`;
-}
-
-/**
- * Chip sarlavhasi (hover): taklif + hisoblangan vaqt + `auto_hold` izohi —
- * server bu buyurtmani o'zi biriktirmaydi, logist qo'lda biriktiradi.
- */
-export function suggestionTitle(suggestion: AssignmentSuggestion): string {
-  const parts = [suggestionText(suggestion)];
-  if (suggestion.computedAt) parts.push(formatTime(suggestion.computedAt));
-  if (suggestion.autoHold) parts.push(AUTO_HOLD_HINT);
-  return parts.join(" · ");
-}
-
-export const AUTO_HOLD_HINT = "Avto to'xtatilgan — qo'lda biriktiring";
-
-/** Taklif yo'qligining sababi (kuryersiz buyurtma uchun izoh). */
-export function suggestionMissingText(order: SuggestionHost): string | null {
-  const suggestion = order.zoning.suggestion;
-  if (!suggestion || order.courier || suggestion.courierId !== null) return null;
-  if (suggestion.reason === "no_courier_on_shift") return "Zonada smenadagi kuryer yo'q";
-  if (suggestion.reason === "no_zone") return "Zona aniqlanmagan — taklif yo'q";
-  return null;
-}
-
-/** "Qo'qon shahri (70%)". */
-export function districtGuessText(guess: DistrictGuess): string {
-  return guess.confidence === null
-    ? guess.districtDisplay
-    : `${guess.districtDisplay} (${guess.confidence}%)`;
-}
-
-/** Kartadagi hudud qatori: "Qo'qon shahri · Markaz zonasi". */
-export function zoningLine(zoning: OrderZoning): string | null {
-  const district = zoning.districtDisplay ?? zoning.district;
-  const parts = [district, zoning.zoneName].filter(Boolean);
-  return parts.length ? parts.join(" · ") : null;
-}

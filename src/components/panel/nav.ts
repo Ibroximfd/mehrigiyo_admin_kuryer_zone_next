@@ -1,70 +1,27 @@
-import { ChartColumnBig, Layers, Receipt, Truck, Wallet, type LucideIcon } from "lucide-react";
+import { Hexagon, Receipt, Truck, Wallet, Warehouse, ChartColumnBig, type LucideIcon } from "lucide-react";
 
+import type { ChiefPermission } from "@/features/chief/types";
 import { ROUTES } from "@/lib/routes";
 
 /**
- * Yon panel bo'limlari — bosh kuryer sayti (2026-10-30): faqat bosh kuryer
- * ishlari. Logist bo'limlari bu saytda yo'q.
- * `badge` — qaysi hisoblagich shu bo'limga tegishli; `goKey` — `g` dan
- * keyin bosiladigan harf (Gmail/Linear uslubi).
+ * Bosh kuryer sayti bo'limlari (`21_TUZILMA_V2` §4.5) — oltitadan oshmaydi,
+ * tartib ish oqimi bo'yicha: zakaz → kuryer → zona → sklad → pul → hisobot.
  */
 export type NavItem = {
   href: string;
   label: string;
-  shortLabel: string;
   Icon: LucideIcon;
-  badge?: "orders" | "transfers" | "staff";
-  goKey?: string;
-  /** Tepa paneldagi bo'limlar qatorida ko'rinadimi (dizayn: chat faqat railda). */
-  inTopBar: boolean;
-  /** Yangi bo'lim belgisi — birinchi chiqarilish davrida. */
-  isNew?: boolean;
-  /** Faqat shu rolda ko'rinadi (`use-visible-nav.ts`); yo'q — hammaga. */
-  requires?: "chief";
+  /** Bo'lim dopuski — yo'q bo'lsa menyuda ko'rinmaydi (`use-nav-items.ts`). */
+  permission?: ChiefPermission;
 };
 
-/** Tartib — tasdiqlangan dizayndagi rail tartibi (2026-09-29). */
 export const NAV: NavItem[] = [
-  {
-    href: ROUTES.chief,
-    label: "Zakazlar",
-    shortLabel: "Zakazlar",
-    Icon: Receipt,
-    goKey: "z",
-    inTopBar: true,
-  },
-  {
-    href: ROUTES.chiefCouriers,
-    label: "Kuryerlar",
-    shortLabel: "Kuryerlar",
-    Icon: Truck,
-    goKey: "k",
-    inTopBar: true,
-  },
-  {
-    href: ROUTES.chiefZones,
-    label: "Zonalar",
-    shortLabel: "Zonalar",
-    Icon: Layers,
-    goKey: "o",
-    inTopBar: true,
-  },
-  {
-    href: ROUTES.chiefCash,
-    label: "Kassa",
-    shortLabel: "Kassa",
-    Icon: Wallet,
-    goKey: "p",
-    inTopBar: true,
-  },
-  {
-    href: ROUTES.chiefStats,
-    label: "Statistika",
-    shortLabel: "Statistika",
-    Icon: ChartColumnBig,
-    goKey: "s",
-    inTopBar: true,
-  },
+  { href: ROUTES.orders, label: "Zakazlar", Icon: Receipt },
+  { href: ROUTES.couriers, label: "Kuryerlar", Icon: Truck },
+  { href: ROUTES.zones, label: "Zonalar", Icon: Hexagon },
+  { href: ROUTES.sklad, label: "Sklad", Icon: Warehouse, permission: "warehouse.view_courier_stores" },
+  { href: ROUTES.cash, label: "Kassa", Icon: Wallet },
+  { href: ROUTES.report, label: "Moliya", Icon: ChartColumnBig, permission: "view.analytics" },
 ];
 
 export function isNavActive(pathname: string, href: string): boolean {

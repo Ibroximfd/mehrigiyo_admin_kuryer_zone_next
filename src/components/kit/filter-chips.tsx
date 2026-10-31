@@ -52,51 +52,6 @@ export function FilterChips<T extends string | number | null>({
   );
 }
 
-/**
- * Ko'p tanlovli variant — masalan bir vaqtda "Tasdiqlanmoqda" va
- * "Yetkazildi". Bo'sh ro'yxat "hammasi" degani.
- */
-export function MultiFilterChips<T extends string | number>({
-  options,
-  values,
-  onChange,
-  label = "Holat bo'yicha filtr",
-  className,
-}: {
-  options: FilterChip<T>[];
-  values: T[];
-  onChange: (values: T[]) => void;
-  label?: string;
-  className?: string;
-}) {
-  const toggle = (value: T) => {
-    onChange(
-      values.includes(value)
-        ? values.filter((item) => item !== value)
-        : [...values, value],
-    );
-  };
-
-  return (
-    <ChipRow label={label} className={className}>
-      {options.map((option) => (
-        <Chip
-          key={String(option.value)}
-          option={option}
-          selected={values.includes(option.value)}
-          onClick={() => toggle(option.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-            event.preventDefault();
-            // Ko'p tanlovda strelka faqat fokusni suradi — tanlov saqlanadi.
-            focusSibling(event.currentTarget, event.key === "ArrowRight" ? 1 : -1);
-          }}
-        />
-      ))}
-    </ChipRow>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ChipRow({
@@ -172,11 +127,3 @@ function Chip<T extends string | number | null>({
   );
 }
 
-/** Qo'shni chipga fokusni ko'chiradi. */
-function focusSibling(current: HTMLButtonElement, step: number) {
-  const chips = Array.from(
-    current.parentElement?.querySelectorAll<HTMLButtonElement>(":scope > button") ??
-      [],
-  );
-  chips[chips.indexOf(current) + step]?.focus();
-}

@@ -26,9 +26,6 @@ export type OrderReview = {
   finalizedAt: Date | null;
 };
 
-/** Doskadagi «Jarayonda» ustunining kaliti (statuslar bilan to'qnashmaydi). */
-export const REVIEW_COLUMN = "review";
-
 export function mapOrderReview(json: Record<string, unknown>): OrderReview {
   const outcome = asString(json.courier_outcome);
   const source = asString(json.outcome_source);
@@ -66,9 +63,4 @@ export function reviewLabel(order: ReviewFacts & { review: Pick<OrderReview, "so
   if (reportedDelivered(order)) return "Kuryer: yetkazdim";
   if (order.review.source === "operator") return "Operator: atkaz";
   return "Kuryer: qaytaraman";
-}
-
-/** Doskada qaysi ustunda turadi: jarayondagi — `review`, qolgani — statusi. */
-export function boardColumnOf(order: ReviewFacts): string {
-  return isInReview(order) ? REVIEW_COLUMN : order.status;
 }

@@ -5,7 +5,6 @@ import { Check, Info, LoaderCircle, MapPin, Navigation, Star, UsersRound } from 
 
 import { EmptyView, ErrorView } from "@/components/kit/state-views";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchCourierCandidates } from "@/features/couriers/api";
 import {
   candidateReasonText,
   formatDistance,
@@ -14,7 +13,6 @@ import {
 } from "@/features/couriers/candidates";
 import type { CourierCandidate, CourierCandidates } from "@/features/couriers/candidates";
 import { errorMessage } from "@/lib/api-client";
-import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,11 +32,8 @@ export function CourierCandidatesList({
   source,
 }: {
   orderId: string;
-  /**
-   * Nomzodlar manbai. Sukut — logist (`orders/{id}/courier-candidates/`);
-   * bosh kuryer o'z jamoasidan oladi (`chief/orders/{id}/candidates/`).
-   */
-  source?: {
+  /** Nomzodlar manbai — bosh kuryer jamoasi (`chief/orders/{id}/candidates/`). */
+  source: {
     queryKey: readonly unknown[];
     fetch: (orderId: string, signal?: AbortSignal) => Promise<CourierCandidates>;
   };
@@ -50,8 +45,8 @@ export function CourierCandidatesList({
   disabled?: boolean;
 }) {
   const candidates = useQuery({
-    queryKey: source?.queryKey ?? queryKeys.courierCandidates(orderId),
-    queryFn: ({ signal }) => (source?.fetch ?? fetchCourierCandidates)(orderId, signal),
+    queryKey: source.queryKey,
+    queryFn: ({ signal }) => source.fetch(orderId, signal),
     staleTime: 15_000,
     retry: 1,
   });

@@ -18,15 +18,6 @@ export const GIFT_SOURCES = ["promotion", "loyalty", "operator"] as const;
 
 export type GiftSource = (typeof GIFT_SOURCES)[number];
 
-const GIFT_SOURCE_LABELS: Record<GiftSource, string> = {
-  promotion: "Aksiya sovg'asi",
-  loyalty: "Mijoz sovg'asi",
-  operator: "Operator qo'shgan",
-};
-
-/** Manba aytilmagan yoki tanilmagan sovg'a qatori. */
-const PLAIN_GIFT_LABEL = "Sovg'a";
-
 /** Shartnomadagi nom → UIdagi qiymat. */
 const GIFT_SOURCE_ALIASES: Record<string, GiftSource> = { manual: "operator" };
 
@@ -37,9 +28,4 @@ export function asGiftSource(raw: unknown): GiftSource | null {
   if (!key) return null;
   if (KNOWN.has(key)) return key as GiftSource;
   return GIFT_SOURCE_ALIASES[key] ?? null;
-}
-
-/** Sovg'a qatorining yorlig'i; manba noma'lum bo'lsa — oddiy "Sovg'a". */
-export function giftSourceLabel(source: GiftSource | null | undefined): string {
-  return source ? GIFT_SOURCE_LABELS[source] : PLAIN_GIFT_LABEL;
 }

@@ -1,4 +1,4 @@
-import { formatDistance, formatMinutes, formatTime, parseDate } from "@/lib/format";
+import { parseDate } from "@/lib/format";
 import { toLatLng } from "@/lib/maps";
 import type { LatLng } from "@/lib/maps";
 import {
@@ -92,34 +92,4 @@ export function mapRoutePlan(raw: unknown): RoutePlan | null {
 
 function nonNegative(value: number | null): number | null {
   return value !== null && value >= 0 ? value : null;
-}
-
-export const ROUTE_REASON_LABELS: Record<RoutePlanReason, string> = {
-  auto: "avto",
-  manual: "qo'lda",
-  reroute: "qayta",
-};
-
-export const ROUTE_SOURCE_LABELS: Record<RouteSource, string> = {
-  road: "yo'l bo'yicha",
-  estimate: "taxminiy",
-};
-
-/**
- * Karta qatori: "~12 km · 9 manzil · ~45 daq · yo'l bo'yicha · 10:32".
- * Bo'lmagan bo'lak tushib qoladi; hammasi bo'sh bo'lsa `null`.
- */
-export function routePlanSummary(plan: RoutePlan): string | null {
-  const parts = [
-    plan.totalDistanceM !== null ? `~${formatDistance(plan.totalDistanceM)}` : null,
-    plan.orderIds.length > 0 ? `${plan.orderIds.length} manzil` : null,
-    plan.etaS !== null && plan.etaS > 0 ? `~${formatMinutes(plan.etaS / 60)}` : null,
-    plan.source ? ROUTE_SOURCE_LABELS[plan.source] : null,
-    plan.createdAt ? formatTime(plan.createdAt) : null,
-  ].filter((part): part is string => part !== null);
-  return parts.length ? parts.join(" · ") : null;
-}
-
-export function routePlanReasonLabel(plan: RoutePlan): string | null {
-  return plan.reason ? ROUTE_REASON_LABELS[plan.reason] : null;
 }

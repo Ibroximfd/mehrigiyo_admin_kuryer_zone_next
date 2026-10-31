@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { assignChiefOrder, fetchChiefCandidates } from "@/features/chief/api";
 import { CourierCandidatesList } from "@/features/couriers/components/courier-candidates";
 import type { CourierCandidate } from "@/features/couriers/candidates";
-import { assignWarningToasts } from "@/features/orders/use-order-zoning-actions";
+import { assignWarningToasts } from "@/features/chief/assign-toasts";
 import type { LogistOrder } from "@/features/orders/types";
 import { errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";

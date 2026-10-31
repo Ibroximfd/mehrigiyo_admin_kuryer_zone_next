@@ -1,4 +1,4 @@
-import { format, formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
+import { format } from "date-fns";
 import { uz } from "date-fns/locale";
 
 /**
@@ -33,72 +33,12 @@ export function formatSom(amount: number): string {
   return `${groupThousands(amount)} so'm`;
 }
 
-/** Katta summalarni qisqartiradi: `2 340 000` → `2.3 mln` */
-export function formatCompactMoney(amount: number): string {
-  if (Math.abs(amount) >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)} mln`;
-  if (Math.abs(amount) >= 1_000) return `${Math.round(amount / 1_000)} ming`;
-  return groupThousands(Math.round(amount));
-}
-
-/** Foiz: `12.345` → `12.3%` */
-export function formatPercent(value: number): string {
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Sana / vaqt
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function formatDate(date: Date): string {
-  return format(date, "dd.MM.yyyy");
-}
-
-/** Kartochka sarlavhasi uchun qisqa sana: "27.09". */
-export function formatDayMonth(date: Date): string {
-  return format(date, "dd.MM");
-}
-
-/** "27.09 16:40" — yil ko'rinmaydi (joriy mavsum). */
-export function formatShortDateTime(date: Date): string {
-  return format(date, "dd.MM HH:mm");
-}
-
-/** "Muhammadjon Xaydarov" → "M. Xaydarov" — tor chiplarda to'liq ism sig'maydi. */
-export function abbreviateName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length < 2) return parts[0] ?? "";
-  const [first, ...rest] = parts;
-  return `${first.charAt(0)}. ${rest.join(" ")}`;
-}
-
-export function formatTime(date: Date): string {
-  return format(date, "HH:mm");
-}
-
 export function formatDateTime(date: Date): string {
   return format(date, "dd.MM.yyyy HH:mm");
-}
-
-/**
- * Chat va ro'yxatlar uchun "aqlli" vaqt:
- * bugun → `14:32`, kecha → `Kecha`, aks holda → `12.08.2026`.
- */
-export function formatSmartTime(date: Date): string {
-  if (isToday(date)) return format(date, "HH:mm");
-  if (isYesterday(date)) return "Kecha";
-  return format(date, "dd.MM.yyyy");
-}
-
-/** `3 daqiqa oldin` */
-export function formatRelative(date: Date): string {
-  return `${formatDistanceToNowStrict(date, { locale: uz })} oldin`;
-}
-
-/** Chat xabarlarini kunlar bo'yicha guruhlash sarlavhasi. */
-export function formatDayHeader(date: Date): string {
-  if (isToday(date)) return "Bugun";
-  if (isYesterday(date)) return "Kecha";
-  return format(date, "d MMMM yyyy", { locale: uz });
 }
 
 /**
@@ -114,21 +54,6 @@ export function formatDayHeader(date: Date): string {
  */
 export function formatUzDate(date: Date): string {
   return format(date, "d-MMMM, EEEE", { locale: uz }).toLowerCase();
-}
-
-/** To'liq sana — chop etiladigan hujjatlar uchun: `24-avgust 2026`. */
-export function formatUzFullDate(date: Date): string {
-  return format(date, "d-MMMM yyyy", { locale: uz }).toLowerCase();
-}
-
-/** Faqat hafta kuni: `dushanba`. */
-export function formatUzWeekday(date: Date): string {
-  return format(date, "EEEE", { locale: uz }).toLowerCase();
-}
-
-/** Qisqa ko'rinishi: `24-avgust`. */
-export function formatUzDay(date: Date): string {
-  return format(date, "d-MMMM", { locale: uz }).toLowerCase();
 }
 
 /**
@@ -165,11 +90,6 @@ export function parseDate(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** Sana majburiy bo'lgan joylar uchun — buzuq qiymatda joriy vaqt. */
-export function parseDateOrNow(value: unknown): Date {
-  return parseDate(value) ?? new Date();
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Telefon
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,29 +120,6 @@ export function initials(name: string): string {
     .join("");
 }
 
-/** Fayl hajmi: `1536` → `1.5 KB` */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * Daqiqani odam o'qiydigan davomiylikka aylantiradi: `96` → `1 soat 36 daq`.
- *
- * Yetkazish vaqti uchun: `96 daq` texnik ko'rinadi va o'qish uchun ichda
- * bo'lish amali talab qiladi. Bir soatdan kam bo'lsa soat qismi yozilmaydi.
- */
-export function formatMinutes(minutes: number): string {
-  if (!Number.isFinite(minutes) || minutes <= 0) return "—";
-  const total = Math.round(minutes);
-  const hours = Math.floor(total / 60);
-  const rest = total % 60;
-  if (hours === 0) return `${rest} daq`;
-  if (rest === 0) return `${hours} soat`;
-  return `${hours} soat ${rest} daq`;
-}
-
 /**
  * Masofa metrda: `350` → `350 m`, `3 240` → `3,2 km`, `12 480` → `12 km`.
  * Marshrut rejasi uchun — logist "qancha yuradi" ni ko'z bilan o'qiydi,
@@ -237,10 +134,14 @@ export function formatDistance(meters: number): string {
   return `${text} km`;
 }
 
-/** Audio davomiyligi: `95` → `1:35` */
-export function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  const rest = Math.floor(seconds % 60);
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
+/** Summa maydoni: faqat raqamlar, mingliklar bo'sh joy bilan (`1 250 000`). */
+export function formatMoneyInput(value: string | number): string {
+  const digits = (typeof value === "number" ? String(Math.max(0, Math.round(value))) : value).replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+/** Summa maydonidagi matn → son; bo'sh — `NaN`. */
+export function parseMoneyInput(value: string): number {
+  const digits = value.replace(/\D/g, "");
+  return digits ? Number.parseInt(digits, 10) : Number.NaN;
 }

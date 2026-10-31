@@ -9,6 +9,11 @@ import type { Dictionary } from "../matcher";
  * `{n|форма1|форма2|форма5}` — rus ko'plik shakli.
  */
 export const COMMON: Dictionary = {
+  boshlanish: "начало",
+  tugash: "конец",
+  "Login yoki telefon": "Логин или телефон",
+  "Login yoki telefon raqamni kiriting": "Введите логин или номер телефона",
+  "Faqat harf, raqam va _ . belgilari": "Только буквы, цифры и символы _ .",
   "Chapga surish": "Прокрутить влево",
   "O'ngga surish": "Прокрутить вправо",
   // ── Kirish ──────────────────────────────────────────────────────────────

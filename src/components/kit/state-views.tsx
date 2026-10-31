@@ -39,19 +39,6 @@ export function TableSkeleton({
   );
 }
 
-export function CardsSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div
-      className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4"
-      aria-hidden
-    >
-      {Array.from({ length: count }).map((_, index) => (
-        <Skeleton key={index} className="h-[108px] rounded-2xl" />
-      ))}
-    </div>
-  );
-}
-
 export function ErrorView({
   message,
   onRetry,

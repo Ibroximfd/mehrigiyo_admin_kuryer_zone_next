@@ -3,47 +3,27 @@ import { create } from "zustand";
 import * as authApi from "@/features/auth/api";
 import type { CurrentUser } from "@/features/auth/types";
 import { asRole } from "@/features/auth/types";
-import { errorMessage, setOnSessionExpired } from "@/lib/api-client";
+import { ApiError, errorMessage, setOnSessionExpired } from "@/lib/api-client";
 import { sessionStorage } from "@/lib/session-storage";
 
 /**
- * Sessiya holati — CRM `auth-store` ning logist varianti.
+ * Sessiya holati — bosh kuryer sayti.
  *
- * Rol tekshiruvi (`BACKEND-LOGIST.md` §4.1):
- *
- *   • Backend `role` yuborgan bo'lsa unga **ishonamiz**: `seller` logist
- *     paneliga kiritilmaydi. Ilgari bu tekshiruv faqat qat'iy rejimda
- *     ishlardi va sotuvchi akkaunt ichkariga kirib, har bir so'rovdan
- *     `role_forbidden` olardi — ya'ni sayt "buzilgan" ko'rinardi.
- *
- *   • `role` bo'lmagan sessiya (eski support login — §"zaxira kirish")
- *     yumshoq rejimda o'tadi: unda rol tushunchasi umuman yo'q.
- *
- *   • Qat'iy rejim (`NEXT_PUBLIC_ROLE_STRICT=1`) rolsiz sessiyani ham
- *     to'sadi — faqat serverdan `logist`/`admin` deb tasdiqlangan akkaunt.
+ * Kim kiradi — server hal qiladi: login `site: "chief"` bilan ketadi va
+ * akkaunt bosh kuryer bo'lmasa token berilmaydi (`403 wrong_site`).
+ * Login javobida `role: "chief_courier"` va `account_kind: "chief"` keladi (V2);
+ * rol bu yerda qayta tekshirilmaydi — qolgan to'siq `ChiefSiteGate` (`chief/me`).
  */
 export type AuthStatus =
-  | "unknown"
-  | "checking"
-  | "authenticated"
-  | "unauthenticated";
-
-const ROLE_STRICT = process.env.NEXT_PUBLIC_ROLE_STRICT === "1";
-
-/** Logist saytiga kimlar kira oladi. */
-function isAllowed(user: CurrentUser): boolean {
-  // Server rolni aytgan bo'lsa — qaror shundan, rejimga bog'liq emas.
-  if (user.roleFromServer) {
-    return user.role === "logist" || user.role === "admin";
-  }
-  return !ROLE_STRICT;
-}
+  "unknown" | "checking" | "authenticated" | "unauthenticated";
 
 type AuthState = {
   status: AuthStatus;
   user: CurrentUser | null;
   isSubmitting: boolean;
   error: string | null;
+  /** `429 too_many_attempts` — shu vaqtgacha (ms) kirish tugmasi o'chiq. */
+  retryUntil: number | null;
 
   restoreSession: () => void;
   login: (username: string, password: string) => Promise<boolean>;
@@ -57,6 +37,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   isSubmitting: false,
   error: null,
+  retryUntil: null,
 
   restoreSession() {
     if (get().status !== "unknown") return;
@@ -84,12 +65,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       filialLocation: stored.filialLocation,
     };
 
-    if (!isAllowed(user)) {
-      sessionStorage.clear();
-      set({ status: "unauthenticated", user: null });
-      return;
-    }
-
     set({ status: "authenticated", user });
   },
 
@@ -98,19 +73,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     try {
       const result = await authApi.login(username, password);
-
-      if (!isAllowed(result.user)) {
-        set({
-          status: "unauthenticated",
-          user: null,
-          isSubmitting: false,
-          error:
-            result.user.role === "seller"
-              ? "Bu akkaunt sotuvchi roli bilan ishlaydi — logist paneliga CRM orqali kiring"
-              : "Bu akkaunt logist paneliga kira olmaydi",
-        });
-        return false;
-      }
 
       sessionStorage.save({
         token: result.access,
@@ -136,11 +98,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       });
       return true;
     } catch (error) {
+      const failure = loginFailure(error);
       set({
         status: "unauthenticated",
         user: null,
         isSubmitting: false,
-        error: errorMessage(error, "Login yoki parol xato"),
+        error: failure.message,
+        retryUntil:
+          failure.retryAfter === null
+            ? null
+            : Date.now() + failure.retryAfter * 1000,
       });
       return false;
     }
@@ -164,9 +131,49 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   clearError() {
-    set({ error: null });
+    set({ error: null, retryUntil: null });
   },
 }));
+
+const SITE_NAMES: Record<string, string> = {
+  logist: "logist saytidan",
+  crm: "CRM saytidan",
+};
+
+/**
+ * Kirish xatosi (`TUZILMA_V2` §7): `wrong_site` — akkaunt boshqa saytniki,
+ * `too_many_attempts` — `retry_after` soniya kutish (hisoblagich login sahifasida).
+ */
+function loginFailure(error: unknown): {
+  message: string;
+  retryAfter: number | null;
+} {
+  if (error instanceof ApiError) {
+    const data =
+      error.data && typeof error.data === "object"
+        ? (error.data as Record<string, unknown>)
+        : {};
+    if (error.status === 429) {
+      const seconds = Number(data.retry_after);
+      return {
+        message:
+          "Urinishlar ko'payib ketdi. Birozdan keyin qayta urinib ko'ring.",
+        retryAfter: Number.isFinite(seconds) && seconds > 0 ? seconds : 60,
+      };
+    }
+    if (error.code === "wrong_site") {
+      const site = SITE_NAMES[String(data.account_kind)] ?? "o'z saytidan";
+      return {
+        message: `Bu akkaunt bosh kuryer sayti uchun emas — ${site} kiring`,
+        retryAfter: null,
+      };
+    }
+  }
+  return {
+    message: errorMessage(error, "Login yoki parol xato"),
+    retryAfter: null,
+  };
+}
 
 // Tarmoq qatlami refresh rad etilganda shu callback'ni chaqiradi.
 setOnSessionExpired(() => useAuthStore.getState().sessionExpired());

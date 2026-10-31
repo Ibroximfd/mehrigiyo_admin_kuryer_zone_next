@@ -1,60 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { serializeOrderPatch } from "@/features/orders/order-patch";
+import { mapZone } from "@/features/zones/types";
+import type { Zone } from "@/features/zones/types";
+
+import { mapCourier } from "@/features/couriers/types";
 import { mapLogistOrder } from "@/features/orders/types";
-import { escapeTarget } from "@/lib/escape-back";
 
-import {
-  chiefCan,
-  chiefForRegion,
-  mapAutoAssignOutcome,
-  mapChiefCash,
-  mapChiefHandovers,
-  mapChiefMe,
-  mapChiefOptions,
-  mapChiefStats,
-  outstandingPeriod,
-} from "./types";
-
-describe("bosh kuryer — logist tomoni (§C 1)", () => {
-  it("zakazda `chief_courier`; patchda `chief_courier_id` (null ham)", () => {
-    const order = mapLogistOrder({ id: "a", status: "shipping", courier: null, chief_courier: { id: 17, full_name: "Bosh Farg'ona" } });
-    expect(order.chiefCourier).toMatchObject({ id: 17, fullName: "Bosh Farg'ona" });
-    expect(mapLogistOrder({ id: "b", status: "confirmed" }).chiefCourier).toBeNull();
-    expect(serializeOrderPatch({ status: "shipping", chiefCourierId: 17 })).toEqual({ status: "shipping", chief_courier_id: 17 });
-    expect(serializeOrderPatch({ chiefCourierId: null })).toEqual({ chief_courier_id: null });
-  });
-
-  it("ro'yxat va viloyatga mos bosh kuryer: aniq viloyat, keyin «hammasi»", () => {
-    const chiefs = mapChiefOptions({
-      results: [
-        { id: 1, full_name: "Hammasi", regions: null, couriers: 2 },
-        { id: 17, full_name: "Farg'ona", regions: ["fargona"], filial: { id: 2, name: "Qo'qon" }, couriers: 5 },
-        { nope: true },
-      ],
-      count: 2,
-    });
-    expect(chiefs.map((chief) => chief.id)).toEqual([1, 17]);
-    expect(chiefs[0]!.regions).toBeNull();
-    expect(chiefForRegion(chiefs, "fargona")?.id).toBe(17);
-    expect(chiefForRegion(chiefs, "andijon")?.id).toBe(1);
-    expect(chiefForRegion(chiefs, null)).toBeNull();
-    expect(chiefForRegion(chiefs.slice(1), "andijon")).toBeNull();
-  });
-
-  it("bosh kuryerdan topshiriqlar", () => {
-    const { results, count } = mapChiefHandovers({
-      results: [
-        { id: 3, chief: { id: 17, full_name: "B" }, date: "2026-10-30", amount: 300000, expected_amount: 310000, confirmed_amount: null, status: "pending" },
-        { id: 4, status: "disputed", amount: 100, shortage: 20 },
-      ],
-      count: 2,
-    });
-    expect(count).toBe(2);
-    expect(results[0]).toMatchObject({ id: 3, amount: 300000, expectedAmount: 310000, status: "pending" });
-    expect(results[1]!.status).toBe("disputed");
-  });
-});
+import { pickCourier, planFromPreview, readyRows } from "./auto-plan";
+import { chiefCan, mapAutoAssignPreview, mapAutoAssignResult, mapChiefMe, mapChiefOrderDetail } from "./types";
+import { districtMoves } from "./zones";
+import { addressChangedBy } from "./order-view";
+import { formatMoneyInput, parseMoneyInput } from "@/lib/format";
 
 describe("bosh kuryer bo'limi (§C 2)", () => {
   it("men: ruxsatlar va qisqacha", () => {
@@ -64,53 +20,123 @@ describe("bosh kuryer bo'limi (§C 2)", () => {
       permissions: { "orders.dispatch": true, "cash.accept": false },
       summary: { incoming: 4, active: 12, couriers: 5, couriers_on_shift: 3, finalized_today: 9 },
     });
+    expect(me.seat).toEqual({ id: 17, fullName: "B", username: "chief" });
     expect(me.summary).toEqual({ incoming: 4, active: 12, couriers: 5, couriersOnShift: 3, finalizedToday: 9 });
     expect(chiefCan(me, "orders.dispatch")).toBe(true);
     expect(chiefCan(me, "cash.accept")).toBe(false);
     expect(chiefCan(me, "zones.manage")).toBe(false);
     expect(chiefCan(null, "orders.dispatch")).toBe(false);
+    // `view.analytics` backendda hali yo'q — kalit kelmaguncha ochiq, `false` kelsa yopiladi.
+    expect(chiefCan(me, "view.analytics")).toBe(true);
+    expect(chiefCan({ ...me, permissions: { "view.analytics": false } }, "view.analytics")).toBe(false);
+  });
+});
+
+describe("zonalar: tuman boshqa zonaga o'tadi (§5b)", () => {
+  const zone = (id: number, codes: string[]): Zone =>
+    mapZone({ id, region: "fargona", name: `Z${id}`, is_active: true, district_codes: codes })!;
+
+  it("olingan tuman eski zonasidan chiqariladi, o'zgarmagan zona tegilmaydi", () => {
+    const zones = [zone(1, ["a", "b"]), zone(2, ["c", "d"]), zone(3, ["e"])];
+    expect(districtMoves(zones, 1, ["a", "b", "c"])).toEqual([{ zoneId: 2, districtCodes: ["d"] }]);
   });
 
-  it("avto taqsimlash natijasi", () => {
-    expect(
-      mapAutoAssignOutcome({ assigned: [{ id: "a", courier_id: 31 }], skipped: [{ id: "b", reason: "no_courier" }] }),
-    ).toEqual({ assigned: [{ id: "a", courierId: 31 }], skipped: [{ id: "b", reason: "no_courier" }] });
+  it("yangi zona (`null`) uchun ham ishlaydi", () => {
+    const zones = [zone(1, ["a", "b"])];
+    expect(districtMoves(zones, null, ["b"])).toEqual([{ zoneId: 1, districtCodes: ["a"] }]);
+    expect(districtMoves(zones, null, ["x"])).toEqual([]);
+  });
+});
+
+describe("avto-taqsimlash rejasi — server preview (V5)", () => {
+  const couriers = [
+    mapCourier({ id: 10, full_name: "Smenada", is_active: true, zone_ids: [1], on_shift: true, load: 3 }),
+    mapCourier({ id: 11, full_name: "Bo'sh", is_active: true, zone_ids: [1], on_shift: true, load: 0 }),
+    mapCourier({ id: 12, full_name: "Bloklangan", is_active: false, zone_ids: [1], on_shift: true }),
+  ];
+  const order = (id: string) => mapLogistOrder({ id, status: "shipping" });
+  const preview = mapAutoAssignPreview({
+    rows: [
+      { order_id: "x", zone: { id: 1, name: "Markaz" }, courier: { id: 10, full_name: "Smenada" }, reason: "ok" },
+      { order_id: "y", zone: null, courier: null, reason: "no_zone" },
+      { order_id: "z", zone: { id: 2, name: "Qo'qon" }, courier: null, reason: "no_courier_on_shift" },
+      { order_id: "yo'q", zone: null, courier: null, reason: "boshqa" },
+    ],
   });
 
-  it("kassa: topshirilmagan kunlar davri", () => {
-    const cash = mapChiefCash({
-      date_from: "2026-10-01",
-      date_to: "2026-10-30",
-      collected_from_couriers: 1250000,
-      outstanding: 300000,
-      outstanding_days: ["2026-10-29", "2026-10-28"],
-      days: [
-        { date: "2026-10-28", collected: 150000, status: "none" },
-        { date: "2026-10-27", collected: 200000, status: "confirmed" },
-        { date: "2026-10-26", collected: 1, status: "weird" },
-      ],
-      handovers: [{ id: 1, amount: 5, status: "pending", period_from: "2026-10-20", period_to: "2026-10-21" }],
+  it("reja zakaz kartasi bilan qo'shiladi; noma'lum sabab — `ok`, rejadan tashqari zakaz tushmaydi", () => {
+    const plan = planFromPreview(preview, [order("x"), order("y"), order("z")]);
+    expect(plan.map((row) => [row.order.id, row.zoneId, row.courierId, row.reason])).toEqual([
+      ["x", 1, 10, "ok"],
+      ["y", null, null, "no_zone"],
+      ["z", 2, null, "no_courier_on_shift"],
+    ]);
+    expect(preview[3]!.reason).toBe("ok");
+  });
+
+  it("chiqarilgan va kuryersiz qatorlar yuborilmaydi; qo'lda zona — eng kam yuklamali faol kuryer", () => {
+    const plan = planFromPreview(preview, [order("x"), order("y")]);
+    expect(readyRows(plan).map((row) => row.order.id)).toEqual(["x"]);
+    expect(readyRows([{ ...plan[0]!, excluded: true }])).toEqual([]);
+    expect(pickCourier(couriers, 1)?.id).toBe(11);
+    expect(pickCourier(couriers, null)).toBeNull();
+  });
+
+  it("apply natijasi", () => {
+    expect(mapAutoAssignResult({ assigned: [{ id: "x", courier_id: 10 }], failed: [{ id: "y", code: "courier_not_yours" }] })).toEqual({
+      assigned: ["x"],
+      failed: [{ id: "y", code: "courier_not_yours" }],
     });
-    expect(outstandingPeriod(cash)).toEqual({ from: "2026-10-28", to: "2026-10-29" });
-    expect(cash.days.map((row) => row.status)).toEqual(["none", "confirmed", "none"]);
-    expect(cash.handovers[0]).toMatchObject({ periodFrom: "2026-10-20", periodTo: "2026-10-21" });
-    expect(outstandingPeriod({ outstandingDays: [] })).toBeNull();
   });
 
-  it("analitika: qatorlar va jami", () => {
-    const stats = mapChiefStats({
-      couriers: [
-        { courier: { id: 31, full_name: "K-01", is_active: true, on_shift: true }, delivered: 12, refused: 1, awaiting: 2, addresses: 13, addresses_manual: 1, pay_rate: 15000, pay: 195000 },
+  it("detal: zakaz va tarix", () => {
+    const detail = mapChiefOrderDetail({ id: "x", status: "shipping", history: [{ at: "2026-10-30T10:00:00Z", action: "created" }] });
+    expect(detail.order.id).toBe("x");
+    expect(detail.history[0]).toMatchObject({ action: "created", actor: null });
+  });
+});
+
+describe("zakaz kartasi: mahsulotlar qatori", () => {
+  it("ikkitasi nomi bilan, qolgani «+N»", async () => {
+    const { orderProductsLine } = await import("./order-view");
+    const order = mapLogistOrder({
+      id: "x",
+      items: [
+        { product_name: "A", quantity: 2 },
+        { product_name: "B", quantity: 1 },
+        { product_name: "C", quantity: 1 },
+        { product_name: "D", quantity: 3 },
       ],
-      totals: { delivered: 12, refused: 1, awaiting: 2, addresses: 13, addresses_manual: 1, pay: 195000 },
     });
-    expect(stats.couriers[0]).toMatchObject({ addresses: 13, addressesManual: 1, payRate: 15000, pay: 195000 });
-    expect(stats.couriers[0]!.courier.onShift).toBe(true);
-    expect(stats.totals.pay).toBe(195000);
+    expect(orderProductsLine(order)).toBe("A × 2, B × 1 +2");
+    expect(orderProductsLine(mapLogistOrder({ id: "y", items: [] }))).toBe("");
   });
+});
 
-  it("Esc — ichki sahifalardan «Zakazlar» ga", () => {
-    expect(escapeTarget("/chief/cash", "?from=2026-10-01")).toMatch(/^\/chief/);
-    expect(escapeTarget("/chief", "")).toBeNull();
+describe("chief/me — v2 shakli ham o'qiladi", () => {
+  it("`seat_id` va `full_name` yuqori darajada, `regions: null`", () => {
+    const me = mapChiefMe({ seat_id: 88, full_name: "Vodiy", regions: null, filial: { id: 1, name: "Qo'qon" } });
+    expect(me.seat).toMatchObject({ id: 88, fullName: "Vodiy" });
+    expect(me.regions).toEqual([]);
+    expect(me.filial).toEqual({ id: 1, name: "Qo'qon" });
+  });
+});
+
+describe("manzil kim tomonidan o'zgargani", () => {
+  it("kod → o'qiladigan nom, bo'sh bo'lsa null", () => {
+    const order = (who: unknown) => mapLogistOrder({ id: 1, order_number: "N-1", status: "shipping", delivery: { address_changed_by: who } });
+    expect(addressChangedBy(order("chief"))).toBe("bosh kuryer");
+    expect(addressChangedBy(order("courier"))).toBe("kuryer");
+    expect(addressChangedBy(order(null))).toBeNull();
+  });
+});
+
+describe("summa maydoni", () => {
+  it("bo'shliq bilan guruhlanadi va qayta o'qiladi", () => {
+    expect(formatMoneyInput("1250000")).toBe("1 250 000");
+    expect(formatMoneyInput("00a12 5")).toBe("125");
+    expect(formatMoneyInput(980000.4)).toBe("980 000");
+    expect(parseMoneyInput("1 250 000")).toBe(1250000);
+    expect(Number.isNaN(parseMoneyInput(""))).toBe(true);
   });
 });

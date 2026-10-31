@@ -8,7 +8,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Mehrigiyo Bosh kuryer",
-  description: "Viloyat bosh kuryeri: zakazlarni kuryerlarga taqsimlash, kuryerlar, zonalar, kassa",
+  description: "Bosh kuryer: zakazlarni zona bo'yicha taqsimlash, kuryerlar, zonalar, sklad, kassa va moliya",
   icons: { icon: "/favicon.png" },
 };
 

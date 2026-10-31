@@ -21,12 +21,6 @@ export const REGIONS = [
   { value: "qoraqalpogiston", label: "Qoraqalpog'iston Respublikasi" },
 ] as const;
 
-export type RegionKey = (typeof REGIONS)[number]["value"];
-
-export function isRegionKey(value: string | null | undefined): value is RegionKey {
-  return REGIONS.some((region) => region.value === value);
-}
-
 /** Kalitning o'qiladigan nomi; noma'lum kalit xom holida qaytadi. */
 export function regionLabel(value: string | null | undefined): string {
   const key = (value ?? "").trim();

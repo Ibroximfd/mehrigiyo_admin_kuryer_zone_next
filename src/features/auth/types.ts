@@ -13,7 +13,7 @@ import {
  * login javobida `role` maydoni keladi; eski backendda u yo'q — `is_admin`
  * dan taxmin qilinadi.
  */
-export type OperatorRole = "logist" | "admin" | "seller";
+export type OperatorRole = "logist" | "admin" | "seller" | "chief_courier";
 
 export type CurrentUser = {
   id: string;
@@ -41,13 +41,6 @@ export type CurrentUser = {
   filialLocation: { lat: number; lng: number } | null;
 };
 
-/** Hudud filtri sukuti: kod ustun, bo'lmasa erkin matn (eski backend). */
-export function preferredRegionOf(
-  user: Pick<CurrentUser, "filialRegion" | "filialRegionCode"> | null,
-): string | null {
-  return user?.filialRegionCode ?? user?.filialRegion ?? null;
-}
-
 /** `{lat, lng}` — ikkalasi son bo'lsa; aks holda `null`. */
 export function asLocation(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
   const latitude = asOptionalNumber(lat);
@@ -64,7 +57,7 @@ export type LoginResult = {
 /** Xom satrni ma'lum rollardan biriga keltiradi; notanishi `null`. */
 export function asRole(value: unknown): OperatorRole | null {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (text === "logist" || text === "admin" || text === "seller") return text;
+  if (text === "logist" || text === "admin" || text === "seller" || text === "chief_courier") return text;
   return null;
 }
 
@@ -79,42 +72,9 @@ export function asRole(value: unknown): OperatorRole | null {
  * }
  * `region_code`, `lat`, `lng` — backend A3 (2026-10-16); eski javobda yo'q.
  *
- * `role` bo'lmasa (eski backend): `is_admin=true` → admin, aks holda
- * vaqtincha logist deb qabul qilinadi — qat'iy tekshiruv
- * `NEXT_PUBLIC_ROLE_STRICT=1` yoqilganda `roleFromServer` orqali ishlaydi.
+ * `role` bo'lmasa (eski backend): `is_admin=true` → admin, aks holda logist.
+ * Bu saytda rol kirishni hal qilmaydi — buni server (`site: "chief"`) qiladi.
  */
-/**
- * Eski support tizimi javobi (zaxira kirish):
- * { "access": "...", "refresh": "...",
- *   "operator": { "id": 3, "phone": "998...", "full_name": "..." } }
- *
- * Filial ham, rol ham kelmaydi — foydalanuvchi yumshoq rejimda logist deb
- * qabul qilinadi (qat'iy rejimda bunday sessiya kirmaydi).
- */
-export function mapSupportLoginResponse(raw: unknown): LoginResult {
-  const json = asRecord(raw);
-  const operator = asRecord(json.operator);
-  const phone = asOptionalString(operator.phone);
-
-  return {
-    access: asString(json.access),
-    refresh: asOptionalString(json.refresh),
-    user: {
-      id: asString(operator.id ?? operator.user_id),
-      name: firstString(operator.full_name, operator.name) || phone || "Logist",
-      username: phone,
-      isAdmin: false,
-      isStaff: false,
-      role: "logist",
-      roleFromServer: false,
-      filialId: null,
-      filialName: null,
-      filialRegion: null,
-      filialRegionCode: null,
-      filialLocation: null,
-    },
-  };
-}
 
 export function mapLoginResponse(raw: unknown): LoginResult {
   const json = asRecord(raw);

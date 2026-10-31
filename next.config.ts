@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // Oddiy `.mjs` — shu faylni Node skriptlari ham o'qiydi.
-import { resolveServer } from "./config/servers.mjs";
+import { isDemoMode, resolveServer } from "./config/servers.mjs";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -10,12 +10,15 @@ const isDev = process.env.NODE_ENV === "development";
  * brauzer kodiga uzatiladi — `src/lib/api-constants.ts` shuni o'qiydi.
  */
 const server = resolveServer();
-console.log(`[next] Backend: ${server.label} (${server.host})`);
+const demo = isDemoMode();
+console.log(demo ? "[next] DEMO rejim — backendga so'rov ketmaydi" : `[next] Backend: ${server.label} (${server.host})`);
 
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_SERVER: server.name,
     NEXT_PUBLIC_BACKEND_HOST: server.host,
+    /** `1` — demo rejim: `api-client` so'rovni namuna bazaga yo'naltiradi. */
+    NEXT_PUBLIC_DEMO: demo ? "1" : "0",
   },
 
   /**

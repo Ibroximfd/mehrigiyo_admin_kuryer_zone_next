@@ -1,7 +1,6 @@
 "use client";
 
 import { LoaderCircle, TriangleAlert } from "lucide-react";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -95,22 +94,4 @@ export function ConfirmDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-/**
- * Tasdiq oynasi holatini boshqaradi.
- *
- * `ask(payload)` oynani ochadi va nimani tasdiqlash kerakligini eslab
- * qoladi — ro'yxatdagi har bir qator uchun alohida oyna kerak emas.
- */
-export function useConfirm<T>() {
-  const [pending, setPending] = useState<T | null>(null);
-
-  return {
-    /** Tasdiqlanayotgan element; oyna yopiq bo'lsa `null`. */
-    target: pending,
-    open: pending !== null,
-    ask: (value: T) => setPending(value),
-    close: () => setPending(null),
-  };
 }

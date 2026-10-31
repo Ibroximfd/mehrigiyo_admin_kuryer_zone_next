@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, LoaderCircle, Lock, Phone } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, Lock, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -9,14 +9,16 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { DemoBadge } from "@/components/demo-badge";
 import { Reveal } from "@/components/fx/reveal";
 import { RouteLine } from "@/components/fx/route-line";
 import { SceneBackdrop } from "@/components/fx/scene-backdrop";
-import { SCENES } from "@/components/fx/scenes";
+import { LOGIN_SCENE } from "@/components/fx/scenes";
 import { TiltCard } from "@/components/fx/tilt-card";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SplashScreen } from "@/components/splash-screen";
 import { credentials } from "@/lib/credentials";
+import { DEMO_CREDENTIALS, DEMO_MODE } from "@/lib/demo/mode";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -32,8 +34,8 @@ const loginSchema = z.object({
   phone: z
     .string()
     .trim()
-    .min(1, "Telefon raqamni kiriting")
-    .regex(/^[\d+\s()-]+$/, "Faqat raqam kiriting"),
+    .min(1, "Login yoki telefon raqamni kiriting")
+    .regex(/^[\w.@+\s()-]+$/, "Faqat harf, raqam va _ . belgilari"),
   password: z.string().min(1, "Parolni kiriting"),
 });
 
@@ -48,11 +50,16 @@ const savedPhone = () =>
     : (window.localStorage.getItem(LAST_PHONE_KEY) ?? "");
 
 /** Formadagi bezaklarni olib tashlab, backend kutgan ko'rinishga keltiradi. */
-const normalizePhone = (phone: string) => phone.replace(/[\s()-]/g, "");
+/** Telefon bo'lsa bo'sh joy va qavslar olinadi; login (`test_logist`) o'zgarmaydi. */
+const normalizePhone = (value: string) =>
+  /^[\d+\s()-]+$/.test(value) ? value.replace(/[\s()-]/g, "") : value.trim();
 
 export default function LoginPage() {
   const status = useAuthStore((state) => state.status);
   const isSubmitting = useAuthStore((state) => state.isSubmitting);
+  const waitSeconds = useRetryCountdown(
+    useAuthStore((state) => state.retryUntil),
+  );
   const restoreSession = useAuthStore((state) => state.restoreSession);
   const login = useAuthStore((state) => state.login);
   const router = useRouter();
@@ -130,7 +137,7 @@ export default function LoginPage() {
   return (
     <div className="bg-canvas relative min-h-dvh overflow-hidden">
       {/* Tungi yo'l sahnasi — kechki shahar ko'chasi; sahifaning LCP'si, shuning uchun preload. */}
-      <SceneBackdrop scene={SCENES.login} preload />
+      <SceneBackdrop scene={LOGIN_SCENE} preload />
 
       <div className="relative mx-auto grid min-h-dvh max-w-7xl items-center gap-10 px-5 py-10 lg:grid-cols-[1.1fr_minmax(0,28rem)] lg:gap-16 lg:px-12">
         {/* ── Brend: logotip, sarlavha, marshrut ────────────────────────── */}
@@ -153,7 +160,7 @@ export default function LoginPage() {
           </Reveal>
           <Reveal index={2}>
             <p className="text-ink-muted mt-3 max-w-md text-lg2 text-balance lg:mt-4">
-              Yetkazish va filiallararo almashinuv paneli
+              Zakazlar, kuryerlar, sklad va kassa — bitta joyda
             </p>
           </Reveal>
 
@@ -180,14 +187,16 @@ export default function LoginPage() {
             <Reveal index={2}>
               <Field
                 id="phone"
-                label="Telefon raqam"
+                label="Login yoki telefon"
                 error={form.formState.errors.phone?.message}
               >
-                <Phone className="text-ink-faint pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2" />
+                <UserRound className="text-ink-faint pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2" />
                 <input
                   id="phone"
-                  type="tel"
-                  inputMode="tel"
+                  type="text"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   autoComplete="username"
                   autoFocus={!savedPhone()}
                   placeholder="998901234567"
@@ -217,7 +226,9 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((current) => !current)}
-                  aria-label={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
+                  aria-label={
+                    showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"
+                  }
                   className="text-ink-faint hover:text-ink absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1.5 transition-colors"
                 >
                   {showPassword ? (
@@ -230,9 +241,17 @@ export default function LoginPage() {
             </Reveal>
 
             <Reveal index={4}>
+              {waitSeconds > 0 ? (
+                <p
+                  role="status"
+                  className="text-warn mb-2 text-center text-dense"
+                >
+                  {`Urinishlar ko'payib ketdi — ${waitSeconds} soniyadan keyin qayta urinib ko'ring`}
+                </p>
+              ) : null}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || waitSeconds > 0}
                 className="btn-rich bg-brand text-brand-ink flex h-12 w-full items-center justify-center gap-2 rounded-full text-lg2 font-semibold disabled:opacity-70"
               >
                 {isSubmitting ? (
@@ -246,9 +265,41 @@ export default function LoginPage() {
               </button>
             </Reveal>
           </form>
+          {DEMO_MODE ? <DemoHint /> : null}
         </section>
       </div>
     </div>
+  );
+}
+
+/** `429 too_many_attempts` qulfi tugaguncha qolgan soniya (har soniyada yangilanadi). */
+function useRetryCountdown(until: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (until === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [until]);
+  return until === null ? 0 : Math.max(0, Math.ceil((until - now) / 1000));
+}
+
+/** Demo rejimda kirish ma'lumoti — faqat namuna bazani ochadi. */
+function DemoHint() {
+  return (
+    <p
+      role="note"
+      className="bg-warn-soft text-ink-muted mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-3.5 py-2.5 text-meta"
+    >
+      <DemoBadge />
+      <span>Kirish uchun telefon</span>
+      <span className="text-ink tabular font-semibold" data-no-translit>
+        {DEMO_CREDENTIALS.phoneDisplay}
+      </span>
+      <span>va parol</span>
+      <span className="text-ink font-semibold" data-no-translit>
+        {DEMO_CREDENTIALS.password}
+      </span>
+    </p>
   );
 }
 

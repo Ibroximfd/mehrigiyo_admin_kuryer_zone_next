@@ -2,90 +2,35 @@ import { mapCourier, mapFilial } from "@/features/couriers/types";
 import type { Courier } from "@/features/couriers/types";
 import { mapZone } from "@/features/zones/types";
 import type { Zone } from "@/features/zones/types";
+import { mapLogistOrder } from "@/features/orders/types";
+import type { LogistOrder } from "@/features/orders/types";
 import { parseDate } from "@/lib/format";
-import {
-  asArray,
-  asBool,
-  asInt,
-  asNumber,
-  asOptionalInt,
-  asOptionalNumber,
-  asOptionalString,
-  asRecord,
-  asString,
-  isRecord,
-} from "@/lib/parse";
+import { asArray, asBool, asInt, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
 /**
- * Bosh kuryer (backend K1, 2026-10-30 §C). Bosh kuryer — o'rin (operator
- * akkaunti) + `chief_courier` roli, qamrovi viloyat(lar). U o'zi
- * tashimaydi: logist bergan zakazni o'z kuryerlariga taqsimlaydi,
- * kuryerlardan pul oladi va bosh logistga topshiradi. Yakunlash (yetkazildi
- * / atkaz) — faqat logist.
+ * Bosh kuryer (backend K1, 2026-10-30 §C; `21_TUZILMA_V2` §4.5). Bosh
+ * kuryer — o'rin (operator akkaunti) + `chief_courier` roli, qamrovi
+ * viloyat(lar). U o'zi tashimaydi: logist bergan zakazni o'z kuryerlariga
+ * taqsimlaydi, kuryerlardan pul oladi va filiallarga topshiradi. Yakunlash
+ * (yetkazildi / atkaz) — faqat logist.
  */
-export type ChiefRef = { id: number; fullName: string };
-
-export function mapChiefRef(raw: unknown): ChiefRef | null {
-  if (!isRecord(raw)) return null;
-  const id = asOptionalInt(raw.id);
-  if (id === null) return null;
-  return { id, fullName: asString(raw.full_name ?? raw.name) || `#${id}` };
-}
-
-/** Tanlov ro'yxati (`GET logist/chiefs/`). `regions: null` — hamma viloyat. */
-export type ChiefOption = ChiefRef & {
-  regions: string[] | null;
-  /**
-   * Viloyatning sukut bosh kuryeri (`?region=` bilan so'ralganda); viloyatsiz
-   * so'rovda `null` (backend 2026-10-30 §2).
-   */
-  isDefault: boolean | null;
-  filial: { id: number; name: string } | null;
-  couriers: number;
-};
-
-export function mapChiefOptions(raw: unknown): ChiefOption[] {
-  const list = Array.isArray(raw) ? raw : asArray(asRecord(raw).results);
-  return list.flatMap((item) => {
-    const ref = mapChiefRef(item);
-    if (!ref) return [];
-    const json = asRecord(item);
-    return [
-      {
-        ...ref,
-        regions: json.regions === null ? null : asArray(json.regions).map((code) => asString(code)).filter(Boolean),
-        isDefault: typeof json.is_default === "boolean" ? json.is_default : null,
-        filial: mapFilial(json.filial),
-        couriers: asInt(json.couriers),
-      },
-    ];
-  });
-}
-
-/**
- * Zakaz viloyatiga mos bosh kuryer: server belgilagan sukut (`is_default`),
- * so'ng viloyati mos birinchisi; hamma viloyatli — zaxira.
- */
-export function chiefForRegion(chiefs: readonly ChiefOption[], region: string | null): ChiefOption | null {
-  if (!region) return null;
-  const matching = chiefs.filter((chief) => chief.regions?.includes(region));
-  return (
-    matching.find((chief) => chief.isDefault === true) ??
-    matching[0] ??
-    chiefs.find((chief) => chief.regions === null) ??
-    null
-  );
-}
-
 export type ChiefPermission =
   | "orders.dispatch"
   | "couriers.manage"
   | "zones.manage"
   | "cash.accept"
-  | "warehouse.view_courier_stores";
+  | "warehouse.view_courier_stores"
+  | "view.analytics";
+
+/**
+ * Dopusk kaliti javobda umuman bo'lmasa: `view.analytics` — ochiq (eski
+ * javoblarda kalit yo'q, moliya bosh kuryerning o'z hisobi), qolganlari — yopiq.
+ * Kalit `false` kelsa — har doim yopiq.
+ */
+const OPEN_WHEN_MISSING: ReadonlySet<ChiefPermission> = new Set(["view.analytics"]);
 
 export type ChiefMe = {
-  seat: ChiefRef & { username: string };
+  seat: { id: number; fullName: string; username: string };
   filial: { id: number; name: string } | null;
   regions: string[];
   permissions: Record<string, boolean>;
@@ -98,6 +43,11 @@ export type ChiefMe = {
   };
 };
 
+/**
+ * `GET chief/me/` — ikki shakl o'qiladi: K1 (`seat {id, full_name, username}`)
+ * va v2 javobi (`seat_id`, `full_name` yuqori darajada). `regions: null` —
+ * hamma viloyat (`scope=all`); sayt viloyat ro'yxatini bo'sh deb oladi.
+ */
 export function mapChiefMe(raw: unknown): ChiefMe {
   const json = asRecord(raw);
   const seat = asRecord(json.seat);
@@ -106,9 +56,9 @@ export function mapChiefMe(raw: unknown): ChiefMe {
   for (const [key, value] of Object.entries(asRecord(json.permissions))) permissions[key] = value === true;
   return {
     seat: {
-      id: asInt(seat.id),
-      fullName: asString(seat.full_name),
-      username: asString(seat.username),
+      id: asInt(seat.id ?? json.seat_id),
+      fullName: asString(seat.full_name ?? json.full_name),
+      username: asString(seat.username ?? json.username),
     },
     filial: mapFilial(json.filial),
     regions: asArray(json.regions).map((code) => asString(code)).filter(Boolean),
@@ -124,34 +74,125 @@ export function mapChiefMe(raw: unknown): ChiefMe {
 }
 
 export function chiefCan(me: ChiefMe | null, permission: ChiefPermission): boolean {
-  return me?.permissions[permission] === true;
+  if (!me) return false;
+  const value = me.permissions[permission];
+  return value === undefined ? OPEN_WHEN_MISSING.has(permission) : value;
 }
 
-export type ChiefOrderScope = "incoming" | "active" | "all";
 
-/** `POST chief/orders/auto-assign/` natijasi. */
-export type AutoAssignOutcome = {
-  assigned: Array<{ id: string; courierId: number }>;
-  skipped: Array<{ id: string; reason: string }>;
-};
+export type ChiefOrderScope = "incoming" | "active" | "delivered" | "all";
 
-export function mapAutoAssignOutcome(raw: unknown): AutoAssignOutcome {
+/** Zakaz tarixi: `action` — kod, yorlig'i frontendda (`HISTORY_LABELS`). */
+export type OrderHistoryEntry = { at: Date | null; action: string; actor: string | null; courier: string | null };
+
+export type ChiefOrderDetail = { order: LogistOrder; history: OrderHistoryEntry[] };
+
+export function mapChiefOrderDetail(raw: unknown): ChiefOrderDetail {
   const json = asRecord(raw);
   return {
-    assigned: asArray(json.assigned).map((item) => {
+    order: mapLogistOrder(isRecord(json.order) ? json.order : raw),
+    history: asArray(json.history).map((item) => {
       const row = asRecord(item);
-      return { id: asString(row.id), courierId: asInt(row.courier_id) };
-    }),
-    skipped: asArray(json.skipped).map((item) => {
-      const row = asRecord(item);
-      return { id: asString(row.id), reason: asString(row.reason) };
+      return {
+        at: parseDate(row.at),
+        action: asString(row.action),
+        actor: asOptionalString(row.actor),
+        courier: asOptionalString(row.courier),
+      };
     }),
   };
 }
 
-export const SKIP_REASON_LABELS: Record<string, string> = {
-  no_courier: "mos kuryer yo'q",
+// ── Avto-taqsimlash rejasi (V5) ──────────────────────────────────────────────
+
+export type AutoAssignReason = "ok" | "no_zone" | "no_courier" | "no_courier_on_shift";
+
+export type AutoAssignPreviewRow = {
+  orderId: string;
+  zone: { id: number; name: string } | null;
+  courier: { id: number; fullName: string } | null;
+  reason: AutoAssignReason;
+};
+
+function asReason(value: unknown): AutoAssignReason {
+  return value === "no_zone" || value === "no_courier" || value === "no_courier_on_shift" ? value : "ok";
+}
+
+export function mapAutoAssignPreview(raw: unknown): AutoAssignPreviewRow[] {
+  return asArray(asRecord(raw).rows).map((item) => {
+    const row = asRecord(item);
+    const zone = asRecord(row.zone);
+    const courier = asRecord(row.courier);
+    return {
+      orderId: asString(row.order_id),
+      zone: isRecord(row.zone) ? { id: asInt(zone.id), name: asString(zone.name) } : null,
+      courier: isRecord(row.courier) ? { id: asInt(courier.id), fullName: asString(courier.full_name) } : null,
+      reason: asReason(row.reason),
+    };
+  });
+}
+
+export const AUTO_ASSIGN_REASONS: Record<AutoAssignReason, string> = {
+  ok: "",
   no_zone: "zona aniqlanmagan",
+  no_courier: "zonada kuryer yo'q",
+  no_courier_on_shift: "zonada smenadagi kuryer yo'q",
+};
+
+export type AutoAssignResult = { assigned: string[]; failed: Array<{ id: string; code: string }> };
+
+export function mapAutoAssignResult(raw: unknown): AutoAssignResult {
+  const json = asRecord(raw);
+  return {
+    assigned: asArray(json.assigned).map((item) => asString(isRecord(item) ? item.id : item)).filter(Boolean),
+    failed: asArray(json.failed).map((item) => {
+      const row = asRecord(item);
+      return { id: asString(row.id), code: asString(row.code) };
+    }),
+  };
+}
+
+// ── Filiallar (V14) ──────────────────────────────────────────────────────────
+
+export type ChiefFilial = { id: number; name: string; isMain: boolean };
+
+export function mapChiefFilials(raw: unknown): ChiefFilial[] {
+  const list = Array.isArray(raw) ? raw : asArray(asRecord(raw).results);
+  return list.filter(isRecord).map((row) => ({ id: asInt(row.id), name: asString(row.name), isMain: asBool(row.is_main) }));
+}
+
+// ── Manzil tuzatish va qaytarish sabablari (`25_MANZIL_OZGARISHI` §4) ───────
+
+export const ADDRESS_FIX_REASONS = ["client_error", "clarified", "moved", "other"] as const;
+export type AddressFixReason = (typeof ADDRESS_FIX_REASONS)[number];
+
+export const ADDRESS_FIX_REASON_LABELS: Record<AddressFixReason, string> = {
+  client_error: "Mijoz xato aytgan",
+  clarified: "Aniqlashtirildi",
+  moved: "Mijoz ko'chib o'tgan",
+  other: "Boshqa sabab",
+};
+
+export const RETURN_REASONS = ["wrong_region", "address_unknown", "client_unreachable", "other"] as const;
+export type ReturnReason = (typeof RETURN_REASONS)[number];
+
+export const RETURN_REASON_LABELS: Record<ReturnReason, string> = {
+  wrong_region: "Manzil boshqa viloyatda",
+  address_unknown: "Manzil topilmadi",
+  client_unreachable: "Mijoz javob bermayapti",
+  other: "Boshqa sabab",
+};
+
+export const HISTORY_LABELS: Record<string, string> = {
+  created: "Zakaz yaratildi",
+  chief_assigned: "Sizga berildi",
+  courier_assigned: "Kuryerga berildi",
+  courier_unassigned: "Kuryerdan olindi",
+  delivered: "Yetkazildi",
+  cash_accepted: "Pul qabul qilindi",
+  cash_handed: "Pul filialga topshirildi",
+  address_changed: "Manzil o'zgardi",
+  returned_to_logist: "Logistga qaytarildi",
 };
 
 export function mapChiefCouriers(raw: unknown): Courier[] {
@@ -170,156 +211,3 @@ export function mapChiefZones(raw: unknown): ChiefZones {
   };
 }
 
-// ── Kassa: bosh kuryer → bosh logist (2-pog'ona) ───────────────────────────
-
-export type ChiefHandoverStatus = "pending" | "confirmed" | "disputed";
-
-export type ChiefHandover = {
-  id: number;
-  chief: ChiefRef | null;
-  date: string;
-  periodFrom: string | null;
-  periodTo: string | null;
-  amount: number;
-  expectedAmount: number | null;
-  confirmedAmount: number | null;
-  shortage: number | null;
-  status: ChiefHandoverStatus;
-  note: string;
-  logistNote: string;
-  logist: ChiefRef | null;
-  createdAt: Date | null;
-  confirmedAt: Date | null;
-};
-
-function asHandoverStatus(value: unknown): ChiefHandoverStatus {
-  const text = asString(value);
-  return text === "confirmed" || text === "disputed" ? text : "pending";
-}
-
-export function mapChiefHandover(raw: unknown): ChiefHandover | null {
-  if (!isRecord(raw)) return null;
-  const id = asOptionalInt(raw.id);
-  if (id === null) return null;
-  return {
-    id,
-    chief: mapChiefRef(raw.chief),
-    date: asString(raw.date),
-    periodFrom: asOptionalString(raw.period_from),
-    periodTo: asOptionalString(raw.period_to),
-    amount: asNumber(raw.amount),
-    expectedAmount: asOptionalNumber(raw.expected_amount),
-    confirmedAmount: asOptionalNumber(raw.confirmed_amount),
-    shortage: asOptionalNumber(raw.shortage),
-    status: asHandoverStatus(raw.status),
-    note: asString(raw.note),
-    logistNote: asString(raw.logist_note),
-    logist: mapChiefRef(raw.logist),
-    createdAt: parseDate(raw.created_at),
-    confirmedAt: parseDate(raw.confirmed_at),
-  };
-}
-
-export function mapChiefHandovers(raw: unknown): { results: ChiefHandover[]; count: number } {
-  const json = asRecord(raw);
-  const list = Array.isArray(raw) ? raw : asArray(json.results);
-  const results = list.map(mapChiefHandover).filter((item): item is ChiefHandover => item !== null);
-  return { results, count: asInt(json.count, results.length) };
-}
-
-export type CashDayStatus = "none" | ChiefHandoverStatus;
-
-export type ChiefCash = {
-  dateFrom: string;
-  dateTo: string;
-  collectedFromCouriers: number;
-  /** Hali topshirilmagan kunlar jami — «Hammasini topshirish» summasi. */
-  outstanding: number;
-  outstandingDays: string[];
-  days: Array<{ date: string; collected: number; status: CashDayStatus }>;
-  handovers: ChiefHandover[];
-};
-
-export function mapChiefCash(raw: unknown): ChiefCash {
-  const json = asRecord(raw);
-  return {
-    dateFrom: asString(json.date_from),
-    dateTo: asString(json.date_to),
-    collectedFromCouriers: asNumber(json.collected_from_couriers),
-    outstanding: asNumber(json.outstanding),
-    outstandingDays: asArray(json.outstanding_days).map((day) => asString(day)).filter(Boolean).sort(),
-    days: asArray(json.days).map((item) => {
-      const row = asRecord(item);
-      const status = asString(row.status);
-      return {
-        date: asString(row.date),
-        collected: asNumber(row.collected),
-        status: status === "pending" || status === "confirmed" || status === "disputed" ? status : "none",
-      };
-    }),
-    handovers: asArray(json.handovers)
-      .map(mapChiefHandover)
-      .filter((item): item is ChiefHandover => item !== null),
-  };
-}
-
-/** «Hammasini topshirish» davri: topshirilmagan kunlarning chegarasi. */
-export function outstandingPeriod(cash: Pick<ChiefCash, "outstandingDays">): { from: string; to: string } | null {
-  const days = cash.outstandingDays;
-  if (days.length === 0) return null;
-  return { from: days[0]!, to: days[days.length - 1]! };
-}
-
-// ── Analitika ──────────────────────────────────────────────────────────────
-
-export type ChiefStatsRow = {
-  courier: { id: number; fullName: string; isActive: boolean; onShift: boolean };
-  delivered: number;
-  refused: number;
-  awaiting: number;
-  addresses: number;
-  addressesManual: number;
-  payRate: number | null;
-  pay: number | null;
-};
-
-export type ChiefStats = {
-  dateFrom: string;
-  dateTo: string;
-  couriers: ChiefStatsRow[];
-  totals: Omit<ChiefStatsRow, "courier" | "payRate">;
-};
-
-function mapStatsNumbers(json: Record<string, unknown>) {
-  return {
-    delivered: asInt(json.delivered),
-    refused: asInt(json.refused),
-    awaiting: asInt(json.awaiting),
-    addresses: asInt(json.addresses),
-    addressesManual: asInt(json.addresses_manual),
-    pay: asOptionalNumber(json.pay),
-  };
-}
-
-export function mapChiefStats(raw: unknown): ChiefStats {
-  const json = asRecord(raw);
-  return {
-    dateFrom: asString(json.date_from),
-    dateTo: asString(json.date_to),
-    couriers: asArray(json.couriers).map((item) => {
-      const row = asRecord(item);
-      const courier = asRecord(row.courier);
-      return {
-        courier: {
-          id: asInt(courier.id),
-          fullName: asString(courier.full_name),
-          isActive: asBool(courier.is_active, true),
-          onShift: asBool(courier.on_shift),
-        },
-        ...mapStatsNumbers(row),
-        payRate: asOptionalNumber(row.pay_rate),
-      };
-    }),
-    totals: mapStatsNumbers(asRecord(json.totals)),
-  };
-}

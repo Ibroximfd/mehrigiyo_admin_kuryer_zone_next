@@ -1,6 +1,6 @@
 import { resolveMediaUrl } from "@/lib/api-constants";
 import { parseDate } from "@/lib/format";
-import { asOptionalInt, asOptionalString, isRecord } from "@/lib/parse";
+import { asOptionalString, isRecord } from "@/lib/parse";
 
 /**
  * Kuryer profil rasmi (`HUDUD_BACKEND_TALABLAR_3.md` §8).
@@ -52,58 +52,6 @@ function safeImageUrl(raw: string | null): string | null {
 // Rasm o'rnidagi belgi
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Palitradagi ranglar soni — `globals.css` `[data-avatar-hue]` bilan bir xil. */
-export const AVATAR_HUE_COUNT = 8;
-
-/** Kuryer `id` → palitra indeksi (0…7): bir kuryer har doim bir rangda. */
-export function avatarHue(id: number): number {
-  // Knuth multiplikativ xeshi — ketma-ket id lar qo'shni ranglarga tushmaydi.
-  const hash = Math.imul(Math.trunc(Math.abs(id)), 2654435761) >>> 0;
-  return hash % AVATAR_HUE_COUNT;
-}
-
-/** `Aziz Karimov` → `AK`; ism bo'lmasa `K` (kuryer). */
-export function avatarInitials(fullName: string): string {
-  const letters = (fullName ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-  return letters || "K";
-}
-
-/** Xarita yorlig'i: `Aziz Karimov` → `Aziz K.`; bitta so'z — o'zi. */
-export function shortName(fullName: string): string {
-  const parts = (fullName ?? "").split(/\s+/).filter(Boolean);
-  const first = parts[0];
-  if (!first) return "";
-  const last = parts[1];
-  return last ? `${first} ${last[0]?.toUpperCase() ?? ""}.` : first;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // WS `courier_updated {courier_id, avatar}`
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * `avatar` kaliti bo'lmasa — `hasAvatar: false` (boshqa maydon o'zgargan,
- * chaqiruvchi ro'yxatni qayta so'raydi).
- */
-export type CourierUpdatedEvent = {
-  courierId: number;
-  hasAvatar: boolean;
-  avatar: CourierAvatar | null;
-};
-
-export function mapCourierUpdatedEvent(raw: unknown): CourierUpdatedEvent | null {
-  if (!isRecord(raw)) return null;
-  const courierId = asOptionalInt(raw.courier_id ?? raw.id);
-  if (courierId === null) return null;
-  const hasAvatar = Object.prototype.hasOwnProperty.call(raw, "avatar");
-  return {
-    courierId,
-    hasAvatar,
-    avatar: hasAvatar ? mapCourierAvatar(raw.avatar) : null,
-  };
-}

@@ -14,7 +14,7 @@ export type StoredSession = {
   isAdmin: boolean;
   /** Django `is_staff` — kuryer akkaunti amallari uchun. */
   isStaff: boolean;
-  /** Backend §1: `"logist" | "admin" | "seller"`. Eski javobda bo'lmaydi. */
+  /** Server roli: bosh kuryer saytida `"chief_courier"`. Eski javobda bo'lmaydi. */
   role: string | null;
   filialId: number | null;
   filialName: string | null;

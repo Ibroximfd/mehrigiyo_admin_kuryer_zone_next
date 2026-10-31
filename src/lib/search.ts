@@ -200,3 +200,11 @@ export function scoreDigits(rawPhone: string, query: SearchQuery): number {
 
   return MATCH_NONE;
 }
+
+/** Oddiy ro'yxat filtri: matn (yoki telefon) qidiruvga mos keladimi; bo'sh qidiruv — hammasi mos. */
+export function matchesSearch(text: string, input: string, phone?: string): boolean {
+  const query = parseSearchQuery(input);
+  if (!query) return true;
+  if (scoreText(makeSearchText(text), query) > MATCH_NONE) return true;
+  return phone ? scoreDigits(phone, query) > MATCH_NONE : false;
+}

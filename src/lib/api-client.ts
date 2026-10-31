@@ -1,6 +1,8 @@
 import ky, { isHTTPError, isTimeoutError } from "ky";
 
 import { API_BASE_URL, ENDPOINTS, isAuthEndpoint } from "@/lib/api-constants";
+import { DEMO_MODE } from "@/lib/demo/mode";
+import { demoRequest } from "@/lib/demo/mock/router";
 import { localeInfo } from "@/lib/i18n/locale";
 import { sessionStorage } from "@/lib/session-storage";
 import { currentLocale } from "@/stores/locale-store";
@@ -45,35 +47,6 @@ export class ApiError extends Error {
 /** Xato kodini javobdan ajratadi. */
 export function errorCode(error: unknown): string | null {
   return error instanceof ApiError ? (error.code ?? null) : null;
-}
-
-/** Qaysi input aybdor ekani: `{items: ["2-qator"]}`. */
-export function errorFields(error: unknown): Record<string, string[]> {
-  if (!(error instanceof ApiError) || !error.data) return {};
-  const fields = (error.data as Record<string, unknown>).fields;
-  if (!fields || typeof fields !== "object") return {};
-
-  const result: Record<string, string[]> = {};
-  for (const [key, value] of Object.entries(fields)) {
-    if (Array.isArray(value)) result[key] = value.map(String);
-    else if (typeof value === "string") result[key] = [value];
-  }
-  return result;
-}
-
-/**
- * `fields` ni xom holida beradi.
- *
- * `errorFields()` faqat matn va massivlarni qaytaradi — u forma maydonlarini
- * belgilash uchun. Ba'zi xatolarda esa `fields` ichida raqam yoki obyekt
- * bo'ladi (masalan `lead_phone_taken` da `lead_id: 128`), shuning uchun
- * kontekst kerak bo'lganda shu funksiya ishlatiladi.
- */
-export function errorFieldsRaw(error: unknown): Record<string, unknown> {
-  if (!(error instanceof ApiError) || !error.data) return {};
-  const fields = (error.data as Record<string, unknown>).fields;
-  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
-  return fields as Record<string, unknown>;
 }
 
 /**
@@ -298,6 +271,8 @@ async function request<T>(
     fallbackError = "Server xatosi yuz berdi",
   } = options;
 
+  if (DEMO_MODE) return demoResponse<T>(method, path, options, fallbackError);
+
   try {
     const response = await client(path, {
       method,
@@ -330,134 +305,28 @@ async function request<T>(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Fayl yuklash — jarayon bilan
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type UploadOptions = {
-  /** Yuklangan ulush, 0..1 — pufakdagi halqa shundan chiziladi. */
-  onProgress?: (fraction: number) => void;
-  signal?: AbortSignal;
-  fallbackError?: string;
-};
-
 /**
- * Yuklash uchun vaqt chegarasi.
- *
- * Oddiy so'rovlardagi 30 soniya fayl uchun yaramaydi: 50 MB video sekin
- * mobil tarmoqda bir necha daqiqa ketadi va ilgari u "So'rov vaqti
- * tugadi" bilan yiqilardi — operator esa buni "video yuborilmaydi" deb
- * o'qirdi.
+ * Demo rejim — yagona ulanish nuqtasi: so'rov namuna bazaga beriladi, javob
+ * va xato haqiqiy yo'ldagidek (`ApiError`, kod, holat) qaytadi. Xato matni
+ * chaqiruvchining `fallbackError` i — demo baza o'zi matn yozmaydi.
  */
-const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000;
-
-type RawResponse = { status: number; text: string };
-
-function joinApiUrl(path: string): string {
-  return `${API_BASE_URL.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
-
-function abortError(): DOMException {
-  return new DOMException("Yuklash bekor qilindi", "AbortError");
-}
-
-/**
- * Bitta urinish. `fetch` (ya'ni ky) yuklash jarayonini bermaydi —
- * `XMLHttpRequest.upload.onprogress` bu ishni qiladigan yagona brauzer
- * API'si, shuning uchun fayl shu yo'ldan ketadi.
- */
-function performUpload(
+async function demoResponse<T>(
+  method: "get" | "post" | "put" | "patch" | "delete",
   path: string,
-  body: FormData,
-  token: string | null,
-  options: UploadOptions,
-): Promise<RawResponse> {
-  return new Promise((resolve, reject) => {
-    if (options.signal?.aborted) {
-      reject(abortError());
-      return;
-    }
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", joinApiUrl(path));
-    xhr.timeout = UPLOAD_TIMEOUT_MS;
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.setRequestHeader(LANGUAGE_HEADER, apiLanguage());
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) {
-        options.onProgress?.(event.loaded / event.total);
-      }
-    };
-    xhr.onload = () =>
-      resolve({ status: xhr.status, text: xhr.responseText ?? "" });
-    xhr.onerror = () =>
-      reject(new ApiError("Tarmoq xatosi. Internetingizni tekshiring."));
-    xhr.ontimeout = () =>
-      reject(new ApiError("Yuklash vaqti tugadi. Qaytadan urinib ko'ring."));
-    xhr.onabort = () => reject(abortError());
-
-    options.signal?.addEventListener("abort", () => xhr.abort(), {
-      once: true,
-    });
-
-    xhr.send(body);
-  });
-}
-
-function parseBody(text: string): unknown {
-  if (!text) return undefined;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-/**
- * `multipart/form-data` yuboradi va jarayonni qaytarib turadi.
- *
- * Token qoidasi asosiy klient bilan bir xil: `401` kelsa token bir marta
- * yangilanadi va o'sha `FormData` qayta yuboriladi; refresh ham rad etilsa
- * sessiya tugatiladi.
- */
-async function upload<T>(
-  path: string,
-  body: FormData,
-  options: UploadOptions = {},
+  options: RequestOptions,
+  fallbackError: string,
 ): Promise<T> {
-  const { fallbackError = "Fayl yuborishda xatolik" } = options;
-
-  let token = sessionStorage.accessToken;
-  let response = await performUpload(path, body, token, options);
-
-  if (response.status === 401 && !isAuthEndpoint(path)) {
-    if (!sessionStorage.canRefresh) {
-      endSession();
-      throw new ApiError("Sessiya tugadi. Qaytadan kiring.", 401);
-    }
-    try {
-      token = await obtainFreshToken(token ? `Bearer ${token}` : null);
-    } catch (refreshError) {
-      if (isHTTPError(refreshError) || !isTimeoutError(refreshError)) {
-        endSession();
-      }
-      throw new ApiError("Sessiya tugadi. Qaytadan kiring.", 401);
-    }
-    response = await performUpload(path, body, token, options);
-  }
-
-  const data = parseBody(response.text);
-  if (response.status >= 200 && response.status < 300) return data as T;
-
-  const payload = data as Record<string, unknown> | undefined;
-  throw new ApiError(
-    messageForStatus(response.status, data, fallbackError),
-    response.status,
-    data,
-    typeof payload?.code === "string" ? payload.code : undefined,
+  const response = await demoRequest(
+    { method, path, searchParams: options.searchParams, json: options.json },
+    options.signal,
   );
+  if (response.status >= 400) {
+    const payload = response.data as Record<string, unknown> | undefined;
+    const code = typeof payload?.code === "string" ? payload.code : undefined;
+    throw new ApiError(fallbackError, response.status, response.data, code);
+  }
+  // Nusxa — ekran javobni o'zgartirsa ham baza buzilmaydi.
+  return structuredClone(response.data) as T;
 }
 
 export const api = {
@@ -471,9 +340,6 @@ export const api = {
     request<T>("patch", path, options),
   delete: <T>(path: string, options?: RequestOptions) =>
     request<T>("delete", path, options),
-  /** Fayl yuklash — jarayon va bekor qilish bilan (`UploadOptions`). */
-  upload: <T>(path: string, body: FormData, options?: UploadOptions) =>
-    upload<T>(path, body, options),
 };
 
 export function errorMessage(error: unknown, fallback = "Xatolik yuz berdi") {

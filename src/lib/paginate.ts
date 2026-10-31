@@ -35,26 +35,3 @@ export function asPage(value: unknown): Page {
     total: typeof total === "number" ? total : null,
   };
 }
-
-/**
- * Barcha sahifalarni ketma-ket yig'adi — ro'yxat to'liq bo'lishi shart
- * bo'lganda ishlatiladi (operatorlar ro'yxati, kanban ustunlari: yarim
- * ma'lumot bu yerda xato ko'rsatkich beradi).
- *
- * `maxPages` — cheksiz aylanishdan himoya; backend `next` ni noto'g'ri
- * qaytarsa ham so'rovlar to'xtaydi.
- */
-export async function fetchAllPages(
-  load: (page: number) => Promise<Page>,
-  maxPages = 50,
-): Promise<unknown[]> {
-  const all: unknown[] = [];
-
-  for (let page = 1; page <= maxPages; page += 1) {
-    const result = await load(page);
-    all.push(...result.items);
-    if (!result.hasMore || result.items.length === 0) break;
-  }
-
-  return all;
-}

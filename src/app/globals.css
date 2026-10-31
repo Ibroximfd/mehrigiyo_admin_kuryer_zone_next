@@ -168,6 +168,18 @@
   --color-link: var(--link);
   --color-link-on-brand: var(--link-on-brand);
 
+  /* ── Sklad xaritasi ─────────────────────────────────────────────────── */
+  --color-sklad-1: var(--sklad-1);
+  --color-sklad-1-muted: var(--sklad-1-muted);
+  --color-sklad-2: var(--sklad-2);
+  --color-sklad-2-muted: var(--sklad-2-muted);
+  --color-sklad-3: var(--sklad-3);
+  --color-sklad-3-muted: var(--sklad-3-muted);
+  --color-sklad-4: var(--sklad-4);
+  --color-sklad-4-muted: var(--sklad-4-muted);
+  --color-sklad-5: var(--sklad-5);
+  --color-sklad-5-muted: var(--sklad-5-muted);
+
   /* ── shadcn/ui tokenlari ────────────────────────────────────────────── */
   --color-background: var(--surface);
   --color-foreground: var(--ink);
@@ -425,6 +437,17 @@
   --transfer-rejected-mark: #d8514e;
   --transfer-cancelled-mark: #8c93a3;
 
+  /*
+   * Sklad xaritasi (bosh kuryer sayti): bitta sklad — bitta rang, tartib
+   * qat'iy (rang skladga ergashadi, o'rniga emas). Rang ko'rligi va
+   * sirt kontrasti `dataviz/validate_palette.js` bilan tekshirilgan.
+   */
+  --sklad-1: #2a9d8f;
+  --sklad-2: #cc6a1f;
+  --sklad-3: #7b5cd6;
+  --sklad-4: #d1495b;
+  --sklad-5: #3a86c8;
+
   --shadow-color: 228 32% 18%;
   --tint-strength: 8%;
   --spine-w: 3px;
@@ -518,6 +541,13 @@
   --transfer-rejected-mark: #c52b30;
   --transfer-cancelled-mark: #6b7385;
 
+  /* Sklad xaritasi — qorong'i sirtga qayta qadamlangan, xuddi shu tartib. */
+  --sklad-1: #2c9e90;
+  --sklad-2: #d06d24;
+  --sklad-3: #9580e8;
+  --sklad-4: #e0636f;
+  --sklad-5: #4f98d8;
+
   --shadow-color: 230 45% 3%;
   /* Qorong'ida rangli fon yorug'dagidan kuchliroq bo'lishi kerak. */
   --tint-strength: 16%;
@@ -541,6 +571,12 @@
   --info-soft: color-mix(in oklab, var(--info) var(--tint-strength), var(--surface-1));
   --amber-soft: color-mix(in oklab, var(--amber) 9%, var(--surface-1));
   --amber-line: color-mix(in oklab, var(--amber) 38%, var(--surface-1));
+  /* Sklad xaritasi: boshqa skladlar — o'z rangining suyultirilgani. */
+  --sklad-1-muted: color-mix(in oklab, var(--sklad-1) 30%, var(--surface-1));
+  --sklad-2-muted: color-mix(in oklab, var(--sklad-2) 30%, var(--surface-1));
+  --sklad-3-muted: color-mix(in oklab, var(--sklad-3) 30%, var(--surface-1));
+  --sklad-4-muted: color-mix(in oklab, var(--sklad-4) 30%, var(--surface-1));
+  --sklad-5-muted: color-mix(in oklab, var(--sklad-5) 30%, var(--surface-1));
 
   /*
    * shadcn `radix-nova` komponentlari shu ikkitasini xom `var()` sifatida
@@ -1735,4 +1771,9 @@ html[data-i18n-pending] body > * {
   .courier-marker[data-focused="true"][data-pulse="on"] .courier-marker__ring {
     animation: courier-marker-blink 0.6s var(--ease-out) 1;
   }
+}
+
+/* Telefonning pastki xavfsiz hududi (iPhone uy chizig'i) — pastki menyu shu qadar ko'tariladi. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }

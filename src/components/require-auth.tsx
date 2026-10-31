@@ -14,9 +14,7 @@ import { useAuthStore } from "@/stores/auth-store";
  *  • sessiya yo'q                 → `/login?from=<manzil>`;
  *  • hammasi joyida               → sahifani ko'rsatamiz.
  *
- * Rol tekshiruvi `auth-store` ichida (`NEXT_PUBLIC_ROLE_STRICT`): ruxsatsiz
- * rol sessiya tiklanish bosqichidayoq chetlatiladi, ya'ni bu yerga faqat
- * ruxsatli foydalanuvchi yetib keladi.
+ * Bosh kuryer ekanini login (`site: "chief"`) va `ChiefSiteGate` tekshiradi.
  */
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((state) => state.status);

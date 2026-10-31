@@ -2,7 +2,6 @@
 
 import { CalendarRange, X } from "lucide-react";
 
-import { formatDay } from "@/features/statistics/filter";
 import { cn } from "@/lib/utils";
 
 /**
@@ -158,10 +157,3 @@ function DateInput({
   );
 }
 
-/** Sarlavhada ko'rinadigan qisqa matn: `10.08 — 20.08`. */
-export function describeRange(from: string, to: string): string {
-  if (from && to) return `${formatDay(from)} — ${formatDay(to)}`;
-  if (from) return `${formatDay(from)} dan`;
-  if (to) return `${formatDay(to)} gacha`;
-  return "";
-}

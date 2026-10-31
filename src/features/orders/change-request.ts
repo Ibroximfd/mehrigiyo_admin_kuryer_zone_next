@@ -53,55 +53,6 @@ export type ChangeRequest = {
   courier: { id: number | null; fullName: string } | null;
 };
 
-export const CHANGE_REQUEST_KIND_LABELS: Record<ChangeRequestKind, string> = {
-  add_item: "Mahsulot qo'shish",
-  remove_item: "Mahsulotni olib tashlash",
-  gift: "Sovg'a",
-  other: "Boshqa o'zgarish",
-};
-
-const STATUS_LABELS: Record<ChangeRequestStatus, string> = {
-  pending: "Javob kutmoqda",
-  accepted: "Qabul qilindi",
-  rejected: "Rad etildi",
-  cancelled: "Kuryer bekor qildi",
-};
-
-export function changeRequestKindLabel(kind: string): string {
-  return (
-    CHANGE_REQUEST_KIND_LABELS[kind as ChangeRequestKind] ??
-    CHANGE_REQUEST_KIND_LABELS.other
-  );
-}
-
-export function changeRequestStatusLabel(status: string): string {
-  return STATUS_LABELS[status as ChangeRequestStatus] ?? status;
-}
-
-/** Logist javobini kutayotgan so'rov — kartadagi belgi shundan. */
-export function isOpenChangeRequest(
-  request: Pick<ChangeRequest, "status"> | null | undefined,
-): request is ChangeRequest {
-  return request?.status === "pending";
-}
-
-/**
- * `add_item` / `gift` so'rovining qo'shimcha summasi (katalog narxi ×
- * miqdor). Sovg'a pulsiz — `0`. Narxi kelmagan qator hisobga kirmaydi:
- * yakuniy summani baribir server hisoblaydi, bu faqat taxmin.
- */
-export function changeRequestDelta(request: ChangeRequest): number | null {
-  if (request.kind === "gift") return 0;
-  if (request.kind !== "add_item" && request.kind !== "remove_item") return null;
-  const priced = request.items.filter((item) => item.unitPrice !== null);
-  if (priced.length === 0) return null;
-  const sum = priced.reduce(
-    (total, item) => total + (item.unitPrice ?? 0) * item.quantity,
-    0,
-  );
-  return request.kind === "remove_item" ? -sum : sum;
-}
-
 function mapItem(raw: unknown): ChangeRequestItem {
   const json = asRecord(raw);
   const product = asRecord(json.product);
@@ -147,12 +98,4 @@ export function mapChangeRequest(raw: unknown): ChangeRequest | null {
         }
       : null,
   };
-}
-
-/** `GET …/change-requests/` → `{results: [...]}` (ochig'i birinchi). */
-export function mapChangeRequestList(raw: unknown): ChangeRequest[] {
-  const list = Array.isArray(raw) ? raw : asArray(asRecord(raw).results);
-  return list
-    .map(mapChangeRequest)
-    .filter((request): request is ChangeRequest => request !== null);
 }

@@ -44,22 +44,8 @@ export function translateText(text: string, locale: Locale): string {
   }
 }
 
-/** Rus lug'atida bormi — qamrov testi uchun. */
-export function hasRussian(text: string): boolean {
-  return russianTranslator().has(text);
-}
-
 /** DOM qatlami uchun: lotinda `null` — hech narsa o'girilmaydi, faqat tiklanadi. */
 export function converterFor(locale: Locale): ((text: string) => string) | null {
   if (locale === "uz-latn") return null;
   return (text) => translateText(text, locale);
-}
-
-/**
- * Qidiruv kaliti — matnning uchala tildagi shakli birga. cmdk kabi
- * filtrlar `value` ni DOM o'girilishidan OLDIN o'qiydi, ya'ni faqat lotin
- * shaklini bilardi va rus tilida yozilgan qidiruv hech narsa topmasdi.
- */
-export function searchableText(text: string): string {
-  return [text, translateText(text, "ru"), translateText(text, "uz-cyrl")].join(" ");
 }

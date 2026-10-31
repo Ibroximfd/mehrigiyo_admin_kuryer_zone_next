@@ -8,12 +8,15 @@ import { cn } from "@/lib/utils";
  */
 export function Field({
   label,
+  htmlFor,
   error,
   hint,
   children,
   className,
 }: {
   label: string;
+  /** Boshqaruv `id` si — yorliq bosilganda maydon fokuslanadi, ekran o'quvchi bog'laydi. */
+  htmlFor?: string;
   error?: string;
   /** Xatolik yo'q paytda ko'rinadigan izoh. */
   hint?: string;
@@ -22,7 +25,9 @@ export function Field({
 }) {
   return (
     <div className={className}>
-      <label className="text-ink text-dense block font-medium">{label}</label>
+      <label htmlFor={htmlFor} className="text-ink text-dense block font-medium">
+        {label}
+      </label>
       {/* `relative` — ba'zi maydonlarda ichkarida ikonka yoki tugma bo'ladi. */}
       <div className="relative mt-1.5">{children}</div>
       {error ? (
@@ -56,6 +61,3 @@ export const inputClass = cn(
   "disabled:bg-subtle disabled:text-ink-faint disabled:cursor-not-allowed",
   "aria-invalid:border-danger aria-invalid:ring-danger/20 aria-invalid:ring-[3px]",
 );
-
-/** Ichida chapdan ikonka turadigan maydon uchun. */
-export const inputWithIconClass = cn(inputClass, "pl-10");

@@ -1,6 +1,5 @@
 import { resolveMediaUrl } from "@/lib/api-constants";
 import { parseDate } from "@/lib/format";
-import { yandexMapsPointUrl } from "@/lib/maps";
 import {
   asArray,
   asOptionalInt,
@@ -36,15 +35,6 @@ export function mapDeliveryStage(raw: unknown): DeliveryStage | null {
   return DELIVERY_STAGES.some((stage) => stage.value === value)
     ? (value as DeliveryStage)
     : null;
-}
-
-export function deliveryStageLabel(stage: DeliveryStage): string {
-  return DELIVERY_STAGES.find((item) => item.value === stage)?.label ?? stage;
-}
-
-/** Kuryer ilovasida ishlayotgan (biriktirilgan va hali yopilmagan) bosqich. */
-export function isCourierWorking(stage: DeliveryStage | null): boolean {
-  return stage === "picked_up" || stage === "on_the_way" || stage === "arrived";
 }
 
 export type ProofPhoto = { full: string; thumb: string };
@@ -96,45 +86,3 @@ export function mapDeliveryProof(raw: unknown): DeliveryProof | null {
   };
 }
 
-const PAYMENT_KIND_LABELS: Record<string, string> = {
-  cash: "Naqd",
-  card_transfer: "Kartaga o'tkazma",
-  already_paid: "Oldindan to'langan",
-  partial: "Qisman to'lov",
-};
-
-export function paymentKindLabel(kind: string | null): string | null {
-  if (!kind) return null;
-  return PAYMENT_KIND_LABELS[kind] ?? kind;
-}
-
-/** Anomaliya belgilari — amal rad etilmagan, faqat logistga ishora. */
-const ANOMALY_LABELS: Record<string, string> = {
-  far_from_address: "Manzildan uzoqda yopilgan",
-  mock_location: "Soxta GPS",
-  no_gps: "GPS yo'q",
-  time_drift: "Telefon soati noto'g'ri",
-  partial_amount: "Summa to'liq emas",
-};
-
-export function anomalyLabel(flag: string): string {
-  return ANOMALY_LABELS[flag] ?? flag;
-}
-
-/**
- * Aldov belgilari (`HUDUD_3` javobi Q17) — qizil nishon; qolganlari sariq.
- * `mock_location` — ilova `is_mock` yuborgan yoki oxirgi nuqtalar soxta.
- */
-const FRAUD_ANOMALIES = new Set(["mock_location", "far_from_address"]);
-
-export type AnomalyTone = "danger" | "warn";
-
-export function anomalyTone(flag: string): AnomalyTone {
-  return FRAUD_ANOMALIES.has(flag) ? "danger" : "warn";
-}
-
-/** Isbot nuqtasini xaritada ochish havolasi. */
-export function proofMapLink(proof: DeliveryProof): string | null {
-  if (!proof.location) return null;
-  return yandexMapsPointUrl(proof.location);
-}

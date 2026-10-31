@@ -9,34 +9,10 @@ import type { OrderZoning } from "./zoning";
  */
 
 /** `delivery.address_changed_by` — kim o'zgartirgan. */
-export type AddressChangedBy = "courier" | "logist" | "client";
+export type AddressChangedBy = "courier" | "logist" | "client" | "chief";
 
 export function asAddressChangedBy(value: unknown): AddressChangedBy | null {
-  return value === "courier" || value === "logist" || value === "client" ? value : null;
-}
-
-/** Tarix sarlavhasi: "Kuryer manzilni o'zgartirdi" (`order.address_changed`). */
-const CHANGED_TITLES: Record<AddressChangedBy, string> = {
-  courier: "Kuryer manzilni o'zgartirdi",
-  logist: "Logist manzilni o'zgartirdi",
-  client: "Mijoz manzilni o'zgartirdi",
-};
-
-export function addressChangedTitle(by: AddressChangedBy | null): string {
-  return by ? CHANGED_TITLES[by] : "Manzil o'zgartirildi";
-}
-
-/** Kuryer tahriri sababi (`reason`) — tarixdagi "Sabab" qatori. */
-export const ADDRESS_CHANGE_REASONS: Record<string, string> = {
-  client_error: "Mijoz xato kiritgan",
-  moved: "Ko'chib o'tgan",
-  clarified: "Aniqlashtirildi",
-  other: "Boshqa",
-};
-
-export function addressChangeReasonLabel(reason: string | null): string | null {
-  if (!reason) return null;
-  return ADDRESS_CHANGE_REASONS[reason] ?? reason;
+  return value === "courier" || value === "logist" || value === "client" || value === "chief" ? value : null;
 }
 
 type AddressHost = {
@@ -71,32 +47,3 @@ export function formatDeliveryAddress(
   return parts.length ? parts.join(", ") : null;
 }
 
-export type AddressChangedBadge = {
-  by: AddressChangedBy;
-  label: string;
-  /** Tooltip — qayerda to'liq tarixni ko'rish mumkin. */
-  hint: string;
-};
-
-/** To'liq satrlar — tarjima qatlami butun matnni bitta kalit sifatida oladi. */
-const BADGE_LABELS: Record<AddressChangedBy, string> = {
-  courier: "Manzil o'zgartirilgan (kuryer)",
-  logist: "Manzil o'zgartirilgan (logist)",
-  client: "Manzil o'zgartirilgan (mijoz)",
-};
-
-/**
- * Kartadagi belgi — faqat `address_changed_by` kelganda. Kuryer o'zgartirgani
- * logist uchun eng muhimi: mijoz manzili ham yangilangan bo'lishi mumkin.
- */
-export function addressChangedBadge(
-  order: { deliveryInfo: Pick<DeliveryInfo, "addressChangedBy"> | null },
-): AddressChangedBadge | null {
-  const by = order.deliveryInfo?.addressChangedBy ?? null;
-  if (!by) return null;
-  return {
-    by,
-    label: BADGE_LABELS[by],
-    hint: "Oldingi va yangi manzil — buyurtma tarixida",
-  };
-}

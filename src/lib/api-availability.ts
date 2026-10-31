@@ -15,17 +15,3 @@ export function isEndpointMissing(error: unknown): boolean {
   );
 }
 
-/**
- * Bir marta 404 (marshrutsiz) olgan bo'lim qayta-qayta urilmasin — sessiya
- * davomida eslab qolamiz. Sahifa yangilanganda qaytadan tekshiriladi, ya'ni
- * backend chiqarilgach hech narsa qilish shart emas.
- */
-const missing = new Set<string>();
-
-export function markEndpointMissing(key: string) {
-  missing.add(key);
-}
-
-export function isKnownMissing(key: string): boolean {
-  return missing.has(key);
-}
