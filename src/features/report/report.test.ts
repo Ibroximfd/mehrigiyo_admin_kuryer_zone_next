@@ -28,8 +28,22 @@ describe("moliya: chief/finance (TUZILMA_V2 §5.1)", () => {
     });
     expect(report.byCourier[0]).toMatchObject({ cashWithCourier: 100, cashHanded: 50 });
     expect(productTotals(report.byCourier)).toEqual([
-      { item: { id: 12, name: "K" }, quantity: 5 },
-      { item: { id: 11, name: "G" }, quantity: 3 },
+      { item: { id: 12, name: "K", image: null }, quantity: 5 },
+      { item: { id: 11, name: "G", image: null }, quantity: 3 },
+    ]);
+  });
+
+  it("mahsulot rasmi: to'liq URL o'z holicha, bo'sh — null, boshqa kuryerdagisi olinadi", () => {
+    const report = mapChiefFinance({
+      by_courier: [
+        { courier: { id: 1, full_name: "A" }, by_product: [{ item: { id: 11, name: "G", image: null }, qty: 1 }] },
+        { courier: { id: 2, full_name: "B" }, by_product: [{ item: { id: 11, name: "G", image: "https://my.imorganic.uz/media/g.png" }, qty: 1 }, { item: { id: 12, name: "K", image: "" }, qty: 1 }] },
+      ],
+    });
+    expect(report.byCourier[0]?.products[0]?.item.image).toBeNull();
+    expect(productTotals(report.byCourier)).toEqual([
+      { item: { id: 11, name: "G", image: "https://my.imorganic.uz/media/g.png" }, quantity: 2 },
+      { item: { id: 12, name: "K", image: null }, quantity: 1 },
     ]);
   });
 

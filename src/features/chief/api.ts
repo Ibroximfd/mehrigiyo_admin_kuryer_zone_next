@@ -143,11 +143,20 @@ export function fetchIncomingOrders(signal?: AbortSignal): Promise<LogistOrder[]
   );
 }
 
-/** Zakaz detali va tarixi (`chief/orders/{id}/`, V4). */
-export function fetchChiefOrderDetail(id: string, signal?: AbortSignal): Promise<ChiefOrderDetail> {
-  return call(async () =>
-    mapChiefOrderDetail(await api.get<unknown>(ENDPOINTS.chiefOrder(id), { signal, fallbackError: "Zakazni yuklashda xatolik" })),
-  );
+/**
+ * Zakaz detali va tarixi (`chief/orders/{id}/`, V4). `404` — zakaz endi bosh
+ * kuryerda emas (logistga qaytarilgan yoki boshqasiga o'tgan): kodsiz bo'lsa
+ * ham «endpoint yo'q» deb o'qilmaydi — `order_gone`.
+ */
+export async function fetchChiefOrderDetail(id: string, signal?: AbortSignal): Promise<ChiefOrderDetail> {
+  try {
+    return mapChiefOrderDetail(await api.get<unknown>(ENDPOINTS.chiefOrder(id), { signal, fallbackError: "Zakazni yuklashda xatolik" }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw new ApiError("Zakaz endi sizda emas", 404, error.data, "order_gone");
+    }
+    throw error;
+  }
 }
 
 /** Avto-taqsimlash rejasi (V5) — server qoidasi bilan; hech narsa yozilmaydi. */
@@ -187,25 +196,30 @@ export type AddressFixInput = {
   note: string;
 };
 
-/** Faqat o'z viloyatlari ichida; begona tuman — `403 zone_other_region`. Javob — yangilangan zakaz. */
-export function fixChiefOrderAddress(orderId: string, input: AddressFixInput): Promise<LogistOrder> {
-  const json: Record<string, unknown> = { district: input.district, reason: input.reason };
+/**
+ * Faqat o'z viloyatlari ichida (tuman viloyatni belgilaydi). Xatolar:
+ * `403 zone_other_region`, `409 order_closed`, `400 validation_error` (`fields`).
+ * Javob — `chief/orders/{id}/` ning aynan o'zi (zakaz + `history[]`).
+ * Mo'ljal har doim yuboriladi: bo'shatilsa o'chadi.
+ */
+export function fixChiefOrderAddress(orderId: string, input: AddressFixInput): Promise<ChiefOrderDetail> {
+  const json: Record<string, unknown> = { district: input.district, reason: input.reason, landmark: input.landmark.trim() };
   if (input.addressText.trim()) json.address_text = input.addressText.trim();
-  if (input.landmark.trim()) json.landmark = input.landmark.trim();
   if (input.note.trim()) json.note = input.note.trim();
-  return call(async () => {
-    const raw = await api.patch<unknown>(ENDPOINTS.chiefOrderAddress(orderId), { json, fallbackError: "Manzilni saqlashda xatolik" });
-    return mapLogistOrder(isRecord(asRecord(raw).order) ? asRecord(raw).order : raw);
-  });
+  // `call` siz: endpoint chiqqan (TZ 25), `404` — zakaz endi sizda emas (`gone`), «endpoint yo'q» emas.
+  return api
+    .patch<unknown>(ENDPOINTS.chiefOrderAddress(orderId), { json, fallbackError: "Manzilni saqlashda xatolik" })
+    .then(mapChiefOrderDetail);
 }
 
-/** Zakazni logistga qaytarish: bosh kuryer va kuryer olinadi, zakaz logist taqsimlashiga. */
-export function returnChiefOrder(orderId: string, input: { reason: ReturnReason; note: string }): Promise<void> {
+/**
+ * Zakazni logistga qaytarish: bosh kuryer va kuryer olinadi, zakaz logist
+ * taqsimlashiga (`needs_redispatch`). `other` da izoh majburiy (`400 fields.note`).
+ */
+export async function returnChiefOrder(orderId: string, input: { reason: ReturnReason; note: string }): Promise<void> {
   const json: Record<string, unknown> = { reason: input.reason };
   if (input.note.trim()) json.note = input.note.trim();
-  return call(async () => {
-    await api.post<unknown>(ENDPOINTS.chiefOrderReturn(orderId), { json, fallbackError: "Logistga qaytarishda xatolik" });
-  });
+  await api.post<unknown>(ENDPOINTS.chiefOrderReturn(orderId), { json, fallbackError: "Logistga qaytarishda xatolik" });
 }
 
 /** Filiallar (V14) — filtrlar uchun. */

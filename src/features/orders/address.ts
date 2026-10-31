@@ -9,10 +9,12 @@ import type { OrderZoning } from "./zoning";
  */
 
 /** `delivery.address_changed_by` — kim o'zgartirgan. */
-export type AddressChangedBy = "courier" | "logist" | "client" | "chief";
+export type AddressChangedBy = "courier" | "logist" | "client" | "chief" | "crm";
 
 export function asAddressChangedBy(value: unknown): AddressChangedBy | null {
-  return value === "courier" || value === "logist" || value === "client" || value === "chief" ? value : null;
+  return value === "courier" || value === "logist" || value === "client" || value === "chief" || value === "crm"
+    ? value
+    : null;
 }
 
 type AddressHost = {

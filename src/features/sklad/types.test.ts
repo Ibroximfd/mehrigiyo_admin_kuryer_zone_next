@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { skladStockRows, type StockCell } from "./types";
+import { mapCourierStock, mapStockCell, skladStockRows, type StockCell } from "./types";
 
-const item = { id: 14, name: "Alatoo bals", sku: "M-14" };
+const item = { id: 14, name: "Alatoo bals", image: null };
 
 const cell = (onHand: number, isLow: boolean): StockCell => ({
   kind: "region",
@@ -25,5 +25,17 @@ describe("skladStockRows", () => {
   it("jami qoldiq minimumdan past bo'lsa — «kam»", () => {
     const [row] = skladStockRows([cell(20, true), cell(0, true)], []);
     expect(row?.isLow).toBe(true);
+  });
+});
+
+describe("sklad item.image", () => {
+  it("to'liq URL saqlanadi, bo'sh yoki yo'q — null", () => {
+    expect(mapCourierStock({ id: 1, items: [{ item: { id: 2, name: "G", image: "https://x.uz/m/g.png" }, quantity: 1 }] }).items[0]?.item).toEqual({
+      id: 2,
+      name: "G",
+      image: "https://x.uz/m/g.png",
+    });
+    expect(mapStockCell({ item: { id: 2, name: "G", image: null } }).item.image).toBeNull();
+    expect(mapStockCell({ item: { id: 2, name: "G" } }).item.image).toBeNull();
   });
 });

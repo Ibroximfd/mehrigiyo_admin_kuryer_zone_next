@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Inbox, LoaderCircle, MapPin, MapPinned, SearchX, Truck, Undo2, Wand2 } from "lucide-react";
+import { Inbox, LoaderCircle, MapPin, MapPinned, SearchX, Store, Truck, Undo2, Wand2 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -181,6 +181,7 @@ function ChiefOrderRow({
   const address = formatDeliveryAddress(order);
   const products = orderProductsLine(order);
   const changedBy = addressChangedBy(order);
+  const landmark = order.deliveryInfo?.landmark ?? null;
 
   return (
     <li className="hover:bg-subtle flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors">
@@ -207,6 +208,12 @@ function ChiefOrderRow({
           <MapPin className="size-3 shrink-0" aria-hidden />
           <span className="truncate" data-no-translit>{address ?? "Manzil yo'q"}</span>
         </span>
+        {landmark ? (
+          <span className="text-ink-faint mt-0.5 block truncate text-meta">
+            {"Mo'ljal: "}
+            <span data-no-translit>{landmark}</span>
+          </span>
+        ) : null}
       </button>
       <span className="flex shrink-0 flex-col items-end gap-0.5">
         <span className="text-ink tabular text-dense font-semibold">{formatSom(order.payableAmount)}</span>
@@ -214,6 +221,12 @@ function ChiefOrderRow({
           <Truck className="size-3.5" aria-hidden />
           {order.courier ? <span data-no-translit>{order.courier.fullName}</span> : "Kuryersiz"}
         </span>
+        {order.filial ? (
+          <span className="text-ink-faint inline-flex items-center gap-1 text-meta" title="Sotgan filial">
+            <Store className="size-3.5" aria-hidden />
+            <span data-no-translit>{order.filial.name}</span>
+          </span>
+        ) : null}
       </span>
       {canDispatch && isOpenOrder(order) ? (
         <span className="flex w-full shrink-0 justify-end gap-1.5 sm:w-auto">

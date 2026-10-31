@@ -1,11 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { History, MapPinned, Phone, Truck, Undo2 } from "lucide-react";
+import { History, MapPinned, PackageX, Phone, Truck, Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
-import { ErrorView } from "@/components/kit/state-views";
+import { EmptyView, ErrorView } from "@/components/kit/state-views";
 import { StatusPill } from "@/components/kit/status-pill";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,7 @@ import type { OrderHistoryEntry } from "@/features/chief/types";
 import { formatDeliveryAddress } from "@/features/orders/address";
 import { orderStatusInfo } from "@/features/orders/types";
 import type { LogistOrder } from "@/features/orders/types";
-import { errorMessage } from "@/lib/api-client";
+import { errorCode, errorMessage } from "@/lib/api-client";
 import { formatDateTime, formatPhone, formatSom } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -93,6 +93,25 @@ function DetailBody({
   });
   const order = detail.data?.order ?? fallback;
 
+  // `404` — zakaz endi bosh kuryerda emas (logistga qaytarilgan yoki boshqasiga o'tgan): ro'yxatdagi eski nusxa ko'rsatilmaydi.
+  if (detail.isError && errorCode(detail.error) === "order_gone") {
+    return (
+      <div className="p-5">
+        <SheetTitle className="sr-only">Zakaz</SheetTitle>
+        <EmptyView
+          Icon={PackageX}
+          title="Zakaz endi sizda emas"
+          description="U logistga qaytarilgan yoki boshqa bosh kuryerga o'tgan."
+          action={
+            <Button variant="outline" onClick={onClose}>
+              Yopish
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
   if (!order) {
     return (
       <div className="p-5">
@@ -151,6 +170,14 @@ function DetailBody({
           <p className="text-ink-muted text-dense" data-no-translit>
             {formatDeliveryAddress(order) ?? "Manzil yo'q"}
           </p>
+          {order.deliveryInfo?.landmark ? (
+            <p className="text-ink-muted text-dense">
+              {"Mo'ljal: "}
+              <span className="text-ink" data-no-translit>
+                {order.deliveryInfo.landmark}
+              </span>
+            </p>
+          ) : null}
           {addressChangedBy(order) ? (
             <StatusPill
               label={`Manzil o'zgardi · ${addressChangedBy(order)}`}
@@ -214,7 +241,7 @@ function DetailBody({
         <Block title="Yetkazish">
           <dl className="flex flex-col gap-1.5 text-dense">
             <Row label="To'lov" value={paymentLabel(order.paymentMethod)} />
-            <Row label="Filial" value={order.filial?.name ?? "—"} data />
+            <Row label="Sotgan filial" value={order.filial?.name ?? "—"} data={Boolean(order.filial)} />
             <Row
               label="Zona"
               value={order.zoning.zoneName ?? "Zona aniqlanmagan"}

@@ -61,6 +61,9 @@ export type DemoOrderRow = {
   landmark: string | null;
   /** Logistga qaytarilgan — bosh kuryer ro'yxatlaridan chiqadi. */
   returned: boolean;
+  /** Qaytarish sababi va izohi (`return_reason` / `return_note`); qaytarilmagan — `null`. */
+  returnReason: string | null;
+  returnNote: string | null;
   history: DemoHistoryEntry[];
 };
 
@@ -160,6 +163,8 @@ function buildOrders(now: Date): DemoOrderRow[] {
       addressChangedBy: index === 9 ? ("courier" as const) : null,
       landmark: null,
       returned: false,
+      returnReason: null,
+      returnNote: null,
       history,
     };
   });

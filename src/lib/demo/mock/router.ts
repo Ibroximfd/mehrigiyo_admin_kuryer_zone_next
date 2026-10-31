@@ -34,7 +34,10 @@ export type DemoRequest = {
 };
 
 const ok = (data: unknown): DemoResponse => ({ status: 200, data });
-const fail = (status: number, code: string): DemoResponse => ({ status, data: { code } });
+const fail = (status: number, code: string, fields?: Record<string, string[]>): DemoResponse => ({
+  status,
+  data: fields ? { code, fields } : { code },
+});
 
 function body(request: DemoRequest): Record<string, unknown> {
   return request.json && typeof request.json === "object" ? (request.json as Record<string, unknown>) : {};
@@ -74,6 +77,8 @@ function orderJson(order: DemoOrderRow) {
         quantity: item.quantity,
         unit_price: product?.price ?? null,
         total: (product?.price ?? 0) * item.quantity,
+        // Demo mahsulotlarida rasm yo'q — backenddek `null` (UI bosh harflarni chizadi).
+        image: null,
       };
     }),
     customer_notes: order.note,
@@ -84,14 +89,19 @@ function orderJson(order: DemoOrderRow) {
       district_display: districtName(order.district),
       address_text: order.address,
       address_changed_by: order.addressChangedBy,
-      landmark: order.landmark,
+      // TZ 25: bo'sh qiymat — `null`, `""` emas.
+      landmark: order.landmark || null,
       zone_id: zone?.id ?? null,
       zone_name: zone?.name ?? null,
     },
     payment: { method: "cash" },
     courier: courierRef(order.courierId),
     chief_courier: { id: DEMO_CHIEF.id, full_name: DEMO_CHIEF.fullName },
+    // N-4: sotgan filial.
     filial: filialJson(order.filial),
+    return_reason: order.returnReason,
+    return_note: order.returnNote,
+    needs_redispatch: order.returned,
     created_at: order.createdAt.toISOString(),
     delivered_at: order.deliveredAt?.toISOString() ?? null,
     zone_match: order.courierId === null || !zone ? null : courierZone(order.courierId) === zone.id,
@@ -174,6 +184,7 @@ function chiefMe(): DemoResponse {
       "zones.manage": true,
       "cash.accept": true,
       "warehouse.view_courier_stores": true,
+      "view.analytics": true,
     },
     summary: {
       incoming: demoDb.orders.filter(isIncoming).length,
@@ -231,28 +242,45 @@ function chiefOrders(request: DemoRequest): DemoResponse {
 /** V4: zakaz + `history[]`, yangisi birinchi. */
 function orderDetail(id: string): DemoResponse {
   const order = findOrder(id);
-  if (!order) return fail(404, "order_not_found");
-  return ok({
+  // Logistga qaytarilgan zakaz bosh kuryerda emas — detali ham `404` (TZ 25 §2).
+  if (!order || order.returned) return fail(404, "order_not_found");
+  return ok(detailJson(order));
+}
+
+function detailJson(order: DemoOrderRow) {
+  return {
     ...orderJson(order),
     history: [...order.history]
       .sort((a, b) => b.at.getTime() - a.at.getTime())
       .map((entry) => ({ at: entry.at.toISOString(), action: entry.action, actor: entry.actor, courier: entry.courier })),
-  });
+  };
 }
+
+/** `409 order_closed` — yetkazilgan yoki bekor qilingan; qaytarilgan yoki yo'q — `404`. */
+function editableOrder(id: string): DemoOrderRow | DemoResponse {
+  const order = findOrder(id);
+  if (!order || order.returned) return fail(404, "order_not_found");
+  if (order.status !== "shipping") return fail(409, "order_closed");
+  return order;
+}
+
+const isResponse = (value: DemoOrderRow | DemoResponse): value is DemoResponse => "status" in value && "data" in value;
 
 /** `25_MANZIL_OZGARISHI` §5.1: faqat o'z viloyatlari; zona o'zgarsa va kuryer unda bo'lmasa — kuryer olinadi. */
 function fixAddress(id: string, request: DemoRequest): DemoResponse {
-  const order = findOrder(id);
-  if (!order || order.returned || order.status !== "shipping") return fail(404, "order_not_found");
+  const order = editableOrder(id);
+  if (isResponse(order)) return order;
   const json = body(request);
   const district = allDistricts().find((item) => item.code === String(json.district ?? ""));
-  if (!district) return fail(400, "validation_error");
+  if (!district) return fail(400, "validation_error", { district: ["Tuman topilmadi"] });
   if (!DEMO_CHIEF.regions.some((code) => code === district.region)) return fail(403, "zone_other_region");
-  if (!["client_error", "clarified", "moved", "other"].includes(String(json.reason))) return fail(400, "validation_error");
+  if (!["client_error", "clarified", "moved", "other"].includes(String(json.reason))) {
+    return fail(400, "validation_error", { reason: ["Sabab noto'g'ri"] });
+  }
   order.region = district.region;
   order.district = district.code;
   if (typeof json.address_text === "string" && json.address_text.trim()) order.address = json.address_text.trim();
-  order.landmark = typeof json.landmark === "string" ? json.landmark : null;
+  if (typeof json.landmark === "string") order.landmark = json.landmark.trim() || null;
   order.addressChangedBy = "chief";
   pushHistory(order, "address_changed", null);
   const zone = zoneOfDistrict(order.district);
@@ -260,19 +288,26 @@ function fixAddress(id: string, request: DemoRequest): DemoResponse {
     pushHistory(order, "courier_unassigned", courierRef(order.courierId)?.full_name ?? null);
     order.courierId = null;
   }
-  return ok(orderJson(order));
+  // Javob — `chief/orders/{id}/` ning aynan o'zi.
+  return ok(detailJson(order));
 }
 
 /** §5.2: bosh kuryer va kuryer olinadi, zakaz logist taqsimlashiga qaytadi. */
 function returnOrder(id: string, request: DemoRequest): DemoResponse {
-  const order = findOrder(id);
-  if (!order || order.returned || order.status !== "shipping") return fail(404, "order_not_found");
-  if (!["wrong_region", "address_unknown", "client_unreachable", "other"].includes(String(body(request).reason))) {
-    return fail(400, "validation_error");
+  const order = editableOrder(id);
+  if (isResponse(order)) return order;
+  const json = body(request);
+  const reason = String(json.reason);
+  const note = typeof json.note === "string" ? json.note.trim() : "";
+  if (!["wrong_region", "address_unknown", "client_unreachable", "other"].includes(reason)) {
+    return fail(400, "validation_error", { reason: ["Sabab noto'g'ri"] });
   }
+  if (reason === "other" && !note) return fail(400, "validation_error", { note: ["«Boshqa sabab» uchun izoh majburiy"] });
   pushHistory(order, "returned_to_logist", null);
   order.courierId = null;
   order.returned = true;
+  order.returnReason = reason;
+  order.returnNote = note || null;
   return ok({ id: order.id, returned: true });
 }
 
@@ -688,7 +723,7 @@ function byCourier(from: string, to: string) {
         .reduce((sum, order) => sum + order.total, 0),
       cash_handed: settledIn(from, to).filter((order) => order.courierId === courier.id).reduce((sum, order) => sum + order.total, 0),
       by_product: [...products.entries()].map(([id, qty]) => ({
-        item: { id, name: DEMO_PRODUCTS.find((product) => product.id === id)?.name ?? "" },
+        item: { id, name: DEMO_PRODUCTS.find((product) => product.id === id)?.name ?? "", image: null },
         qty,
       })),
     };
@@ -830,7 +865,7 @@ function cashHandover(request: DemoRequest): DemoResponse {
 function courierStockItems(courierId: number) {
   return DEMO_PRODUCTS.flatMap((product) => {
     const quantity = Math.floor(demoSeed("stock", courierId, product.id) * 9) - 3;
-    return quantity > 0 ? [{ item: { id: product.id, name: product.name, sku: `P-${product.id}` }, quantity }] : [];
+    return quantity > 0 ? [{ item: { id: product.id, name: product.name, sku: `P-${product.id}`, image: null }, quantity }] : [];
   });
 }
 
@@ -877,7 +912,7 @@ function skladStock(request: DemoRequest): DemoResponse {
       const onHand = Math.round(10 + demoSeed("sklad", region, product.id) * 300);
       return {
         location: { id: 100 + regionIndex, name: `${region} ombori`, kind: "region", region },
-        item: { id: product.id, name: product.name, sku: `P-${product.id}`, package_size: 1 },
+        item: { id: product.id, name: product.name, sku: `P-${product.id}`, package_size: 1, image: null },
         on_hand: onHand,
         min_quantity: 40,
         is_low: onHand <= 40,

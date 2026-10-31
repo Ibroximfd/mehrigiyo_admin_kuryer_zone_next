@@ -1,3 +1,5 @@
+import { mapItemRef } from "@/lib/item-ref";
+import type { ItemRef } from "@/lib/item-ref";
 import { asArray, asInt, asNumber, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
 /**
@@ -33,7 +35,8 @@ export type FinanceCourierRow = {
   addresses: number;
   cashWithCourier: number;
   cashHanded: number;
-  products: Array<{ item: { id: number; name: string }; quantity: number }>;
+  /** Mahsulot qatorlari — `item.image` to'liq URL yoki `null`. */
+  products: Array<{ item: ItemRef; quantity: number }>;
 };
 
 export function mapFinanceCourierRow(raw: unknown): FinanceCourierRow {
@@ -47,19 +50,20 @@ export function mapFinanceCourierRow(raw: unknown): FinanceCourierRow {
     cashHanded: asNumber(json.cash_handed),
     products: asArray(json.by_product).map((entry) => {
       const row = asRecord(entry);
-      const item = asRecord(row.item);
-      return { item: { id: asInt(item.id), name: asString(item.name) }, quantity: asInt(row.qty) };
+      return { item: mapItemRef(row.item), quantity: asInt(row.qty) };
     }),
   };
 }
 
 /** Mahsulotlar jami — hamma kuryer bo'yicha, ko'pi birinchi. */
-export function productTotals(couriers: readonly FinanceCourierRow[]): Array<{ item: { id: number; name: string }; quantity: number }> {
-  const byItem = new Map<number, { item: { id: number; name: string }; quantity: number }>();
+export function productTotals(couriers: readonly FinanceCourierRow[]): Array<{ item: ItemRef; quantity: number }> {
+  const byItem = new Map<number, { item: ItemRef; quantity: number }>();
   for (const courier of couriers) {
     for (const entry of courier.products) {
       const row = byItem.get(entry.item.id) ?? { item: entry.item, quantity: 0 };
-      byItem.set(entry.item.id, { ...row, quantity: row.quantity + entry.quantity });
+      // Rasm bir kuryer qatorida bo'lmasa, boshqasidagidan olinadi.
+      const item = row.item.image ? row.item : { ...row.item, image: entry.item.image };
+      byItem.set(entry.item.id, { item, quantity: row.quantity + entry.quantity });
     }
   }
   return [...byItem.values()].sort((a, b) => b.quantity - a.quantity);

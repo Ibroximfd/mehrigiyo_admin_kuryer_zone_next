@@ -21,7 +21,7 @@ export const SERVERS = {
  *   APP_SERVER=test npm run dev
  *   APP_SERVER=test npm run build
  */
-export const DEFAULT_SERVER = "test";
+export const DEFAULT_SERVER = "prod";
 
 /**
  * ⬇︎ DEMO REJIM. `true` — sayt backendga umuman chiqmaydi: har so'rovga

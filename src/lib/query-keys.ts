@@ -15,6 +15,8 @@ export const queryKeys = {
   // ── Bosh kuryer ──────────────────────────────────────────────────────────
   chief: ["chief"] as const,
   chiefMe: ["chief", "me"] as const,
+  /** Hamma zakaz ro'yxatlari (har filtr) — `chiefOrders` ning ildizi. */
+  chiefOrderLists: ["chief", "orders"] as const,
   chiefOrders: (filters: Record<string, unknown>) => ["chief", "orders", filters] as const,
   chiefOrderDetail: (orderId: string) => ["chief", "order", orderId] as const,
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */

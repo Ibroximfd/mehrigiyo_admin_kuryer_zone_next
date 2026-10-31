@@ -10,6 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fixChiefOrderAddress, returnChiefOrder } from "@/features/chief/api";
+import { dropOrder, storeOrderDetail } from "@/features/chief/order-cache";
+import {
+  ADDRESS_FIX_FIELDS,
+  RETURN_FIELDS,
+  addressFixErrors,
+  chiefActionFailure,
+  courierWasUnassigned,
+  hasErrors,
+  returnErrors,
+} from "@/features/chief/order-action-rules";
+import type { AddressFixField, FieldErrors, ReturnField } from "@/features/chief/order-action-rules";
 import {
   ADDRESS_FIX_REASONS,
   ADDRESS_FIX_REASON_LABELS,
@@ -21,23 +32,14 @@ import { regionLabel } from "@/features/orders/regions";
 import type { LogistOrder } from "@/features/orders/types";
 import { districtName } from "@/features/zones/types";
 import { useRegionsDictionary } from "@/features/zones/use-zones";
-import { errorCode, errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
-/** Backend javobi xato kodini tushunarli matnga (404 — endpoint hali yo'q). */
-function actionError(error: unknown, fallback: string): string {
-  const code = errorCode(error);
-  if (code === "endpoint_missing") return "Bu amal backendda hali yo'q — backend kutilmoqda";
-  if (code === "zone_other_region") return "Tuman o'z viloyatlaringizdan bo'lishi kerak";
-  return errorMessage(error, fallback);
-}
-
 /**
  * «Manzilni tuzatish» (`25_MANZIL_OZGARISHI` §1, §3): faqat o'z viloyatlari
- * ichida — tuman, ko'cha, mo'ljal va sabab. Boshqa viloyat bo'lsa — logistga
- * qaytariladi (u yerda viloyatni zakaz egasi hal qiladi).
+ * ichida — tuman (u viloyatni belgilaydi), ko'cha, mo'ljal va sabab. Boshqa
+ * viloyat bo'lsa — logistga qaytariladi (viloyatni zakaz egasi hal qiladi).
  */
 export function AddressFixDialog({
   order,
@@ -45,39 +47,58 @@ export function AddressFixDialog({
   onClose,
 }: {
   order: LogistOrder;
-  /** Bosh kuryer viloyatlari (`chief/me`). */
+  /** Bosh kuryer viloyatlari (`chief/me`); bo'sh — hamma viloyat (`scope=all`). */
   regions: string[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const locale = useLocaleStore((state) => state.locale);
   const dictionary = useRegionsDictionary();
-  const initialRegion = regions.includes(order.deliveryInfo?.region ?? "") ? (order.deliveryInfo?.region ?? "") : (regions[0] ?? "");
+  const regionOptions = regions.length > 0 ? regions : (dictionary.data ?? []).map((item) => item.region);
+  const orderRegion = order.deliveryInfo?.region ?? "";
+  const initialRegion = regions.length === 0 || regions.includes(orderRegion) ? orderRegion : (regions[0] ?? "");
   const [region, setRegion] = useState(initialRegion);
-  const [district, setDistrict] = useState(order.zoning.district ?? "");
+  const [district, setDistrict] = useState(initialRegion === orderRegion ? (order.zoning.district ?? "") : "");
   const [addressText, setAddressText] = useState(order.deliveryInfo?.address ?? "");
-  const [landmark, setLandmark] = useState("");
+  const [landmark, setLandmark] = useState(order.deliveryInfo?.landmark ?? "");
   const [reason, setReason] = useState<AddressFixReason | "">("");
   const [note, setNote] = useState("");
   const [touched, setTouched] = useState(false);
+  const [serverErrors, setServerErrors] = useState<FieldErrors<AddressFixField>>({});
 
   const districts = (dictionary.data ?? []).find((item) => item.region === region)?.districts.filter((item) => item.isActive) ?? [];
-  const errors = {
-    district: district && districts.some((item) => item.code === district) ? null : "Tumanni tanlang",
-    reason: reason ? null : "Sababni tanlang",
-    note: reason === "other" && !note.trim() ? "«Boshqa sabab» uchun izoh yozing" : null,
+  const formErrors = addressFixErrors(
+    { district, reason, note },
+    districts.map((item) => item.code),
+  );
+  const valid = !hasErrors(formErrors);
+  const errorOf = (field: AddressFixField) => (touched ? formErrors[field] : undefined) ?? serverErrors[field];
+  const edit = <T,>(field: AddressFixField, set: (value: T) => void) => (value: T) => {
+    set(value);
+    setServerErrors((current) => ({ ...current, [field]: undefined }));
   };
-  const valid = !errors.district && !errors.reason && !errors.note;
 
   const save = useMutation({
     mutationFn: () =>
       fixChiefOrderAddress(order.id, { district, addressText, landmark, reason: reason as AddressFixReason, note }),
-    onSuccess: () => {
+    onSuccess: (detail) => {
+      storeOrderDetail(queryClient, detail);
       toast.success(`${order.orderNumber} — manzil tuzatildi`);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+      if (courierWasUnassigned(order, detail.order)) {
+        toast.info("Kuryer yangi zonada emas — zakazdan olindi va «Kelganlar» ga qaytdi");
+      }
       onClose();
     },
-    onError: (error) => toast.error(actionError(error, "Manzilni saqlashda xatolik")),
+    onError: (error) => {
+      const failure = chiefActionFailure(error, ADDRESS_FIX_FIELDS, "Manzilni saqlashda xatolik");
+      setServerErrors(failure.kind === "foreign_region" ? { district: failure.message } : failure.fields);
+      toast.error(failure.message);
+      if (failure.kind === "closed" || failure.kind === "gone") {
+        if (failure.kind === "gone") dropOrder(queryClient, order.id);
+        else void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+        onClose();
+      }
+    },
   });
 
   return (
@@ -101,20 +122,20 @@ export function AddressFixDialog({
           </DialogDescription>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {regions.length > 1 ? (
-              <Field label="Viloyat" htmlFor="fix-region">
+            {regionOptions.length > 1 ? (
+              <Field label="Viloyat" htmlFor="fix-region" hint="Tuman tanlansa zakaz viloyati ham shunga o'tadi">
                 <Select
                   value={region}
                   onValueChange={(next) => {
                     setRegion(next);
-                    setDistrict("");
+                    edit("district", setDistrict)("");
                   }}
                 >
                   <SelectTrigger id="fix-region" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {regions.map((code) => (
+                    {regionOptions.map((code) => (
                       <SelectItem key={code} value={code}>
                         {regionLabel(code)}
                       </SelectItem>
@@ -126,11 +147,11 @@ export function AddressFixDialog({
             <Field
               label="Tuman yoki shahar"
               htmlFor="fix-district"
-              className={regions.length > 1 ? "" : "sm:col-span-2"}
-              error={touched ? (errors.district ?? undefined) : undefined}
+              className={regionOptions.length > 1 ? "" : "sm:col-span-2"}
+              error={errorOf("district")}
             >
-              <Select value={district} onValueChange={setDistrict}>
-                <SelectTrigger id="fix-district" className="w-full" aria-invalid={touched && Boolean(errors.district)}>
+              <Select value={district} onValueChange={edit("district", setDistrict)}>
+                <SelectTrigger id="fix-district" className="w-full" aria-invalid={Boolean(errorOf("district"))}>
                   <SelectValue placeholder={dictionary.isPending ? "Yuklanmoqda…" : "Tanlang"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -142,27 +163,38 @@ export function AddressFixDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Ko'cha, uy" htmlFor="fix-address" className="sm:col-span-2">
+            <Field label="Ko'cha, uy" htmlFor="fix-address" className="sm:col-span-2" error={errorOf("address_text")}>
               <input
                 id="fix-address"
                 value={addressText}
                 maxLength={255}
-                onChange={(event) => setAddressText(event.target.value)}
+                aria-invalid={Boolean(errorOf("address_text"))}
+                onChange={(event) => edit("address_text", setAddressText)(event.target.value)}
                 className={inputClass}
               />
             </Field>
-            <Field label="Mo'ljal" htmlFor="fix-landmark" hint="Ixtiyoriy — kuryerga yo'l ko'rsatadi" className="sm:col-span-2">
+            <Field
+              label="Mo'ljal"
+              htmlFor="fix-landmark"
+              hint="Ixtiyoriy — kuryerga yo'l ko'rsatadi"
+              className="sm:col-span-2"
+              error={errorOf("landmark")}
+            >
               <input
                 id="fix-landmark"
                 value={landmark}
                 maxLength={255}
-                onChange={(event) => setLandmark(event.target.value)}
+                aria-invalid={Boolean(errorOf("landmark"))}
+                onChange={(event) => edit("landmark", setLandmark)(event.target.value)}
                 className={inputClass}
               />
             </Field>
-            <Field label="Sabab" htmlFor="fix-reason" error={touched ? (errors.reason ?? undefined) : undefined}>
-              <Select value={reason} onValueChange={(next) => setReason(ADDRESS_FIX_REASONS.find((item) => item === next) ?? "")}>
-                <SelectTrigger id="fix-reason" className="w-full" aria-invalid={touched && Boolean(errors.reason)}>
+            <Field label="Sabab" htmlFor="fix-reason" error={errorOf("reason")}>
+              <Select
+                value={reason}
+                onValueChange={(next) => edit("reason", setReason)(ADDRESS_FIX_REASONS.find((item) => item === next) ?? "")}
+              >
+                <SelectTrigger id="fix-reason" className="w-full" aria-invalid={Boolean(errorOf("reason"))}>
                   <SelectValue placeholder="Tanlang" />
                 </SelectTrigger>
                 <SelectContent>
@@ -174,13 +206,13 @@ export function AddressFixDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Izoh" htmlFor="fix-note" error={touched ? (errors.note ?? undefined) : undefined}>
+            <Field label="Izoh" htmlFor="fix-note" error={errorOf("note")}>
               <input
                 id="fix-note"
                 value={note}
                 maxLength={255}
-                aria-invalid={touched && Boolean(errors.note)}
-                onChange={(event) => setNote(event.target.value)}
+                aria-invalid={Boolean(errorOf("note"))}
+                onChange={(event) => edit("note", setNote)(event.target.value)}
                 className={inputClass}
               />
             </Field>
@@ -210,24 +242,44 @@ export function ReturnDialog({ order, onClose, onReturned }: { order: LogistOrde
   const queryClient = useQueryClient();
   const [reason, setReason] = useState<ReturnReason | "">("");
   const [note, setNote] = useState("");
-  const valid = reason !== "" && (reason !== "other" || note.trim().length > 0);
+  const [touched, setTouched] = useState(false);
+  const [serverErrors, setServerErrors] = useState<FieldErrors<ReturnField>>({});
+  const formErrors = returnErrors({ reason, note });
+  const valid = !hasErrors(formErrors);
+  const errorOf = (field: ReturnField) => (touched ? formErrors[field] : undefined) ?? serverErrors[field];
+
+  const leave = () => {
+    // Avval detal yopiladi (so'rov kuzatuvchisiz qoladi), keyin kesh tozalanadi — `404` qayta so'ralmaydi.
+    onReturned();
+    dropOrder(queryClient, order.id);
+  };
 
   const send = useMutation({
     mutationFn: () => returnChiefOrder(order.id, { reason: reason as ReturnReason, note }),
     onSuccess: () => {
       toast.success(`${order.orderNumber} — logistga qaytarildi`);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
-      onReturned();
+      leave();
     },
-    onError: (error) => toast.error(actionError(error, "Logistga qaytarishda xatolik")),
+    onError: (error) => {
+      const failure = chiefActionFailure(error, RETURN_FIELDS, "Logistga qaytarishda xatolik");
+      setServerErrors(failure.fields);
+      toast.error(failure.message);
+      if (failure.kind === "gone") leave();
+      if (failure.kind === "closed") {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+        onClose();
+      }
+    },
   });
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md">
         <form
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
+            setTouched(true);
             if (valid && !send.isPending) send.mutate();
           }}
         >
@@ -247,16 +299,31 @@ export function ReturnDialog({ order, onClose, onReturned }: { order: LogistOrde
                     reason === item ? "border-brand bg-brand-soft text-ink" : "border-line text-ink-muted hover:bg-subtle",
                   )}
                 >
-                  <input type="radio" name="return-reason" checked={reason === item} onChange={() => setReason(item)} className="accent-brand" />
+                  <input
+                    type="radio"
+                    name="return-reason"
+                    checked={reason === item}
+                    onChange={() => {
+                      setReason(item);
+                      setServerErrors({});
+                    }}
+                    className="accent-brand"
+                  />
                   {RETURN_REASON_LABELS[item]}
                 </label>
               ))}
             </div>
+            {errorOf("reason") ? (
+              <p role="alert" className="text-danger text-meta mt-1.5 font-medium">
+                {errorOf("reason")}
+              </p>
+            ) : null}
           </fieldset>
           <Field
             label="Izoh"
             htmlFor="return-note"
             className="mt-3"
+            error={errorOf("note")}
             hint={reason === "other" ? "«Boshqa sabab» uchun izoh majburiy" : "Ixtiyoriy — logist ko'radi"}
           >
             <textarea
@@ -264,7 +331,12 @@ export function ReturnDialog({ order, onClose, onReturned }: { order: LogistOrde
               rows={2}
               value={note}
               maxLength={500}
-              onChange={(event) => setNote(event.target.value)}
+              required={reason === "other"}
+              aria-invalid={Boolean(errorOf("note"))}
+              onChange={(event) => {
+                setNote(event.target.value);
+                setServerErrors((current) => ({ ...current, note: undefined }));
+              }}
               className={cn(inputClass, "h-auto py-2")}
             />
           </Field>
@@ -272,7 +344,7 @@ export function ReturnDialog({ order, onClose, onReturned }: { order: LogistOrde
             <Button type="button" variant="ghost" onClick={onClose}>
               Bekor qilish
             </Button>
-            <Button type="submit" variant="destructive" disabled={!valid || send.isPending}>
+            <Button type="submit" variant="destructive" disabled={send.isPending || (touched && !valid)}>
               {send.isPending ? <LoaderCircle className="animate-spin" /> : <Undo2 />}
               Logistga qaytarish
             </Button>

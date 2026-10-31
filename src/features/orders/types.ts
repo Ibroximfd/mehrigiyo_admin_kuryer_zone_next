@@ -348,6 +348,8 @@ export type DeliveryInfo = {
    * §2) — kartadagi "Manzil o'zgartirilgan (kuryer)" belgisi. Yo'q — `null`.
    */
   addressChangedBy: AddressChangedBy | null;
+  /** Mo'ljal (`delivery.landmark`, TZ 25) — kuryerga yo'l ko'rsatadi; bo'lmasa `null`. */
+  landmark: string | null;
   region: string | null;
   /** Viloyatning o'qiladigan nomi (`region_display`); bo'lmasa `region`. */
   regionDisplay: string | null;
@@ -636,6 +638,7 @@ function mapDeliveryInfo(raw: unknown): DeliveryInfo | null {
       address: asOptionalString(raw.address_text ?? raw.address),
       locality: asOptionalString(raw.locality),
       addressChangedBy: asAddressChangedBy(raw.address_changed_by),
+      landmark: asOptionalString(raw.landmark),
       region: asOptionalString(raw.region),
       regionDisplay: asOptionalString(raw.region_display),
       note: asOptionalString(raw.note),
@@ -653,6 +656,7 @@ function mapDeliveryInfo(raw: unknown): DeliveryInfo | null {
         address,
         locality: null,
         addressChangedBy: null,
+        landmark: null,
         region: null,
         regionDisplay: null,
         note: null,
@@ -688,6 +692,7 @@ function mergeDeliveryInfo(json: Record<string, unknown>): DeliveryInfo | null {
     address: first("address"),
     locality: first("locality"),
     addressChangedBy: first("addressChangedBy"),
+    landmark: first("landmark"),
     region,
     regionDisplay,
     note: first("note"),

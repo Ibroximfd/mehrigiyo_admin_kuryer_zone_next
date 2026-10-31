@@ -7,6 +7,8 @@ import {
   asString,
   isRecord,
 } from "@/lib/parse";
+import { mapItemRef } from "@/lib/item-ref";
+import type { ItemRef } from "@/lib/item-ref";
 
 /**
  * Sklad (`21_TUZILMA_V2` §5; backend V7/V8, V16/V17): bosh kuryer faqat ko'radi.
@@ -62,13 +64,6 @@ export function mapOwnSklad(
       .map((code) => asString(code))
       .filter(Boolean),
   };
-}
-
-export type ItemRef = { id: number; name: string };
-
-function mapItemRef(raw: unknown): ItemRef {
-  const json = asRecord(raw);
-  return { id: asInt(json.id), name: asString(json.name ?? json.title) };
 }
 
 export type CourierStock = {

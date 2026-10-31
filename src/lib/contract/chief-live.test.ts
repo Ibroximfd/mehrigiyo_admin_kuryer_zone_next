@@ -514,7 +514,7 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     const finance = mapChiefFinance(VODIY.finance);
     expect(finance.byFilial.map((row) => row.fee)).toEqual([80000, 60000]);
     expect(finance.byCourier[0]).toMatchObject({ cashWithCourier: 427222, cashHanded: 1000 });
-    expect(productTotals(finance.byCourier)[0]).toEqual({ item: { id: 11, name: "Qora sedana yog'i, 100 ml" }, quantity: 4 });
+    expect(productTotals(finance.byCourier)[0]).toEqual({ item: { id: 11, name: "Qora sedana yog'i, 100 ml", image: null }, quantity: 4 });
     expect(isEmptyReport(finance)).toBe(false);
   });
 
@@ -556,6 +556,6 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     expect(asPage(VODIY.stock).hasMore).toBe(true);
     const couriers = asPage(VODIY.skladCouriers).items.map(mapCourierStock);
     const rows = skladStockRows(asPage(VODIY.stock).items.map(mapStockCell), couriers);
-    expect(rows).toEqual([{ item: { id: 4, name: "Amoksitsillin 500 mg" }, inSklad: 0, withCouriers: 8, isLow: true }]);
+    expect(rows).toEqual([{ item: { id: 4, name: "Amoksitsillin 500 mg", image: null }, inSklad: 0, withCouriers: 8, isLow: true }]);
   });
 });

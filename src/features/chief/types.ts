@@ -87,6 +87,11 @@ export type OrderHistoryEntry = { at: Date | null; action: string; actor: string
 
 export type ChiefOrderDetail = { order: LogistOrder; history: OrderHistoryEntry[] };
 
+/** Tarixdagi shaxs — satr yoki `{full_name}`; seed qatorlarida `actor: null` (N-5). */
+function personName(value: unknown): string | null {
+  return isRecord(value) ? asOptionalString(value.full_name ?? value.name) : asOptionalString(value);
+}
+
 export function mapChiefOrderDetail(raw: unknown): ChiefOrderDetail {
   const json = asRecord(raw);
   return {
@@ -96,8 +101,8 @@ export function mapChiefOrderDetail(raw: unknown): ChiefOrderDetail {
       return {
         at: parseDate(row.at),
         action: asString(row.action),
-        actor: asOptionalString(row.actor),
-        courier: asOptionalString(row.courier),
+        actor: personName(row.actor),
+        courier: personName(row.courier),
       };
     }),
   };

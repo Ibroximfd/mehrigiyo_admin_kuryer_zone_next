@@ -36,6 +36,7 @@ const CHANGED_BY: Record<string, string> = {
   logist: "logist",
   client: "mijoz",
   chief: "bosh kuryer",
+  crm: "CRM",
 };
 
 /** «Manzil o'zgardi» belgisi uchun: kim o'zgartirgan; o'zgarmagan bo'lsa `null`. */

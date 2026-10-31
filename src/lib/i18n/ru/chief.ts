@@ -465,6 +465,20 @@ export const CHIEF: Dictionary = {
   "Manzil boshqa viloyatda": "Адрес в другой области",
   "Manzil topilmadi": "Адрес не найден",
   "Mijoz javob bermayapti": "Клиент не отвечает",
+  // ── TZ 25: manzil o'zgarishi xatolari va holatlari ───────────────────
+  "Zakaz endi sizda emas": "Заказ больше не у вас",
+  "Zakaz endi sizda emas — ro'yxat yangilandi": "Заказ больше не у вас — список обновлён",
+  "U logistga qaytarilgan yoki boshqa bosh kuryerga o'tgan.": "Его вернули логисту или передали другому старшему курьеру.",
+  "Zakaz yopilgan (yetkazilgan yoki bekor qilingan) — o'zgartirib bo'lmaydi":
+    "Заказ закрыт (доставлен или отменён) — изменить нельзя",
+  "Maydonlarni tekshiring": "Проверьте поля",
+  "Sotgan filial": "Филиал продажи",
+  "Tuman tanlansa zakaz viloyati ham shunga o'tadi": "При выборе района область заказа тоже сменится",
+  "Kuryer yangi zonada emas — zakazdan olindi va «Kelganlar» ga qaytdi":
+    "Курьер не в новой зоне — снят с заказа, заказ вернулся во «Входящие»",
+  "Javob kelmadi — taqsimlangan bo'lishi mumkin. Ro'yxatni tekshiring, keyin qayta oching":
+    "Ответ не пришёл — распределение могло пройти. Проверьте список, затем откройте снова",
+  "Mo'ljal:": "Ориентир:",
   "Ism kamida 2 harf bo'lsin": "Имя — минимум 2 буквы",
   "Telefon 9 yoki 12 raqam bo'lsin": "Телефон — 9 или 12 цифр",
   "Zona nomi kamida 2 harf bo'lsin": "Название зоны — минимум 2 буквы",

@@ -139,13 +139,36 @@ describe("demo rejim: backend v2 shakllari", () => {
     expect(fixed.zoning.district).toBe("qoqon_sh");
   });
 
+  it("manzil javobi — detal (`history[]` bilan), xatolar maydonlarga; yopilgan zakaz — 409", async () => {
+    const order = demoDb.orders.find((item) => item.status === "shipping" && !item.returned)!;
+    const path = `/operator/chief/orders/${order.id}/address/`;
+    expect(await patch(path, { district: "yoq_tuman", reason: "moved" })).toMatchObject({
+      status: 400,
+      data: { code: "validation_error", fields: { district: expect.any(Array) } },
+    });
+    const detail = mapChiefOrderDetail((await patch(path, { district: "qoqon_sh", landmark: "  ", reason: "clarified" })).data);
+    expect(detail.order.deliveryInfo?.landmark).toBeNull();
+    expect(detail.history.some((row) => row.action === "address_changed")).toBe(true);
+    const closed = demoDb.orders.find((item) => item.status === "delivered")!;
+    expect(await patch(`/operator/chief/orders/${closed.id}/address/`, { district: "qoqon_sh", reason: "moved" })).toMatchObject({
+      status: 409,
+      data: { code: "order_closed" },
+    });
+    expect(mapChiefMe((await get("/operator/chief/me/")).data).permissions["view.analytics"]).toBe(true);
+  });
+
   it("logistga qaytarish: zakaz ro'yxatlardan chiqadi, qayta qaytarib bo'lmaydi", async () => {
     const incoming = asPage((await get("/operator/chief/orders/", { scope: "incoming" })).data).items.map(mapLogistOrder);
     const target = incoming[0]!;
     expect((await post(`/operator/chief/orders/${target.id}/return/`, { reason: "nimadir" })).status).toBe(400);
+    expect(await post(`/operator/chief/orders/${target.id}/return/`, { reason: "other", note: " " })).toMatchObject({
+      status: 400,
+      data: { code: "validation_error", fields: { note: expect.any(Array) } },
+    });
     expect((await post(`/operator/chief/orders/${target.id}/return/`, { reason: "address_unknown", note: "" })).status).toBe(200);
     const after = asPage((await get("/operator/chief/orders/", { scope: "incoming" })).data).items.map(mapLogistOrder);
     expect(after.some((order) => order.id === target.id)).toBe(false);
     expect((await post(`/operator/chief/orders/${target.id}/return/`, { reason: "other", note: "x" })).status).toBe(404);
+    expect((await get(`/operator/chief/orders/${target.id}/`)).status).toBe(404);
   });
 });

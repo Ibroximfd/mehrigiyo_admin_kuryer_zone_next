@@ -208,7 +208,7 @@ function ProductList({ products }: { products: ReturnType<typeof productTotals> 
         {products.map((row) => (
           <li key={row.item.id} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 px-4 py-2.5 sm:grid-cols-3">
             <span className="flex min-w-0 items-center gap-2.5">
-              <ProductThumb name={row.item.name} size="sm" />
+              <ProductThumb src={row.item.image} name={row.item.name} size="sm" />
               <span className="text-ink truncate text-dense font-medium" data-no-translit>{row.item.name}</span>
             </span>
             <span className="text-ink tabular text-right text-dense font-semibold sm:order-last">{`${groupThousands(row.quantity)} dona`}</span>

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleOff, LoaderCircle, MapPinOff, RotateCcw, Send, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ADAPTIVE_DIALOG } from "@/components/kit/adaptive-dialog";
@@ -19,7 +19,7 @@ import type { Courier } from "@/features/couriers/types";
 import { formatDeliveryAddress } from "@/features/orders/address";
 import type { LogistOrder } from "@/features/orders/types";
 import type { Zone } from "@/features/zones/types";
-import { errorMessage } from "@/lib/api-client";
+import { ApiError, errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +118,15 @@ function PlanEditor({
   const changeZone = (row: PlanRow, zoneId: number | null) =>
     update(row.order.id, { zoneId, courierId: pickCourier(couriers, zoneId)?.id ?? null });
 
+  // `client_action_id` serverda saqlanmaydi (takror himoyasi yo'q) — ikki marta yuborilmasligini shu yerda qulflaymiz:
+  // ref — bir kadrdagi qo'sh bosishga, holat — tugmani bloklashga.
+  const sentRef = useRef(false);
+  const [sent, setSent] = useState(false);
+  const lock = (value: boolean) => {
+    sentRef.current = value;
+    setSent(value);
+  };
+
   const submit = useMutation({
     mutationFn: () =>
       applyAutoAssign(
@@ -134,8 +143,25 @@ function PlanEditor({
       void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
       onClose();
     },
-    onError: (error) => toast.error(errorMessage(error, "Avto taqsimlashda xatolik")),
+    onError: (error) => {
+      // Server rad etdi (javob keldi) — hech narsa yozilmagan, qayta yuborish xavfsiz. Javobsiz (tarmoq, vaqt) —
+      // natija noma'lum: qulf qoladi, ro'yxat yangilanadi.
+      const answered = error instanceof ApiError && error.status !== undefined && error.status < 500;
+      if (answered) {
+        lock(false);
+        toast.error(errorMessage(error, "Avto taqsimlashda xatolik"));
+        return;
+      }
+      toast.error("Javob kelmadi — taqsimlangan bo'lishi mumkin. Ro'yxatni tekshiring, keyin qayta oching");
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+    },
   });
+  const send = () => {
+    if (sentRef.current || ready.length === 0) return;
+    lock(true);
+    submit.mutate();
+  };
+  const busy = sent || submit.isPending;
 
   if (rows.length === 0) {
     return (
@@ -143,7 +169,7 @@ function PlanEditor({
     );
   }
 
-  const editorProps = { zones, couriers, disabled: submit.isPending, onZone: changeZone, update };
+  const editorProps = { zones, couriers, disabled: busy, onZone: changeZone, update };
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -171,7 +197,7 @@ function PlanEditor({
         <Button variant="ghost" onClick={onClose} disabled={submit.isPending}>
           Bekor qilish
         </Button>
-        <Button onClick={() => submit.mutate()} disabled={ready.length === 0 || submit.isPending}>
+        <Button onClick={send} disabled={ready.length === 0 || busy}>
           {submit.isPending ? <LoaderCircle className="animate-spin" /> : <Send />}
           Taqsimlash
         </Button>

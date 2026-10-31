@@ -154,7 +154,7 @@ function StockTable({ rows }: { rows: SkladStockRow[] }) {
               <tr key={row.item.id} className="border-line border-b last:border-0">
                 <td className="px-4 py-2.5">
                   <span className="flex items-center gap-2.5">
-                    <ProductThumb name={row.item.name} size="sm" />
+                    <ProductThumb src={row.item.image} name={row.item.name} size="sm" />
                     <span className="text-ink font-medium" data-no-translit>{row.item.name}</span>
                   </span>
                 </td>
@@ -199,7 +199,7 @@ function CourierStocks({ stocks }: { stocks: CourierStock[] }) {
               <span className="flex flex-wrap gap-1.5">
                 {stock.items.map((entry) => (
                   <span key={entry.item.id} className="bg-subtle text-ink inline-flex items-center gap-1.5 rounded-md py-1 pr-2 pl-1 text-meta">
-                    <ProductThumb name={entry.item.name} size="sm" className="size-6" />
+                    <ProductThumb src={entry.item.image} name={entry.item.name} size="sm" className="size-6" />
                     <span data-no-translit>{entry.item.name}</span>
                     <span className="tabular font-semibold">{entry.quantity}</span>
                   </span>
