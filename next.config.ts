@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
         async rewrites() {
           const proxy = `http://127.0.0.1:${process.env.DEV_PROXY_PORT ?? 3031}`;
           return [
+            // Oxiridagi `/` saqlansin: oxirgi bo'lak nuqtali bo'lsa
+            // (`me/preferences/orders.filters/`) `:path*` slashni tushirib
+            // qoldiradi va Django slashsiz PUT/POST ga 500 qaytaradi.
+            { source: "/api/:path*/", destination: `${proxy}/api/:path*/` },
             { source: "/api/:path*", destination: `${proxy}/api/:path*` },
             { source: "/media/:path*", destination: `${proxy}/media/:path*` },
           ];
