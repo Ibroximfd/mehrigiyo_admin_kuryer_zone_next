@@ -687,18 +687,46 @@ function settledIn(from: string, to: string) {
   return demoDb.orders.filter((order) => order.settledDay && order.settledDay >= from && order.settledDay <= to);
 }
 
+/**
+ * Viloyat narxi (`MOLIYA_R_F` §R): Andijonga narx qo'yilmagan — haqi `null`,
+ * `missing_rate: true` (ekranda «—» va ogohlantirish ko'rinsin).
+ */
+const DEMO_REGION_RATES: Record<string, number | null> = { fargona: DEMO_ADDRESS_RATE, namangan: 21_000, andijon: null };
+
+function addressesByRegion(delivered: DemoOrderRow[]) {
+  const regions = [...new Set(delivered.map((order) => order.region))].sort();
+  return regions.map((region) => {
+    const own = delivered.filter((order) => order.region === region);
+    const addresses = new Set(own.map((order) => `${toIsoDay(order.deliveredAt!)}|${order.client.phone}`)).size;
+    const perAddress = DEMO_REGION_RATES[region] ?? null;
+    return {
+      region,
+      region_name: DEMO_REGIONS.find((item) => item.region === region)?.name ?? region,
+      addresses,
+      per_address: perAddress,
+      fee: perAddress === null ? null : String(addresses * perAddress),
+      missing_rate: perAddress === null,
+    };
+  });
+}
+
 /** Bitta filial qatori: davr sonlari + joriy qoldiq (`to_hand_over`, davrga bog'liq emas). */
 function filialRow(code: FilialCode, from: string, to: string) {
   const delivered = deliveredIn(from, to).filter((order) => order.filial === code);
-  const addresses = new Set(delivered.map((order) => `${toIsoDay(order.deliveredAt!)}|${order.client.phone}`)).size;
+  const byRegion = addressesByRegion(delivered);
+  const missingRates = byRegion.filter((row) => row.missing_rate).map((row) => row.region);
   const handedOver = demoDb.filialHandovers
     .filter((item) => item.filial === code && item.date >= from && item.date <= to)
     .reduce((sum, item) => sum + item.amount, 0);
   return {
     filial: filialJson(code),
     delivered: delivered.length,
-    addresses,
-    fee: addresses * DEMO_ADDRESS_RATE,
+    addresses: byRegion.reduce((sum, row) => sum + row.addresses, 0),
+    // Agregat: faqat narxi bor viloyatlar yig'indisi; hammasi narxsiz bo'lsa `null`.
+    fee: byRegion.length > 0 && byRegion.every((row) => row.fee === null) ? null : byRegion.reduce((sum, row) => sum + Number(row.fee ?? 0), 0),
+    addresses_by_region: byRegion,
+    missing_rates: missingRates,
+    missing_rate: missingRates.length > 0,
     cash_accepted: settledIn(from, to).filter((order) => order.filial === code).reduce((sum, order) => sum + order.total, 0),
     handed_over: handedOver,
     to_hand_over: unhanded(code).reduce((sum, order) => sum + order.total, 0),
@@ -736,17 +764,19 @@ function unhanded(code: FilialCode) {
 
 function byFilial(from: string, to: string) {
   const rows = DEMO_FILIALS.map((filial) => filialRow(filial.code, from, to));
-  const totals = rows.reduce(
+  const sums = rows.reduce(
     (sum, row) => ({
       delivered: sum.delivered + row.delivered,
       addresses: sum.addresses + row.addresses,
-      fee: sum.fee + row.fee,
+      fee: sum.fee + (row.fee ?? 0),
       cash_accepted: sum.cash_accepted + row.cash_accepted,
       handed_over: sum.handed_over + row.handed_over,
       to_hand_over: sum.to_hand_over + row.to_hand_over,
     }),
     { delivered: 0, addresses: 0, fee: 0, cash_accepted: 0, handed_over: 0, to_hand_over: 0 },
   );
+  const missingRates = [...new Set(rows.flatMap((row) => row.missing_rates))];
+  const totals = { ...sums, missing_rates: missingRates, missing_rate: missingRates.length > 0 };
   return { rows, totals };
 }
 
@@ -871,7 +901,7 @@ function courierStockItems(courierId: number) {
 
 const OWN_SKLAD = () => DEMO_SKLADS.findIndex((sklad) => sklad.chiefId === DEMO_CHIEF.id);
 
-/** V16/V17: bosh kuryerga sklad viloyatlari va `sklad_id`. */
+/** TZ 32 S-7 (§10.2): `sklad {id, name, regions}`; biriktirilmagan bo'lsa `sklad: null`. */
 function skladMe(): DemoResponse {
   const index = OWN_SKLAD();
   const sklad = DEMO_SKLADS[index];
@@ -881,25 +911,37 @@ function skladMe(): DemoResponse {
     region: sklad?.regions[0] ?? null,
     regions: sklad?.regions ?? [],
     sklad_id: sklad ? index + 1 : null,
+    sklad: sklad ? { id: index + 1, name: `${sklad.name} sklad`, regions: sklad.regions } : null,
+    warehouse_permissions: { view: true, manage: false, admin: false },
     can_write: false,
+    is_main: false,
+    filial_is_main: false,
+    can_toggle_tracking: false,
     granted_item_ids: [],
     user: { id: DEMO_CHIEF.id, full_name: DEMO_CHIEF.fullName },
   });
 }
 
-/** V7: bosh kuryer FAQAT o'z skladini ko'radi. */
+/** §3.1, §10: bosh kuryer FAQAT o'z skladini ko'radi; bosh kuryerlar `chiefs[]` da. */
 function skladSklads(): DemoResponse {
   const index = OWN_SKLAD();
   const sklad = DEMO_SKLADS[index];
   if (!sklad) return ok([]);
+  const chiefs = [
+    { id: DEMO_CHIEF.id, full_name: DEMO_CHIEF.fullName },
+    { id: 309, full_name: "Bahodir Qosimov" },
+  ];
   return ok([
     {
       id: index + 1,
       name: `${sklad.name} sklad`,
       regions: sklad.regions,
       is_active: true,
-      chief: { id: DEMO_CHIEF.id, full_name: DEMO_CHIEF.fullName },
+      chiefs,
+      chief_ids: chiefs.map((chief) => chief.id),
+      chief: chiefs[0],
       locations: sklad.regions.length,
+      created_at: "2026-10-30T18:47:12.331204+05:00",
     },
   ]);
 }
@@ -959,6 +1001,87 @@ function skladCouriers(): DemoResponse {
   );
 }
 
+// ── Kuryer baholari (`ILOVA_HOLAT…` §7.1) ────────────────────────────────────
+
+const RATING_COMMENTS = ["Tez va muloyim keldi", "", "Biroz kechikdi", "", "Rahmat, hammasi joyida", ""];
+
+/** Yetkazilgan zakazlarning bir qismi baholangan; mijoz ismi javobda yo'q. */
+function demoRatings() {
+  return demoDb.orders
+    .filter((order) => order.deliveredAt && order.courierId !== null && demoSeed("rated", order.id) < 0.75)
+    .map((order, index) => {
+      const roll = demoSeed("stars", order.id);
+      const stars = roll < 0.06 ? 1 : roll < 0.12 ? 2 : roll < 0.25 ? 3 : roll < 0.5 ? 4 : 5;
+      const courier = demoDb.couriers.find((item) => item.id === order.courierId);
+      return {
+        id: 100 + index,
+        order: { id: order.id, order_number: order.number, filial_id: filialJson(order.filial).id },
+        courier: { id: order.courierId!, name: courier?.fullName ?? "", chief_id: DEMO_CHIEF.id, region: order.region },
+        stars,
+        comment: RATING_COMMENTS[Math.floor(demoSeed("comment", order.id) * RATING_COMMENTS.length)] ?? "",
+        created_at: order.deliveredAt!.toISOString(),
+      };
+    });
+}
+
+type DemoRating = ReturnType<typeof demoRatings>[number];
+
+function ratingStats(rows: DemoRating[]) {
+  const distribution = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 } as Record<string, number>;
+  for (const row of rows) distribution[String(row.stars)] = (distribution[String(row.stars)] ?? 0) + 1;
+  const avg = rows.length ? Math.round((rows.reduce((sum, row) => sum + row.stars, 0) / rows.length) * 100) / 100 : null;
+  return { avg, count: rows.length, distribution };
+}
+
+function chiefRatings(request: DemoRequest): DemoResponse {
+  const list = (key: string) => param(request, key).split(",").filter(Boolean);
+  const stars = list("stars").map(Number);
+  const couriers = list("courier").map(Number);
+  const from = param(request, "date_from");
+  const to = param(request, "date_to");
+  const region = param(request, "region");
+  const hasComment = param(request, "has_comment");
+  const rows = demoRatings()
+    .filter(
+      (row) =>
+        (!stars.length || stars.includes(row.stars)) &&
+        (!couriers.length || couriers.includes(row.courier.id)) &&
+        (!region || row.courier.region === region) &&
+        (!from || row.created_at.slice(0, 10) >= from) &&
+        (!to || row.created_at.slice(0, 10) <= to) &&
+        (hasComment === "" || (hasComment === "true") === Boolean(row.comment)),
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const all = ratingStats(rows);
+  // Bayes tuzatmasi (§7.4): davr o'rtachasiga tomon 5 ta «soxta» baho bilan tortiladi.
+  const byCourier = demoDb.couriers.map((courier) => {
+    const own = rows.filter((row) => row.courier.id === courier.id);
+    const stats = ratingStats(own);
+    const score = stats.avg === null || all.avg === null ? null : Math.round(((own.length * stats.avg + 5 * all.avg) / (own.length + 5)) * 100) / 100;
+    return { courier: { id: courier.id, name: courier.fullName, chief_id: DEMO_CHIEF.id, region: null }, ...stats, score };
+  });
+  const page = Math.max(1, Number(param(request, "page")) || 1);
+  const size = PAGE_SIZE;
+  return ok({
+    count: rows.length,
+    next: page * size < rows.length ? `?page=${page + 1}` : null,
+    previous: page > 1 ? `?page=${page - 1}` : null,
+    results: rows.slice((page - 1) * size, page * size),
+    summary: { ...all, with_comment: rows.filter((row) => row.comment).length, low_count: rows.filter((row) => row.stars <= 2).length },
+    by_courier: byCourier,
+    formula: {
+      score: {
+        key: "score",
+        name: "Kuryer reytingi",
+        how: "(baholar_soni × o'rtacha_baho + 5 × davr_o'rtachasi) / (baholar_soni + 5) — Bayes tuzatmasi",
+        unit: "1–5",
+        direction: "desc",
+        null_when: "kuryer bu davrda bitta ham baho olmagan",
+      },
+    },
+  });
+}
+
 // ── Marshrutlash ────────────────────────────────────────────────────────────
 
 type Route = [method: DemoRequest["method"], pattern: RegExp, handle: (request: DemoRequest, match: RegExpMatchArray) => DemoResponse];
@@ -986,6 +1109,7 @@ const ROUTES: Route[] = [
   ["post", /^\/operator\/chief\/places\/$/, createPlace],
   ["get", /^\/operator\/chief\/couriers\/(\d+)\/cod\/$/, (request, match) => courierCod(Number(match[1]), request)],
   ["get", /^\/operator\/chief\/finance\/$/, chiefFinance],
+  ["get", /^\/operator\/chief\/ratings\/$/, chiefRatings],
   ["get", /^\/operator\/chief\/cash\/$/, chiefCash],
   ["post", /^\/operator\/chief\/cash\/handover\/$/, cashHandover],
   ["get", /^\/meta\/regions\/$/, regionsDictionary],

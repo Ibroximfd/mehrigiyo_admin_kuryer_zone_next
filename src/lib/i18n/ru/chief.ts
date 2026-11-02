@@ -485,4 +485,62 @@ export const CHIEF: Dictionary = {
   "Joy nomi kamida 2 harf bo'lsin": "Название места — минимум 2 буквы",
   "Sanalgan summani kiriting": "Введите пересчитанную сумму",
   "Summa noldan katta bo'lsin": "Сумма должна быть больше нуля",
+  // ── Reytinglar (`ILOVA_HOLAT…` §7.1, 2026-11-02) ──────────────────────
+  Reytinglar: "Рейтинги",
+  "Mijozlar kuryerlaringizga qo'ygan baholar — jamlanma, kuryerlar va izohlar":
+    "Оценки клиентов вашим курьерам — сводка, курьеры и комментарии",
+  "O'rtacha baho, {n} ta baho": "Средняя оценка, {n} {n|оценка|оценки|оценок}",
+  "{n} ta baho": "{n} {n|оценка|оценки|оценок}",
+  "Izohli va izohsiz": "С комментарием и без",
+  "Izohi bor": "С комментарием",
+  Izohsiz: "Без комментария",
+  "Reytinglar sizga ochilmagan": "Рейтинги вам не открыты",
+  "Reytinglar backend'ni kutmoqda": "Рейтинги ожидают бэкенд",
+  "Server bu bo'limni chiqarishi bilan baholar shu yerda ko'rinadi.":
+    "Как только сервер выпустит раздел, оценки появятся здесь.",
+  "Reytinglarni yuklashda xatolik": "Ошибка загрузки рейтингов",
+  "Bu filtr bo'yicha baho yo'q": "По этому фильтру оценок нет",
+  "Sana, yulduz yoki kuryer filtrini o'zgartiring.": "Измените фильтр по дате, звёздам или курьеру.",
+  "Hali baho yo'q": "Оценок пока нет",
+  "Mijoz yetkazilgan zakazdan keyin kuryerni ilovada baholaydi — baholar shu yerda chiqadi.":
+    "Клиент оценивает курьера в приложении после доставки — оценки появятся здесь.",
+  Yulduz: "Звёзды",
+  "O'rtacha baho": "Средняя оценка",
+  "baho yo'q": "оценок нет",
+  "1–5 yulduz": "1–5 звёзд",
+  "Baholar soni": "Количество оценок",
+  Izohli: "С комментарием",
+  "Past baholar": "Низкие оценки",
+  "Yulduz taqsimoti": "Распределение звёзд",
+  Baholar: "Оценки",
+  "Mijoz ismi ko'rsatilmaydi — nizo bo'lsa zakaz raqami orqali topiladi.":
+    "Имя клиента не показывается — при споре заказ находится по номеру.",
+  "Bu sahifada baho yo'q": "На этой странице оценок нет",
+  Reyting: "Рейтинг",
+  "Kuryerlar bo'yicha": "По курьерам",
+  "O'rtacha": "Средняя",
+  "{n} yulduz": "{n} {n|звезда|звезды|звёзд}",
+  "Oldingi sahifa": "Предыдущая страница",
+  "Keyingi sahifa": "Следующая страница",
+  // ── Moliya: viloyat narxi (`MOLIYA_R_F` §R) ────────────────────────────
+  "Moliya sizga ochilmagan": "Финансы вам не открыты",
+  "to'liq emas": "неполное",
+  "Haqingiz = Σ (viloyatdagi manzil soni × o'sha kungi viloyat narxi); filial uni alohida to'laydi. «Topshirish kerak» — joriy qoldiq, davrga bog'liq emas.":
+    "Ваше вознаграждение = Σ (адресов в области × цена области на тот день); филиал выплачивает его отдельно. «Нужно сдать» — текущий остаток, не зависит от периода.",
+  "Ba'zi viloyatlarda manzil narxi belgilanmagan": "В некоторых областях цена адреса не установлена",
+  "Bu viloyatlardagi manzillar haqqa qo'shilmagan — narxni bosh logist qo'yadi.":
+    "Адреса в этих областях не вошли в вознаграждение — цену устанавливает главный логист.",
+  "Viloyatlar bo'yicha haq": "Вознаграждение по областям",
+  "Narx viloyat bo'yicha; davr ichida o'zgargan bo'lsa haq har kun o'sha kungi narxda hisoblangan.":
+    "Цена — по области; если она менялась в периоде, каждый день считается по цене того дня.",
+  "Noma'lum (viloyat belgilanmagan)": "Неизвестно (область не указана)",
+  "narx yo'q": "цены нет",
+  // ── Sklad: biriktirish (`SKLAD_S_BLOK` §10) ───────────────────────────
+  "Sklad biriktirilmagan": "Склад не назначен",
+  "Sizga hali sklad biriktirilmagan. Bosh logistga murojaat qiling.":
+    "Вам ещё не назначен склад. Обратитесь к главному логисту.",
+  "Skladdagi bosh kuryerlar": "Старшие курьеры склада",
+  "Sklad sizga ochilmagan": "Склад вам не открыт",
+  "Skladni ko'rish dopuskini asosiy filialning bosh logisti beradi.":
+    "Доступ к просмотру склада выдаёт главный логист основного филиала.",
 };

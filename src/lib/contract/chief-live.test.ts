@@ -234,8 +234,9 @@ describe("haqiqiy javoblar (test server, 2026-10-31)", () => {
 
   it("sklad: me → `sklad_id` va viloyatlar, sklads — faqat o'zi, stock — sklad omborlari (V7/V8/V16)", () => {
     const me = mapSkladMe(LIVE.skladMe);
-    expect(me).toEqual({ skladId: 2, regions: ["toshkent_shahar"], canWrite: false });
-    expect(mapOwnSklad(LIVE.sklads, me.skladId)).toEqual({ id: 2, name: "Test Bosh Kuryer skladi", regions: ["toshkent_shahar"] });
+    // Eski (prod) javob: `sklad` obyekti yo'q — `sklad_id` + `regions` dan o'qiladi.
+    expect(me).toEqual({ sklad: { id: 2, name: "", regions: ["toshkent_shahar"] }, canView: true });
+    expect(mapOwnSklad(LIVE.sklads, me.sklad)).toMatchObject({ id: 2, name: "Test Bosh Kuryer skladi", regions: ["toshkent_shahar"] });
     const couriers = asPage(LIVE.skladCouriers).items.map(mapCourierStock);
     expect(couriers[0]).toEqual({ courier: { id: 27, fullName: "Test Kuryer", onShift: false }, onHand: 0, items: [] });
     const rows = skladStockRows(asPage(LIVE.skladStock).items.map(mapStockCell), couriers);
@@ -551,8 +552,11 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
 
   it("sklad — o'z skladi, sahifali qoldiq (`next` bor), kuryer ombori", () => {
     const me = mapSkladMe(VODIY.skladMe);
-    expect(me).toEqual({ skladId: 1, regions: ["fargona", "namangan", "andijon"], canWrite: false });
-    expect(mapOwnSklad(VODIY.sklads, me.skladId)?.name).toBe("V2 Bosh kuryer (Vodiy) skladi");
+    expect(me.sklad).toEqual({ id: 1, name: "", regions: ["fargona", "namangan", "andijon"] });
+    const own = mapOwnSklad(VODIY.sklads, me.sklad);
+    expect(own?.name).toBe("V2 Bosh kuryer (Vodiy) skladi");
+    // Eski javobda faqat `chief` — `chiefs[]` ga aylantiriladi.
+    expect(own?.chiefs.map((chief) => chief.id)).toEqual([61]);
     expect(asPage(VODIY.stock).hasMore).toBe(true);
     const couriers = asPage(VODIY.skladCouriers).items.map(mapCourierStock);
     const rows = skladStockRows(asPage(VODIY.stock).items.map(mapStockCell), couriers);

@@ -23,6 +23,19 @@ export const SERVER_NAME = process.env.NEXT_PUBLIC_SERVER ?? "prod";
 export const BACKEND_HOST =
   process.env.NEXT_PUBLIC_BACKEND_HOST ?? "my.imorganic.uz";
 
+/**
+ * WebSocket manzili. Dev rejimda `next dev` WS'ni proksilay olmaydi, shuning
+ * uchun brauzer to'g'ridan-to'g'ri dev-proxy'ga ulanadi (`scripts/dev.mjs`,
+ * `upgrade`); production'da nginx `/ws` ni backendga uzatadi (`nginx.conf`).
+ */
+export function wsUrl(path: string): string {
+  if (process.env.NODE_ENV === "development") {
+    return `ws://127.0.0.1:${process.env.NEXT_PUBLIC_DEV_PROXY_PORT ?? 3031}${path}`;
+  }
+  const host = typeof window !== "undefined" ? window.location.host : BACKEND_HOST;
+  return `wss://${host}${path}`;
+}
+
 export const ENDPOINTS = {
   // ── Auth (CRM bilan bir xil) ─────────────────────────────────────────────
   operatorLogin: "/operator/login/",
@@ -69,8 +82,12 @@ export const ENDPOINTS = {
   skladSklads: "/sklad/sklads/",
   skladStock: "/sklad/stock/",
   skladCouriers: "/sklad/couriers/",
-  /** Bosh kuryerga sklad holati: `regions`, `sklad_id` (V16/V17). */
+  /** Bosh kuryerga sklad holati: `sklad {id, name, regions}` yoki `null` (TZ 32 S-7, §10). */
   skladMe: "/sklad/me/",
+  /** Sklad soketi — `sklad_changed` (bosh kuryer boshqa skladga o'tkazildi, §11). */
+  skladSocket: "/ws/sklad/",
+  /** O'z kuryerlari baholari: qatorlar, `summary`, `by_courier` (`ILOVA_HOLAT…` §7.1). */
+  chiefRatings: "/operator/chief/ratings/",
   /** Qo'lda kiritilgan tuman/shahar/qishloq (V6). */
   chiefPlaces: "/operator/chief/places/",
 } as const;

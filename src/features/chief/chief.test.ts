@@ -140,3 +140,24 @@ describe("summa maydoni", () => {
     expect(Number.isNaN(parseMoneyInput(""))).toBe(true);
   });
 });
+
+describe("chief/me dopusklari — saqlangan to'plam (DOPUSK_D_M D-1, D-2a)", () => {
+  it("lug'at: `false` — yopiq (sukut qaytib kelmaydi)", () => {
+    const me = mapChiefMe({ seat: { id: 5 }, permissions: { "view.analytics": false, "cash.accept": true } });
+    expect(chiefCan(me, "view.analytics")).toBe(false);
+    expect(chiefCan(me, "cash.accept")).toBe(true);
+  });
+
+  it("ro'yxat shakli — TO'LIQ to'plam: ro'yxatda yo'q kalit (`view.analytics` ham) yopiq", () => {
+    const me = mapChiefMe({ seat: { id: 5 }, permissions_list: ["orders.dispatch"] });
+    expect(chiefCan(me, "orders.dispatch")).toBe(true);
+    expect(chiefCan(me, "view.analytics")).toBe(false);
+    expect(chiefCan(mapChiefMe({ seat: { id: 5 }, permissions: ["view.analytics"] }), "view.analytics")).toBe(true);
+  });
+
+  it("dopusk umuman yo'q (eski javob) — `view.analytics` ochiq, qolgani yopiq", () => {
+    const me = mapChiefMe({ seat: { id: 5 } });
+    expect(chiefCan(me, "view.analytics")).toBe(true);
+    expect(chiefCan(me, "zones.manage")).toBe(false);
+  });
+});

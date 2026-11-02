@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, LoaderCircle, Pencil, Plus, SearchX, ShieldCheck, UsersRound } from "lucide-react";
+import { Ban, LoaderCircle, Pencil, Plus, SearchX, ShieldCheck, Star, UsersRound } from "lucide-react";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +23,9 @@ import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe } from "@/features/chief/types";
 import { PasswordRevealDialog } from "@/features/couriers/components/courier-account";
 import type { Courier } from "@/features/couriers/types";
+import { formatRating } from "@/features/ratings/types";
+import type { CourierRating } from "@/features/ratings/types";
+import { NO_RATING_FILTERS, useChiefRatings } from "@/features/ratings/use-ratings";
 import type { Zone } from "@/features/zones/types";
 import { errorMessage } from "@/lib/api-client";
 import { formatPhone } from "@/lib/format";
@@ -62,6 +65,9 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
   const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
   const zoneList = (zones.data?.zones ?? []).filter((zone) => zone.isActive);
+  // O'rtacha baho (`chief/ratings/ by_courier`, butun davr) — yordamchi: xato bo'lsa jim, ustun chizilmaydi.
+  const ratings = useChiefRatings(NO_RATING_FILTERS, { quiet: true });
+  const ratingOf = new Map((ratings.data?.byCourier ?? []).map((row) => [row.courier.id, row]));
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
 
@@ -162,6 +168,7 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
             <CourierRow
               key={courier.id}
               courier={courier}
+              rating={ratingOf.get(courier.id) ?? null}
               zones={zoneList}
               canManage={canManage}
               busy={update.isPending && update.variables?.courier.id === courier.id}
@@ -218,6 +225,7 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
 
 function CourierRow({
   courier,
+  rating,
   zones,
   canManage,
   busy,
@@ -227,6 +235,8 @@ function CourierRow({
   onUnblock,
 }: {
   courier: Courier;
+  /** `null` — baho yo'q yoki reytinglar yuklanmagan. */
+  rating: CourierRating | null;
   zones: Zone[];
   canManage: boolean;
   busy: boolean;
@@ -246,6 +256,16 @@ function CourierRow({
           <span className="text-ink truncate text-dense font-semibold" data-no-translit>{courier.fullName}</span>
           {state === "blocked" ? <StatusPill label="bloklangan" color="var(--danger)" size="sm" /> : null}
           {state === "unzoned" ? <StatusPill label="zonasiz" color="var(--warn)" size="sm" /> : null}
+          {rating && rating.count > 0 ? (
+            <span
+              className="text-ink-muted tabular inline-flex shrink-0 items-center gap-0.5 text-meta"
+              title={`O'rtacha baho, ${rating.count} ta baho`}
+            >
+              <Star aria-hidden className="text-brand size-3.5 fill-current" />
+              {formatRating(rating.avg)}
+              <span className="text-ink-faint">{` (${rating.count})`}</span>
+            </span>
+          ) : null}
         </span>
         <span className="text-ink-faint tabular text-meta">
           {courier.phone ? formatPhone(courier.phone) : "telefon yo'q"}

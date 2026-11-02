@@ -15,3 +15,16 @@ export function isEndpointMissing(error: unknown): boolean {
   );
 }
 
+
+/**
+ * Ruxsat yo'q (`403`): dopusk kaliti (`permission_denied`, `fields.permission`), rol
+ * (`role_forbidden`) yoki qamrov (`out_of_scope`). Bu «qayta urinish» bilan hal bo'lmaydi —
+ * ekran xato emas, «ochilmagan» holatini ko'rsatadi. Matnga emas, `code` ga qaraladi.
+ */
+export function isAccessDenied(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 403 &&
+    (error.code === "permission_denied" || error.code === "role_forbidden" || error.code === "out_of_scope")
+  );
+}

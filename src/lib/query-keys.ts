@@ -29,8 +29,10 @@ export const queryKeys = {
   chiefCandidates: (orderId: string) => ["chief", "candidates", orderId] as const,
   chiefCouriers: ["chief", "couriers"] as const,
   chiefZones: ["chief", "zones"] as const,
-  /** Sklad: o'z skladi va kuryerlari ombori. */
-  chiefSklad: (regions: readonly string[]) => ["chief", "sklad", [...regions].sort().join(",")] as const,
+  /** Sklad: o'z skladi va kuryerlari ombori (`sklad_changed` da butunlay tashlanadi). */
+  chiefSklad: ["chief", "sklad"] as const,
+  /** Kuryer baholari — filtr va sahifa bo'yicha (kuryerlar sahifasi filtrsiz 1-sahifani bo'lishadi). */
+  chiefRatings: (filters: Record<string, unknown>) => ["chief", "ratings", filters] as const,
   /** Kassa 2-pog'ona — `chief/cash/` (filial kesimi va topshiriqlar). */
   chiefCash: ["chief", "cash"] as const,
   /** Moliya va hisobot (davr bo'yicha). */

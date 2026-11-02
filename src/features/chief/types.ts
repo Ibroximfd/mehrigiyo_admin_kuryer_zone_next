@@ -52,8 +52,6 @@ export function mapChiefMe(raw: unknown): ChiefMe {
   const json = asRecord(raw);
   const seat = asRecord(json.seat);
   const summary = asRecord(json.summary);
-  const permissions: Record<string, boolean> = {};
-  for (const [key, value] of Object.entries(asRecord(json.permissions))) permissions[key] = value === true;
   return {
     seat: {
       id: asInt(seat.id ?? json.seat_id),
@@ -62,7 +60,7 @@ export function mapChiefMe(raw: unknown): ChiefMe {
     },
     filial: mapFilial(json.filial),
     regions: asArray(json.regions).map((code) => asString(code)).filter(Boolean),
-    permissions,
+    permissions: mapPermissions(json),
     summary: {
       incoming: asInt(summary.incoming),
       active: asInt(summary.active),
@@ -71,6 +69,34 @@ export function mapChiefMe(raw: unknown): ChiefMe {
       finalizedToday: asInt(summary.finalized_today),
     },
   };
+}
+
+const CHIEF_PERMISSIONS: readonly ChiefPermission[] = [
+  "orders.dispatch",
+  "couriers.manage",
+  "zones.manage",
+  "cash.accept",
+  "warehouse.view_courier_stores",
+  "view.analytics",
+];
+
+/**
+ * Dopusk — SAQLANGAN samarali to'plam (`DOPUSK_D_M` D-1): sukut runtime'da qo'shilmaydi,
+ * B.L olib qo'ysa kaskad bilan bosh kuryerdan ham olinadi (D-2a). Ikki shakl o'qiladi:
+ * lug'at `{kalit: bool}` (asosiy) va ro'yxat (`permissions` massiv yoki `permissions_list`) —
+ * ro'yxat TO'LIQ to'plam, unda yo'q bosh kuryer kaliti yopiq (`view.analytics` ham).
+ */
+function mapPermissions(json: Record<string, unknown>): Record<string, boolean> {
+  const permissions: Record<string, boolean> = {};
+  if (isRecord(json.permissions)) {
+    for (const [key, value] of Object.entries(json.permissions)) permissions[key] = value === true;
+    return permissions;
+  }
+  const list = Array.isArray(json.permissions) ? json.permissions : Array.isArray(json.permissions_list) ? json.permissions_list : null;
+  if (!list) return permissions;
+  for (const key of CHIEF_PERMISSIONS) permissions[key] = false;
+  for (const key of list) if (typeof key === "string") permissions[key] = true;
+  return permissions;
 }
 
 export function chiefCan(me: ChiefMe | null, permission: ChiefPermission): boolean {

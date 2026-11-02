@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PackageOpen, SearchX, Warehouse } from "lucide-react";
+import { Lock, PackageOpen, SearchX, UserRound, Warehouse } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 
 import { KeyFigures, Section } from "@/components/kit/key-figures";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ChiefMe } from "@/features/chief/types";
 import { regionLabel } from "@/features/orders/regions";
 import { errorMessage } from "@/lib/api-client";
+import { isAccessDenied } from "@/lib/api-availability";
 import { groupThousands } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { matchesSearch } from "@/lib/search";
@@ -21,24 +22,28 @@ import { isUzRegionCode } from "@/lib/uz-map";
 import { cn } from "@/lib/utils";
 
 import { fetchChiefSklad } from "../api";
-import type { CourierStock, SkladStockRow } from "../types";
+import type { CourierStock, SkladChief, SkladStockRow } from "../types";
+import { useSkladChanged } from "../use-sklad-changed";
 
 function units(value: number): string {
   return `${groupThousands(value)} dona`;
 }
 
 /**
- * Sklad (§5): bosh kuryer faqat o'ziga biriktirilgan skladni va o'z
+ * Sklad (§5; TZ 32 S-7): bosh kuryer faqat o'ziga biriktirilgan skladni va o'z
  * kuryerlari omborini ko'radi. Xaritada faqat o'z viloyatlari belgilangan,
- * qolgani neytral — boshqa skladlar haqida hech narsa chiqmaydi.
+ * qolgani neytral — boshqa skladlar haqida hech narsa chiqmaydi. Boshqa skladga
+ * o'tkazilsa (`sklad_changed`) eski sklad darhol yopiladi.
  */
 export function SkladView({ me }: { me: ChiefMe }) {
+  useSkladChanged(me.seat.id);
   const sklad = useQuery({
-    queryKey: queryKeys.chiefSklad(me.regions),
+    queryKey: queryKeys.chiefSklad,
     queryFn: ({ signal }) => fetchChiefSklad(signal),
   });
 
   if (sklad.isPending) return <SkladSkeleton />;
+  if (sklad.isError && isAccessDenied(sklad.error)) return <SkladForbidden />;
   if (sklad.isError) {
     return (
       <ErrorView
@@ -50,17 +55,18 @@ export function SkladView({ me }: { me: ChiefMe }) {
   }
 
   const data = sklad.data;
-  if (!data.sklad) {
+  if (data.kind === "forbidden") return <SkladForbidden />;
+  if (data.kind === "unassigned") {
     return (
       <EmptyView
         Icon={Warehouse}
-        title="Sizga sklad biriktirilmagan"
-        description="Skladni asosiy filialning bosh logisti biriktiradi."
+        title="Sklad biriktirilmagan"
+        description="Sizga hali sklad biriktirilmagan. Bosh logistga murojaat qiling."
         className="border-line bg-surface rounded-2xl border"
       />
     );
   }
-  const regions = data.regions.filter(isUzRegionCode);
+  const regions = data.sklad.regions.filter(isUzRegionCode);
   const name = data.sklad.name;
   const withCouriers = data.couriers.reduce((sum, stock) => sum + stock.items.reduce((total, entry) => total + entry.quantity, 0), 0);
   const low = data.stock.filter((row) => row.isLow).length;
@@ -85,6 +91,7 @@ export function SkladView({ me }: { me: ChiefMe }) {
             <h2 className="text-ink text-title" data-no-translit>{name}</h2>
             <p className="text-ink-muted mt-1 text-dense">Sizga biriktirilgan sklad — hamma viloyatlaringiz uchun bitta.</p>
           </div>
+          <SkladChiefs chiefs={data.sklad.chiefs} />
           <ul className="flex flex-wrap gap-1.5" aria-label="Viloyatlar">
             {regions.map((code) => (
               <li key={code} className="bg-sklad-1-muted text-ink inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta">
@@ -121,6 +128,35 @@ export function SkladView({ me }: { me: ChiefMe }) {
         <CourierStocks stocks={data.couriers} />
       </Section>
     </div>
+  );
+}
+
+/** `chiefs[]` — skladdagi hamma bosh kuryer (`chief` faqat birinchisini berardi, §1.1). */
+function SkladChiefs({ chiefs }: { chiefs: SkladChief[] }) {
+  if (chiefs.length === 0) return null;
+  return (
+    <div>
+      <p className="text-ink-faint text-meta">Skladdagi bosh kuryerlar</p>
+      <ul className="mt-1 flex flex-wrap gap-1.5">
+        {chiefs.map((chief) => (
+          <li key={chief.id} className="bg-subtle text-ink inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta">
+            <UserRound aria-hidden className="text-ink-faint size-3.5" />
+            <span data-no-translit>{chief.fullName}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SkladForbidden() {
+  return (
+    <EmptyView
+      Icon={Lock}
+      title="Sklad sizga ochilmagan"
+      description="Skladni ko'rish dopuskini asosiy filialning bosh logisti beradi."
+      className="border-line bg-surface rounded-2xl border"
+    />
   );
 }
 

@@ -79,7 +79,7 @@ function MobileTopBar() {
 }
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
-  const navItems = useNavItems();
+  const navItems = useNavItems().filter((item) => !item.secondary);
   return (
     <nav
       aria-label="Bo'limlar"

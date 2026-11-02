@@ -4,6 +4,7 @@ import { mapChiefCash, mapCourierHandover } from "@/features/cash/types";
 import { mapAutoAssignPreview, mapAutoAssignResult, mapChiefFilials, mapChiefMe, mapChiefOrderDetail } from "@/features/chief/types";
 import { mapCourier } from "@/features/couriers/types";
 import { mapLogistOrder } from "@/features/orders/types";
+import { mapChiefRatings } from "@/features/ratings/types";
 import { mapChiefFinance } from "@/features/report/types";
 import { mapCourierCod } from "@/features/cash/types";
 import { mapOwnSklad, mapSkladMe, mapStockCell } from "@/features/sklad/types";
@@ -75,7 +76,11 @@ describe("demo rejim: backend v2 shakllari", () => {
   it("moliya: filial va kuryer kesimi bir-biriga mos (V13)", async () => {
     const finance = mapChiefFinance((await get("/operator/chief/finance/", { date_from: "2000-01-01", date_to: todayIso() })).data);
     expect(finance.byFilial.reduce((sum, row) => sum + row.addresses, 0)).toBe(finance.totals.addresses);
-    expect(finance.totals.fee).toBe(finance.totals.addresses * 25_000);
+    // Viloyat narxi: Andijon narxsiz — haqi `null`, jami faqat narxi bor viloyatlardan, «to'liq emas».
+    const regions = finance.byFilial.flatMap((row) => row.byRegion);
+    expect(regions.find((row) => row.region === "andijon")).toMatchObject({ perAddress: null, fee: null, missingRate: true });
+    expect(finance.totals.fee).toBe(regions.reduce((sum, row) => sum + (row.fee ?? 0), 0));
+    expect(finance.totals.missingRates).toEqual(["andijon"]);
     expect(finance.byCourier.reduce((sum, row) => sum + row.delivered, 0)).toBe(finance.totals.delivered);
     expect(finance.byCourier.some((row) => row.products.length > 0)).toBe(true);
   });
@@ -113,6 +118,16 @@ describe("demo rejim: backend v2 shakllari", () => {
     expect(mapChiefFilials((await get("/operator/chief/filials/")).data).filter((row) => row.isMain)).toHaveLength(1);
   });
 
+  it("reytinglar: jamlanma butun to'plamdan, filtr va sahifa (ILOVA_HOLAT… §7.1)", async () => {
+    const all = mapChiefRatings((await get("/operator/chief/ratings/")).data);
+    expect(all.summary.count).toBeGreaterThan(0);
+    expect(all.rows.length).toBeLessThanOrEqual(10);
+    expect(all.formula?.direction).toBe("desc");
+    const low = mapChiefRatings((await get("/operator/chief/ratings/", { stars: "1,2" })).data);
+    expect(low.rows.every((row) => row.stars <= 2)).toBe(true);
+    expect(low.summary.count).toBe(all.summary.lowCount);
+  });
+
   it("kuryer naqdi oraliq bilan (V11)", async () => {
     const cod = mapCourierCod((await get("/operator/chief/couriers/503/cod/", { date_from: "2000-01-01", date_to: todayIso() })).data);
     expect(cod.days.length).toBeGreaterThan(0);
@@ -120,10 +135,12 @@ describe("demo rejim: backend v2 shakllari", () => {
 
   it("sklad: me → sklad_id va viloyatlar, faqat o'z skladi, qoldiq — sklad + kuryerlar (V7/V8/V16)", async () => {
     const me = mapSkladMe((await get("/sklad/me/")).data);
-    expect(me.regions).toEqual(["fargona", "namangan", "andijon"]);
+    expect(me.sklad?.regions).toEqual(["fargona", "namangan", "andijon"]);
     const sklads = (await get("/sklad/sklads/")).data as unknown[];
     expect(sklads).toHaveLength(1);
-    expect(mapOwnSklad(sklads, me.skladId)?.regions).toEqual(me.regions);
+    const own = mapOwnSklad(sklads, me.sklad);
+    expect(own?.regions).toEqual(me.sklad?.regions);
+    expect(own?.chiefs.length).toBeGreaterThan(1);
     const cells = asPage((await get("/sklad/stock/", { page: "1" })).data).items.map(mapStockCell);
     expect(new Set(cells.map((cell) => cell.kind))).toEqual(new Set(["region", "courier"]));
     expect(await get("/operator/unknown/")).toEqual({ status: 404, data: {} });

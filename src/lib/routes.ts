@@ -12,4 +12,5 @@ export const ROUTES = {
   sklad: "/sklad",
   cash: "/cash",
   report: "/report",
+  ratings: "/ratings",
 } as const;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChartColumnBig } from "lucide-react";
+import { ChartColumnBig, Lock, TriangleAlert } from "lucide-react";
 
 import { KeyFigures, Section } from "@/components/kit/key-figures";
 import { PeriodPicker } from "@/components/kit/period-picker";
@@ -12,18 +12,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ChiefMe } from "@/features/chief/types";
 import { useDayRange } from "@/hooks/use-day-range";
 import { errorMessage } from "@/lib/api-client";
+import { isAccessDenied } from "@/lib/api-availability";
 import { formatSom, groupThousands } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { regionLabel } from "@/features/orders/regions";
 import { cn } from "@/lib/utils";
 
 import { fetchChiefFinance } from "../api";
 import { isEmptyReport, productTotals } from "../types";
-import type { ChiefFinance } from "../types";
+import type { ChiefFinance, FinanceFilialRow } from "../types";
+
+/** Haq: `null` — narx belgilanmagan, «—» (hech qachon «0 so'm» emas, `MOLIYA_R_F` §0.1). */
+function feeText(fee: number | null): string {
+  return fee === null ? "—" : formatSom(fee);
+}
 
 /**
  * Moliya va hisobot (§4.5, §7) — bitta `chief/finance/`: davr raqamlari,
- * filiallar bilan hisob (manzil × bitta narx = haqingiz, qancha topshirish
+ * filiallar bilan hisob (viloyat narxi bilan haqingiz, qancha topshirish
  * kerak), kuryerlar (yetkazgani, qo'lidagi pul) va mahsulotlar. Kuryer haqi tizimda yo'q.
+ * Raqamlar serverdan o'z holicha — logistdagi `finance/chiefs/` bilan ayni (F-5).
  */
 export function ReportView({ me }: { me: ChiefMe }) {
   const period = useDayRange();
@@ -37,6 +45,13 @@ export function ReportView({ me }: { me: ChiefMe }) {
       <PeriodPicker period={period} />
       {report.isPending ? (
         <ReportSkeleton />
+      ) : report.isError && isAccessDenied(report.error) ? (
+        <EmptyView
+          Icon={Lock}
+          title="Moliya sizga ochilmagan"
+          description="Dopuskni asosiy filialning bosh logisti beradi."
+          className="border-line bg-surface rounded-2xl border"
+        />
       ) : report.isError ? (
         <ErrorView
           message={errorMessage(report.error, "Hisobotni yuklashda xatolik")}
@@ -75,7 +90,12 @@ function ReportBody({ report, inTransit }: { report: ChiefFinance; inTransit: nu
         items={[
           { label: "Yetkazildi", value: `${groupThousands(totals.delivered)} zakaz`, hint: `${groupThousands(productUnits)} dona mahsulot` },
           { label: "Yo'lda", value: `${groupThousands(inTransit)} zakaz`, hint: "hozir kuryerlarda" },
-          { label: "Manzillar", value: groupThousands(totals.addresses), hint: `haqingiz ${formatSom(totals.fee)}` },
+          {
+            label: "Manzillar",
+            value: groupThousands(totals.addresses),
+            hint: totals.missingRate ? `haqingiz ${feeText(totals.fee)} · to'liq emas` : `haqingiz ${feeText(totals.fee)}`,
+            tone: totals.missingRate ? "warn" : "default",
+          },
           {
             label: "Filiallarga topshirish kerak",
             value: formatSom(totals.toHandOver),
@@ -84,7 +104,9 @@ function ReportBody({ report, inTransit }: { report: ChiefFinance; inTransit: nu
           },
         ]}
       />
+      <MissingRatesNotice codes={totals.missingRates} show={totals.missingRate} />
       <FilialTable report={report} />
+      <RegionFees rows={report.byFilial} />
       <CourierTable report={report} />
       <ProductList products={products} />
     </>
@@ -99,8 +121,9 @@ function FilialTable({ report }: { report: ChiefFinance }) {
   return (
     <Section
       title="Filiallar bilan hisob"
-      description="Haqingiz = manzil soni × bitta umumiy narx; filial uni alohida to'laydi. «Topshirish kerak» — joriy qoldiq, davrga bog'liq emas."
+      description="Haqingiz = Σ (viloyatdagi manzil soni × o'sha kungi viloyat narxi); filial uni alohida to'laydi. «Topshirish kerak» — joriy qoldiq, davrga bog'liq emas."
     >
+      {report.addressDefinition ? <p className="text-ink-faint -mt-2 text-meta" data-no-translit>{report.addressDefinition}</p> : null}
       <div className="border-line bg-surface overflow-x-auto rounded-2xl border">
         <table className="w-full min-w-3xl text-dense">
           <thead>
@@ -126,7 +149,9 @@ function FilialTable({ report }: { report: ChiefFinance }) {
                 </td>
                 <td className={TD}>{groupThousands(row.delivered)}</td>
                 <td className={TD}>{groupThousands(row.addresses)}</td>
-                <td className={cn(TD, "text-ink font-semibold")}>{formatSom(row.fee)}</td>
+                <td className={cn(TD, "text-ink font-semibold")}>
+                  <FeeCell fee={row.fee} missingRate={row.missingRate} />
+                </td>
                 <td className={TD}>{formatSom(row.cashAccepted)}</td>
                 <td className={cn(TD, "text-ink-muted")}>{formatSom(row.handedOver)}</td>
                 <td className={cn(TD, "pr-4", row.toHandOver > 0 ? "text-warn font-semibold" : "text-ink-muted")}>
@@ -140,13 +165,78 @@ function FilialTable({ report }: { report: ChiefFinance }) {
               <th scope="row" className="px-4 py-2.5 text-left">Jami</th>
               <td className={TD}>{groupThousands(totals.delivered)}</td>
               <td className={TD}>{groupThousands(totals.addresses)}</td>
-              <td className={TD}>{formatSom(totals.fee)}</td>
+              <td className={TD}>
+                <FeeCell fee={totals.fee} missingRate={totals.missingRate} />
+              </td>
               <td className={TD}>{formatSom(totals.cashAccepted)}</td>
               <td className={TD}>{formatSom(totals.handedOver)}</td>
               <td className={cn(TD, "pr-4")}>{formatSom(totals.toHandOver)}</td>
             </tr>
           </tfoot>
         </table>
+      </div>
+    </Section>
+  );
+}
+
+/** Haq katagi: narxi yo'q viloyat bo'lsa — «to'liq emas» belgisi (rang yagona signal emas). */
+function FeeCell({ fee, missingRate }: { fee: number | null; missingRate: boolean }) {
+  return (
+    <>
+      {feeText(fee)}
+      {missingRate ? <span className="text-warn block text-fine font-normal">to&apos;liq emas</span> : null}
+    </>
+  );
+}
+
+/** `missing_rates` — narxi belgilanmagan viloyatlar: ularning haqi hisobga kirmagan. */
+function MissingRatesNotice({ codes, show }: { codes: string[]; show: boolean }) {
+  if (!show) return null;
+  return (
+    <div role="status" className="bg-warn-soft text-warn flex items-start gap-2 rounded-2xl px-4 py-3 text-dense">
+      <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <p>
+        <span className="font-semibold">Ba&apos;zi viloyatlarda manzil narxi belgilanmagan</span>
+        {codes.length ? <span>{`: ${codes.map((code) => regionLabel(code)).join(", ")}`}</span> : null}
+        <span className="block">Bu viloyatlardagi manzillar haqqa qo&apos;shilmagan — narxni bosh logist qo&apos;yadi.</span>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Viloyat kesimi (`by_filial[].addresses_by_region`) — backend bersa. Narx har viloyatda
+ * o'z (va kunma-kun o'zgaradi), shuning uchun `per_address` faqat shu yerda ko'rinadi.
+ */
+function RegionFees({ rows }: { rows: FinanceFilialRow[] }) {
+  const withRegions = rows.filter((row) => row.byRegion.length > 0);
+  if (withRegions.length === 0) return null;
+  return (
+    <Section title="Viloyatlar bo'yicha haq" description="Narx viloyat bo'yicha; davr ichida o'zgargan bo'lsa haq har kun o'sha kungi narxda hisoblangan.">
+      <div className="flex flex-col gap-3">
+        {withRegions.map((row) => (
+          <div key={row.filial?.id ?? "none"} className="border-line bg-surface overflow-hidden rounded-2xl border">
+            <p className="border-line text-ink border-b px-4 py-2.5 text-dense font-semibold">
+              {row.filial ? <span data-no-translit>{row.filial.name}</span> : "Taqsimlanmagan"}
+            </p>
+            <ul className="divide-line divide-y">
+              {row.byRegion.map((region) => (
+                <li key={region.region || "none"} className="grid grid-cols-2 gap-x-4 gap-y-0.5 px-4 py-2.5 text-dense sm:grid-cols-4">
+                  <span className="text-ink col-span-2 sm:col-span-1">
+                    {region.region ? regionLabel(region.region) : "Noma'lum (viloyat belgilanmagan)"}
+                  </span>
+                  <span className="text-ink-muted tabular">{`${groupThousands(region.addresses)} manzil`}</span>
+                  <span className="text-ink-muted tabular">
+                    {region.perAddress === null ? "narx yo'q" : `× ${formatSom(region.perAddress)}`}
+                  </span>
+                  <span className={cn("tabular font-semibold sm:text-right", region.missingRate ? "text-warn" : "text-ink")}>
+                    {feeText(region.fee)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </Section>
   );
