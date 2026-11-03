@@ -31,6 +31,7 @@ export const queryKeys = {
   chiefZones: ["chief", "zones"] as const,
   /** Sklad: o'z skladi va kuryerlari ombori (`sklad_changed` da butunlay tashlanadi). */
   chiefSklad: ["chief", "sklad"] as const,
+  chiefLoadRequests: (status: string) => ["chief", "sklad", "load-requests", status] as const,
   /** Kuryer baholari — filtr va sahifa bo'yicha (kuryerlar sahifasi filtrsiz 1-sahifani bo'lishadi). */
   chiefRatings: (filters: Record<string, unknown>) => ["chief", "ratings", filters] as const,
   /** Kassa 2-pog'ona — `chief/cash/` (filial kesimi va topshiriqlar). */

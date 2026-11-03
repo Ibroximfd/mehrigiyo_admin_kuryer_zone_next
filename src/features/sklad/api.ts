@@ -2,8 +2,8 @@ import { api } from "@/lib/api-client";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
 
-import { mapCourierStock, mapOwnSklad, mapSkladMe, mapStockCell, skladStockRows } from "./types";
-import type { ChiefSklad } from "./types";
+import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, skladStockRows, skladStore } from "./types";
+import type { ChiefSklad, LoadRequest, LoadRequestStatus } from "./types";
 
 /** `stock/` sahifali (50 tadan) — hamma sahifa olinadi (sklad + kuryerlar ombori bir necha sahifa). */
 async function fetchAllStock(signal?: AbortSignal): Promise<unknown[]> {
@@ -36,10 +36,59 @@ export async function fetchChiefSklad(signal?: AbortSignal): Promise<ChiefSklad>
   const sklad = mapOwnSklad(skladsRaw, me.sklad);
   if (!sklad) return { kind: "unassigned" };
   const couriers = asPage(couriersRaw).items.map(mapCourierStock);
+  const cells = stockRaw.map(mapStockCell);
   return {
     kind: "ready",
     sklad,
-    stock: skladStockRows(stockRaw.map(mapStockCell), couriers),
+    stock: skladStockRows(cells, couriers),
     couriers,
+    canWrite: me.canWrite,
+    store: skladStore(cells),
   };
+}
+
+export type CourierDocumentInput =
+  | { type: "courier_load"; locationId: number; courierId: number; lines: Array<{ itemId: number; quantity: number }> }
+  /** `lines` yo'q — kuryerdagi hammasi qaytadi. */
+  | { type: "courier_return"; locationId: number; courierId: number; lines: Array<{ itemId: number; quantity: number }> | null }
+  /** Tuzatish: `actual_qty` — «sanaganda shuncha chiqdi», qoldiq shunga tenglashadi. */
+  | { type: "adjustment"; courierId: number; lines: Array<{ itemId: number; actualQty: number }> };
+
+export async function createCourierDocument(input: CourierDocumentInput): Promise<void> {
+  const json =
+    input.type === "adjustment"
+      ? {
+          type: input.type,
+          courier_id: input.courierId,
+          reason: "count_diff",
+          lines: input.lines.map((line) => ({ item_id: line.itemId, actual_qty: line.actualQty })),
+        }
+      : {
+          type: input.type,
+          location_id: input.locationId,
+          courier_id: input.courierId,
+          ...(input.lines ? { lines: input.lines.map((line) => ({ item_id: line.itemId, quantity: line.quantity })) } : {}),
+        };
+  await api.post<unknown>(ENDPOINTS.skladDocuments, { json, fallbackError: "Hujjatni saqlab bo'lmadi" });
+}
+
+export async function fetchLoadRequests(status: LoadRequestStatus, signal?: AbortSignal): Promise<LoadRequest[]> {
+  const raw = await api.get<unknown>(ENDPOINTS.chiefLoadRequests, {
+    searchParams: { status },
+    signal,
+    fallbackError: "Kirim so'rovlarini yuklashda xatolik",
+  });
+  return asPage(raw).items.map(mapLoadRequest);
+}
+
+/** `lines` — faqat kamaytirilgan qatorlar (0 = o'sha qator rad); bo'sh — to'liq tasdiq. */
+export async function approveLoadRequest(id: number, lines: Array<{ itemId: number; quantity: number }>): Promise<void> {
+  await api.post<unknown>(ENDPOINTS.chiefLoadRequestApprove(id), {
+    json: lines.length ? { lines: lines.map((line) => ({ item_id: line.itemId, quantity: line.quantity })) } : {},
+    fallbackError: "Tasdiqlab bo'lmadi",
+  });
+}
+
+export async function rejectLoadRequest(id: number, reason: string): Promise<void> {
+  await api.post<unknown>(ENDPOINTS.chiefLoadRequestReject(id), { json: { reason }, fallbackError: "Rad etib bo'lmadi" });
 }

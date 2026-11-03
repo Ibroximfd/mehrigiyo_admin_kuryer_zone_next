@@ -36,6 +36,11 @@ export type SkladMe = {
   sklad: { id: number; name: string; regions: string[] } | null;
   /** `warehouse_permissions.view` — `false` bo'lsa sklad yopiq; maydon yo'q (eski backend) — ochiq. */
   canView: boolean;
+  /**
+   * Kuryerga berish / qabul / tuzatish (sklad hujjati 2026-11-03 §6.2): `can_write` yoki
+   * `warehouse_permissions.manage`. Dopusk ro'yxati bosh kuryerda o'qilmaydi (`grants_apply: false`).
+   */
+  canWrite: boolean;
 };
 
 function codes(value: unknown): string[] {
@@ -53,6 +58,7 @@ export function mapSkladMe(raw: unknown): SkladMe {
   const json = asRecord(raw);
   const permissions = isRecord(json.warehouse_permissions) ? json.warehouse_permissions : null;
   const canView = permissions ? asBool(permissions.view, true) : true;
+  const canWrite = asBool(json.can_write) || (permissions ? asBool(permissions.manage) : false);
   if ("sklad" in json) {
     const sklad = isRecord(json.sklad) ? json.sklad : null;
     const id = sklad ? asOptionalInt(sklad.id) : null;
@@ -62,10 +68,11 @@ export function mapSkladMe(raw: unknown): SkladMe {
           ? { id, name: asString(sklad.name), regions: codes(sklad.regions).length ? codes(sklad.regions) : codes(json.regions) }
           : null,
       canView,
+      canWrite,
     };
   }
   const skladId = asOptionalInt(json.sklad_id);
-  return { sklad: skladId === null ? null : { id: skladId, name: "", regions: codes(json.regions) }, canView };
+  return { sklad: skladId === null ? null : { id: skladId, name: "", regions: codes(json.regions) }, canView, canWrite };
 }
 
 /** `chiefs[]` — haqiqat manbai; eski javobda faqat `chief` (bitta yoki `null`). */
@@ -130,6 +137,7 @@ export function mapCourierStock(raw: unknown): CourierStock {
 /** `stock/` qatori: ombor × mahsulot. */
 export type StockCell = {
   kind: "region" | "courier";
+  location: { id: number; name: string };
   item: ItemRef;
   onHand: number;
   minQuantity: number;
@@ -143,6 +151,7 @@ export function mapStockCell(raw: unknown): StockCell {
       asString(asRecord(json.location).kind) === "courier"
         ? "courier"
         : "region",
+    location: { id: asInt(asRecord(json.location).id), name: asString(asRecord(json.location).name) },
     item: mapItemRef(json.item),
     onHand: asInt(json.on_hand),
     minQuantity: asInt(json.min_quantity),
@@ -205,4 +214,82 @@ export type ChiefSklad =
   | { kind: "unassigned" }
   /** `warehouse_permissions.view: false` — sklad menyusi yopiq (§5.2). */
   | { kind: "forbidden" }
-  | { kind: "ready"; sklad: SkladInfo; stock: SkladStockRow[]; couriers: CourierStock[] };
+  | {
+      kind: "ready";
+      sklad: SkladInfo;
+      stock: SkladStockRow[];
+      couriers: CourierStock[];
+      /** Kuryerga berish / qabul / tuzatish tugmalari. */
+      canWrite: boolean;
+      /** Sklad ombori — kuryerga berish/qabul shu yerdan (mol turgan, eng ko'p qoldiqli ombor). */
+      store: { id: number; name: string } | null;
+    };
+
+/** Sklad ombori: skladdagi eng ko'p qoldiqli `region` ombori (bitta sklad — bitta joy). */
+export function skladStore(cells: readonly StockCell[]): { id: number; name: string } | null {
+  const totals = new Map<number, { id: number; name: string; onHand: number }>();
+  for (const cell of cells) {
+    if (cell.kind !== "region" || !cell.location.id) continue;
+    const row = totals.get(cell.location.id) ?? { ...cell.location, onHand: 0 };
+    totals.set(cell.location.id, { ...row, onHand: row.onHand + cell.onHand });
+  }
+  const best = [...totals.values()].sort((a, b) => b.onHand - a.onHand)[0];
+  return best ? { id: best.id, name: best.name } : null;
+}
+
+/* ---------- Kuryer kirim so'rovlari (sklad hujjati 2026-11-03 §4) ---------- */
+
+export type LoadRequestStatus = "pending" | "approved" | "rejected";
+
+export type LoadRequest = {
+  id: number;
+  status: LoadRequestStatus;
+  courier: { id: number; fullName: string; phone: string };
+  location: { id: number; name: string } | null;
+  note: string;
+  rejectReason: string;
+  /** `approvedQuantity` — `null` gacha qaror yo'q; ikkalasi ham qoladi (nizo uchun dalil). */
+  lines: Array<{ item: ItemRef; quantity: number; approvedQuantity: number | null }>;
+  totalQty: number;
+  approvedQty: number;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+function asLoadStatus(value: unknown): LoadRequestStatus {
+  return value === "approved" || value === "rejected" ? value : "pending";
+}
+
+export function mapLoadRequest(raw: unknown): LoadRequest {
+  const json = asRecord(raw);
+  const courier = asRecord(json.courier);
+  const location = isRecord(json.location) ? json.location : null;
+  return {
+    id: asInt(json.id),
+    status: asLoadStatus(json.status),
+    courier: { id: asInt(courier.id), fullName: asString(courier.full_name), phone: asString(courier.phone) },
+    location: location ? { id: asInt(location.id), name: asString(location.name) } : null,
+    note: asString(json.note),
+    rejectReason: asString(json.reject_reason),
+    lines: asArray(json.lines).map((entry) => {
+      const row = asRecord(entry);
+      return {
+        item: mapItemRef(row.item ?? { id: row.item_id }),
+        quantity: asInt(row.quantity),
+        approvedQuantity: asOptionalInt(row.approved_quantity),
+      };
+    }),
+    totalQty: asInt(json.total_qty),
+    approvedQty: asInt(json.approved_qty),
+    createdAt: asString(json.created_at),
+    decidedAt: json.decided_at ? asString(json.decided_at) : null,
+  };
+}
+
+/** `409 insufficient_stock` dagi `shortages[]` — qaysi mahsulot qancha yetmaydi. */
+export function mapShortages(data: unknown): Array<{ name: string; need: number; available: number }> {
+  return asArray(asRecord(data).shortages).map((entry) => {
+    const row = asRecord(entry);
+    return { name: asString(row.name), need: asInt(row.need), available: asInt(row.available) };
+  });
+}

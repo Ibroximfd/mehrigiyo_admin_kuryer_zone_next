@@ -84,6 +84,12 @@ export const ENDPOINTS = {
   skladCouriers: "/sklad/couriers/",
   /** Bosh kuryerga sklad holati: `sklad {id, name, regions}` yoki `null` (TZ 32 S-7, §10). */
   skladMe: "/sklad/me/",
+  /** Bosh kuryer hujjati — faqat `courier_load` · `courier_return` · `adjustment` (2026-11-03 §6). */
+  skladDocuments: "/sklad/documents/",
+  /** Kuryer kirim so'rovlari — bosh kuryer tasdig'i (2026-11-03 §4.2). */
+  chiefLoadRequests: "/operator/chief/warehouse/load-requests/",
+  chiefLoadRequestApprove: (id: number) => `/operator/chief/warehouse/load-requests/${id}/approve/`,
+  chiefLoadRequestReject: (id: number) => `/operator/chief/warehouse/load-requests/${id}/reject/`,
   /** Sklad soketi — `sklad_changed` (bosh kuryer boshqa skladga o'tkazildi, §11). */
   skladSocket: "/ws/sklad/",
   /** O'z kuryerlari baholari: qatorlar, `summary`, `by_courier` (`ILOVA_HOLAT…` §7.1). */

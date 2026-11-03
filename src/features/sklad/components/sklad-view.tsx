@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Lock, PackageOpen, SearchX, UserRound, Warehouse } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Lock, PackageOpen, SearchX, SlidersHorizontal, UserRound, Warehouse } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
+import { useState } from "react";
 
 import { KeyFigures, Section } from "@/components/kit/key-figures";
 import { ProductThumb } from "@/components/kit/product-thumb";
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
 
 import { fetchChiefSklad } from "../api";
 import type { CourierStock, SkladChief, SkladStockRow } from "../types";
+import { CourierDocumentDialog, type CourierDocumentMode } from "./courier-document-dialog";
+import { LoadRequestsPanel } from "./load-requests-panel";
 import { useSkladChanged } from "../use-sklad-changed";
 
 function units(value: number): string {
@@ -103,6 +106,10 @@ export function SkladView({ me }: { me: ChiefMe }) {
         </div>
       </section>
 
+      <Section title="Kirim so'rovlari" description="Kuryerlar ilovadan so'ragan mol — tasdiqlang yoki sabab bilan rad eting">
+        <LoadRequestsPanel />
+      </Section>
+
       <Section title="Qoldiq">
         <KeyFigures
           items={[
@@ -125,7 +132,10 @@ export function SkladView({ me }: { me: ChiefMe }) {
       </Section>
 
       <Section title="Kuryerlar ombori" description="Kuryerlar qo'lidagi mol — kuryer ilovasi yozgan holatda">
-        <CourierStocks stocks={data.couriers} />
+        <CourierStocks
+          stocks={data.couriers}
+          actions={data.canWrite ? { stock: data.stock, store: data.store } : null}
+        />
       </Section>
     </div>
   );
@@ -208,7 +218,11 @@ function StockTable({ rows }: { rows: SkladStockRow[] }) {
   );
 }
 
-function CourierStocks({ stocks }: { stocks: CourierStock[] }) {
+/** Kuryer qatoridagi amallar (§6): faqat `can_write` bo'lsa; aks holda faqat ko'rish. */
+type CourierActions = { stock: SkladStockRow[]; store: { id: number; name: string } | null };
+
+function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: CourierActions | null }) {
+  const [open, setOpen] = useState<{ mode: CourierDocumentMode; courier: CourierStock } | null>(null);
   if (stocks.length === 0) {
     return (
       <EmptyView
@@ -220,6 +234,7 @@ function CourierStocks({ stocks }: { stocks: CourierStock[] }) {
     );
   }
   return (
+    <>
     <ul className="border-line bg-surface divide-line divide-y overflow-hidden rounded-2xl border">
       {stocks.map((stock) => {
         const total = stock.items.reduce((sum, entry) => sum + entry.quantity, 0);
@@ -242,10 +257,37 @@ function CourierStocks({ stocks }: { stocks: CourierStock[] }) {
                 ))}
               </span>
             )}
+            {actions ? (
+              <span className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto">
+                <Button size="sm" variant="outline" onClick={() => setOpen({ mode: "courier_load", courier: stock })}>
+                  <ArrowUpFromLine />
+                  Berish
+                </Button>
+                <Button size="sm" variant="outline" disabled={total === 0} onClick={() => setOpen({ mode: "courier_return", courier: stock })}>
+                  <ArrowDownToLine />
+                  Qabul
+                </Button>
+                <Button size="sm" variant="ghost" disabled={total === 0} onClick={() => setOpen({ mode: "adjustment", courier: stock })}>
+                  <SlidersHorizontal />
+                  Tuzatish
+                </Button>
+              </span>
+            ) : null}
           </li>
         );
       })}
     </ul>
+    {open && actions ? (
+      <CourierDocumentDialog
+        key={`${open.mode}-${open.courier.courier.id}`}
+        mode={open.mode}
+        courier={open.courier}
+        stock={actions.stock}
+        store={actions.store}
+        onClose={() => setOpen(null)}
+      />
+    ) : null}
+    </>
   );
 }
 

@@ -30,6 +30,12 @@ export function useSkladChanged(seatId: number) {
         return token ? `${wsUrl(ENDPOINTS.skladSocket)}?token=${encodeURIComponent(token)}` : null;
       },
       onEvent: (raw) => {
+        // Kuryer kirim so'rovi va qaror (2026-11-03 §4.5) — navbat va qoldiq yangilanadi.
+        const type = (raw as { type?: unknown } | null)?.type;
+        if (type === "courier_load_request" || type === "courier_load_request_decided") {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
+          return;
+        }
         const event = parseSkladChanged(raw);
         if (event?.chiefId === seatId) void queryClient.resetQueries({ queryKey: queryKeys.chiefSklad });
       },

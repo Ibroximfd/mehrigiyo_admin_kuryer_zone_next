@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { mapCourierStock, mapOwnSklad, mapSkladMe, mapStockCell, parseSkladChanged, skladStockRows, type StockCell } from "./types";
+import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, parseSkladChanged, skladStockRows, skladStore, type StockCell } from "./types";
 
 const item = { id: 14, name: "Alatoo bals", image: null };
 
-const cell = (onHand: number, isLow: boolean): StockCell => ({
+const cell = (onHand: number, isLow: boolean, locationId = 1): StockCell => ({
   kind: "region",
+  location: { id: locationId, name: `Ombor ${locationId}` },
   item,
   onHand,
   minQuantity: 50,
@@ -50,7 +51,7 @@ describe("TZ 32 S: sklad/me va chiefs[] (SKLAD_S_BLOK §1, §10, §11)", () => {
       sklad: null,
       warehouse_permissions: { view: true, manage: false, admin: false },
     });
-    expect(me).toEqual({ sklad: null, canView: true });
+    expect(me).toEqual({ sklad: null, canView: true, canWrite: false });
     expect(mapOwnSklad([], me.sklad)).toBeNull();
   });
 
@@ -60,7 +61,7 @@ describe("TZ 32 S: sklad/me va chiefs[] (SKLAD_S_BLOK §1, §10, §11)", () => {
 
   it("biriktirilgan: `sklad {id, name, regions}`; `warehouse_permissions.view: false` — yopiq", () => {
     const me = mapSkladMe({ sklad_id: 1, sklad: { id: 1, name: "Vodiy", regions: ["fargona", "namangan"] }, warehouse_permissions: { view: false } });
-    expect(me).toEqual({ sklad: { id: 1, name: "Vodiy", regions: ["fargona", "namangan"] }, canView: false });
+    expect(me).toEqual({ sklad: { id: 1, name: "Vodiy", regions: ["fargona", "namangan"] }, canView: false, canWrite: false });
   });
 
   it("`chiefs[]` — hamma bosh kuryer; `chief` (faqat birinchisi) e'tiborsiz", () => {
@@ -92,5 +93,32 @@ describe("TZ 32 S: sklad/me va chiefs[] (SKLAD_S_BLOK §1, §10, §11)", () => {
     expect(parseSkladChanged({ type: "sklad_changed", chief_id: 7, sklad_id: 2, regions: ["xorazm"] })).toEqual({ chiefId: 7, skladId: 2 });
     expect(parseSkladChanged({ type: "sklad_changed", chief_id: 7, sklad_id: null, regions: [] })).toEqual({ chiefId: 7, skladId: null });
     expect(parseSkladChanged({ type: "stock_changed", chief_id: 7 })).toBeNull();
+  });
+});
+
+describe("bosh kuryer yozuvi (sklad hujjati 2026-11-03)", () => {
+  it("`can_write` yoki `manage` — tugmalar; dopusk ro'yxati o'qilmaydi", () => {
+    const sklad = { id: 1, name: "Vodiy", regions: ["fargona"] };
+    expect(mapSkladMe({ sklad, can_write: true, grants_apply: false, granted_item_ids: [] }).canWrite).toBe(true);
+    expect(mapSkladMe({ sklad, warehouse_permissions: { view: true, manage: true } }).canWrite).toBe(true);
+    expect(mapSkladMe({ sklad, can_write: false }).canWrite).toBe(false);
+  });
+
+  it("sklad ombori — eng ko'p qoldiqli `region` ombori", () => {
+    expect(skladStore([cell(0, false, 3), cell(40, false, 5), cell(10, false, 5)])?.id).toBe(5);
+    expect(skladStore([])).toBeNull();
+  });
+
+  it("so'rov: so'ralgan va berilgan son ikkalasi qoladi", () => {
+    const request = mapLoadRequest({
+      id: 12,
+      status: "approved",
+      courier: { id: 3, full_name: "Aziz", phone: "998907770001" },
+      lines: [{ item: { id: 7, name: "M" }, item_id: 7, quantity: 10, approved_quantity: 3 }],
+      total_qty: 10,
+      approved_qty: 3,
+    });
+    expect(request.lines[0]).toMatchObject({ quantity: 10, approvedQuantity: 3 });
+    expect(mapLoadRequest({ id: 1, lines: [{ item_id: 7, quantity: 2, approved_quantity: null }] }).lines[0]?.approvedQuantity).toBeNull();
   });
 });
