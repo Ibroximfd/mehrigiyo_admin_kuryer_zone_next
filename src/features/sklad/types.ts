@@ -130,7 +130,8 @@ export function mapCourierStock(raw: unknown): CourierStock {
         const row = asRecord(entry);
         return { item: mapItemRef(row.item), quantity: asInt(row.quantity) };
       })
-      .filter((row) => row.quantity > 0),
+      // Minus ham ko'rinadi — «kuryer qancha qarzdor» (sklad qo'llanmasi 2026-11-03); faqat 0 yashiriladi.
+      .filter((row) => row.quantity !== 0),
   };
 }
 

@@ -61,7 +61,10 @@ export function CourierDocumentDialog({
   const rows: Row[] =
     mode === "courier_load"
       ? stock.filter((row) => row.inSklad > 0).map((row) => ({ id: row.item.id, name: row.item.name, image: row.item.image, available: row.inSklad }))
-      : courier.items.map((entry) => ({ id: entry.item.id, name: entry.item.name, image: entry.item.image, available: entry.quantity }));
+      : courier.items
+          // Qabulda faqat qo'lidagi (musbat) mol; tuzatishda minus qator ham — sanab tenglashtiriladi.
+          .filter((entry) => mode === "adjustment" || entry.quantity > 0)
+          .map((entry) => ({ id: entry.item.id, name: entry.item.name, image: entry.item.image, available: entry.quantity }));
   // Sukut: berishda 0; qabulda hammasi; tuzatishda joriy qoldiq (o'zgarmagan qator yuborilmaydi).
   const [draft, setDraft] = useState<Record<number, string>>(() =>
     Object.fromEntries(rows.map((row) => [row.id, mode === "courier_load" ? "" : String(row.available)])),

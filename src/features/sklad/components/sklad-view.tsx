@@ -252,7 +252,7 @@ function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: C
                   <span key={entry.item.id} className="bg-subtle text-ink inline-flex items-center gap-1.5 rounded-md py-1 pr-2 pl-1 text-meta">
                     <ProductThumb src={entry.item.image} name={entry.item.name} size="sm" className="size-6" />
                     <span data-no-translit>{entry.item.name}</span>
-                    <span className="tabular font-semibold">{entry.quantity}</span>
+                    <span className={cn("tabular font-semibold", entry.quantity < 0 && "text-danger")}>{entry.quantity}</span>
                   </span>
                 ))}
               </span>
