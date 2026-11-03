@@ -4,7 +4,6 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { parseISO } from "date-fns";
 import {
   HandCoins,
-  LoaderCircle,
   ReceiptText,
   SearchX,
   Wallet,
@@ -26,6 +25,7 @@ import {
   TableSkeleton,
 } from "@/components/kit/state-views";
 import { StatusPill } from "@/components/kit/status-pill";
+import { NextPageSentinel } from "@/components/kit/next-page-sentinel";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -258,21 +258,11 @@ export function CourierCollection({ canAccept }: { canAccept: boolean }) {
               />
             ))}
           </ul>
-          {handovers.hasNextPage ? (
-            <div className="border-line border-t p-2 text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={handovers.isFetchingNextPage}
-                onClick={() => void handovers.fetchNextPage()}
-              >
-                {handovers.isFetchingNextPage ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : null}
-                Yana yuklash
-              </Button>
-            </div>
-          ) : null}
+          <NextPageSentinel
+            hasMore={handovers.hasNextPage}
+            isLoading={handovers.isFetchingNextPage}
+            onLoadMore={() => void handovers.fetchNextPage()}
+          />
         </div>
       )}
 

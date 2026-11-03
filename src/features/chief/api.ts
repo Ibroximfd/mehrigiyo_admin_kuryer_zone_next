@@ -136,11 +136,23 @@ export function assignChiefOrder(
   });
 }
 
-/** Kelgan zakazlar — sahifasiz (`page` berilmasa server oddiy ro'yxat qaytaradi, V3). */
+/**
+ * Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). Server endi sahifalab
+ * beradi (10 tadan): faqat 1-sahifa olinsa reja 10 ta zakaz bilan cheklanib qolardi
+ * (2026-11-03). Hamma sahifa ketma-ket yig'iladi; cheksiz aylanishdan himoya — 100 sahifa.
+ */
 export function fetchIncomingOrders(signal?: AbortSignal): Promise<LogistOrder[]> {
-  return call(async () =>
-    asPage(await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams: { scope: "incoming" }, signal })).items.map(mapLogistOrder),
-  );
+  return call(async () => {
+    const orders: LogistOrder[] = [];
+    for (let page = 1; page <= 100; page += 1) {
+      const result = asPage(
+        await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams: { scope: "incoming", page }, signal }),
+      );
+      orders.push(...result.items.map(mapLogistOrder));
+      if (!result.hasMore) break;
+    }
+    return orders;
+  });
 }
 
 /**

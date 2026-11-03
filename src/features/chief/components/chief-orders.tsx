@@ -10,6 +10,7 @@ import { FilterChips } from "@/components/kit/filter-chips";
 import { ProductThumbs } from "@/components/kit/product-thumb";
 import { EmptyView, ErrorView, TableSkeleton } from "@/components/kit/state-views";
 import { StatusPill } from "@/components/kit/status-pill";
+import { NextPageSentinel } from "@/components/kit/next-page-sentinel";
 import { Button } from "@/components/ui/button";
 import { assignChiefOrder, fetchChiefOrders } from "@/features/chief/api";
 import { chiefCan } from "@/features/chief/types";
@@ -137,14 +138,11 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
               />
             ))}
           </ul>
-          {orders.hasNextPage ? (
-            <div className="border-line border-t p-2 text-center">
-              <Button variant="ghost" size="sm" disabled={orders.isFetchingNextPage} onClick={() => void orders.fetchNextPage()}>
-                {orders.isFetchingNextPage ? <LoaderCircle className="animate-spin" /> : null}
-                Yana yuklash
-              </Button>
-            </div>
-          ) : null}
+          <NextPageSentinel
+            hasMore={orders.hasNextPage}
+            isLoading={orders.isFetchingNextPage}
+            onLoadMore={() => void orders.fetchNextPage()}
+          />
         </div>
       )}
 
@@ -245,3 +243,4 @@ function ChiefOrderRow({
     </li>
   );
 }
+
