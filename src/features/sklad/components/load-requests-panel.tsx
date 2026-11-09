@@ -16,6 +16,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { approveLoadRequest, fetchLoadRequests, rejectLoadRequest } from "../api";
+import { describePieces, hasPackage, packedQuantity, rowErrorsOf, splitPieces, toPieces } from "../packaging";
 import { mapShortages, type LoadRequest, type LoadRequestStatus } from "../types";
 
 const TABS: Array<[LoadRequestStatus, string]> = [
@@ -94,24 +95,54 @@ export function LoadRequestsPanel() {
   );
 }
 
+type LineDraft = { boxes: string; pieces: string };
+
+const digits = (value: string) => value.replace(/\D/g, "");
+const toInt = (value: string) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 function LoadRequestCard({ request }: { request: LoadRequest }) {
   const queryClient = useQueryClient();
   const pending = request.status === "pending";
-  const [approved, setApproved] = useState<Record<number, string>>(() =>
-    Object.fromEntries(request.lines.map((line) => [line.item.id, String(line.quantity)])),
+  // Boshlang'ich qiymat — so'ralgan miqdor, karobkali mahsulotda karobka + dona ko'rinishida.
+  const [drafts, setDrafts] = useState<Record<number, LineDraft>>(() =>
+    Object.fromEntries(
+      request.lines.map((line) => {
+        const { boxes, pieces } = hasPackage(line.packageSize)
+          ? splitPieces(line.quantity, line.packageSize)
+          : { boxes: 0, pieces: line.quantity };
+        return [line.item.id, { boxes: String(boxes), pieces: String(pieces) }];
+      }),
+    ),
   );
+  /** Server qaytargan qator xatolari (`fields.lines[i]`) — mahsulot id si bo'yicha. */
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  const amountOf = (itemId: number, max: number) => {
-    const parsed = Number.parseInt(approved[itemId] ?? "", 10);
-    return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), max) : 0;
-  };
+  const lines = request.lines.map((line) => {
+    const draft = drafts[line.item.id] ?? { boxes: "0", pieces: "0" };
+    const boxes = hasPackage(line.packageSize) ? toInt(draft.boxes) : 0;
+    const pieces = toInt(draft.pieces);
+    const amount = toPieces(boxes, pieces, line.packageSize);
+    return { line, draft, boxes, pieces, amount, over: amount > line.quantity };
+  });
   // Faqat kamaytirilgan qatorlar yuboriladi; ko'rsatilmagani so'ralganicha qoladi (§4.2).
-  const reduced = request.lines
-    .map((line) => ({ itemId: line.item.id, quantity: amountOf(line.item.id, line.quantity), asked: line.quantity }))
-    .filter((line) => line.quantity < line.asked);
-  const allZero = request.lines.every((line) => amountOf(line.item.id, line.quantity) === 0);
+  const reduced = lines.filter((row) => !row.over && row.amount < row.line.quantity);
+  const anyOver = lines.some((row) => row.over);
+  const allZero = lines.every((row) => row.amount === 0);
+
+  const setDraft = (itemId: number, patch: Partial<LineDraft>) => {
+    setDrafts((current) => ({ ...current, [itemId]: { ...(current[itemId] ?? { boxes: "0", pieces: "0" }), ...patch } }));
+    setRowErrors((current) => {
+      if (!(itemId in current)) return current;
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+  };
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["chief", "sklad"] });
   const onError = (error: unknown) => {
@@ -127,11 +158,33 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
       refresh();
       return;
     }
+    if (rowErrorsOf(error, "lines").some(Boolean)) {
+      toast.error("Belgilangan qatorlardagi sonni tuzating");
+      return;
+    }
     toast.error(errorMessage(error, "Saqlab bo'lmadi"));
   };
 
   const approve = useMutation({
-    mutationFn: () => approveLoadRequest(request.id, reduced.map(({ itemId, quantity }) => ({ itemId, quantity }))),
+    mutationFn: async () => {
+      const sent = reduced;
+      try {
+        await approveLoadRequest(
+          request.id,
+          sent.map(({ line, boxes, pieces }) => ({
+            itemId: line.item.id,
+            ...packedQuantity(boxes, pieces, line.packageSize),
+          })),
+        );
+      } catch (error) {
+        // `fields.lines[i]` — yuborilgan tartibda; indeksni mahsulotga qaytaramiz.
+        const byIndex = rowErrorsOf(error, "lines");
+        setRowErrors(
+          Object.fromEntries(sent.flatMap((row, index) => (byIndex[index] ? [[row.line.item.id, byIndex[index]]] : []))),
+        );
+        throw error;
+      }
+    },
     onSuccess: () => {
       toast.success("So'rov tasdiqlandi — mol kuryerga o'tdi");
       refresh();
@@ -164,27 +217,59 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
       {request.note ? <p className="text-ink-muted mt-1 text-meta" data-no-translit>{`«${request.note}»`}</p> : null}
 
       <ul className="divide-line mt-2 divide-y">
-        {request.lines.map((line) => (
-          <li key={line.item.id} className="flex items-center gap-2.5 py-1.5">
-            <ProductThumb src={line.item.image} name={line.item.name} size="sm" />
-            <span className="text-ink min-w-0 flex-1 truncate text-dense" data-no-translit>{line.item.name}</span>
-            <span className="text-ink-faint tabular text-meta">{`so'raldi ${line.quantity}`}</span>
-            {pending ? (
-              <input
-                inputMode="numeric"
-                aria-label={`${line.item.name}: beriladi`}
-                value={approved[line.item.id] ?? ""}
-                onFocus={(event) => event.target.select()}
-                onChange={(event) => setApproved((current) => ({ ...current, [line.item.id]: event.target.value.replace(/\D/g, "") }))}
-                className={cn(inputClass, "tabular h-8 w-16 text-right")}
-              />
-            ) : (
-              <span className="text-ink tabular w-16 text-right text-dense font-semibold">
-                {line.approvedQuantity === null ? "—" : line.approvedQuantity}
-              </span>
-            )}
-          </li>
-        ))}
+        {lines.map(({ line, draft, amount, over }) => {
+          const boxed = hasPackage(line.packageSize);
+          const rowError = over ? `So'ralgandan ko'p — ko'pi bilan ${line.quantity} dona` : rowErrors[line.item.id];
+          return (
+            <li key={line.item.id} className="py-2">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                <ProductThumb src={line.item.image} name={line.item.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-ink truncate text-dense" data-no-translit>
+                    {line.item.name}
+                  </p>
+                  <p className="text-ink-faint text-fine">
+                    <span>so&apos;raldi</span>{" "}
+                    <span className="text-ink-muted font-medium">{describePieces(line.quantity, line.packageSize)}</span>
+                    {boxed ? <span className="ml-1.5">{`· 1 kar. = ${line.packageSize} dona`}</span> : null}
+                  </p>
+                </div>
+                {pending ? (
+                  <div className="flex items-center gap-1.5">
+                    {boxed ? (
+                      <QtyInput
+                        value={draft.boxes}
+                        suffix="kar."
+                        label={`${line.item.name}: karobka`}
+                        invalid={Boolean(rowError)}
+                        onChange={(boxes) => setDraft(line.item.id, { boxes })}
+                      />
+                    ) : null}
+                    <QtyInput
+                      value={draft.pieces}
+                      suffix="dona"
+                      label={`${line.item.name}: dona`}
+                      invalid={Boolean(rowError)}
+                      onChange={(pieces) => setDraft(line.item.id, { pieces })}
+                    />
+                    {boxed ? (
+                      <span className="text-ink tabular w-12 text-right text-dense font-semibold">{`= ${amount}`}</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="text-ink tabular text-right text-dense font-semibold">
+                    {line.approvedQuantity === null ? "—" : describePieces(line.approvedQuantity, line.packageSize)}
+                  </span>
+                )}
+              </div>
+              {pending && rowError ? (
+                <p role="alert" className="text-danger mt-1 text-right text-fine">
+                  {rowError}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
       {request.status === "rejected" && request.rejectReason ? (
@@ -224,7 +309,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
               <X />
               Rad etish
             </Button>
-            <Button disabled={busy || allZero} onClick={() => approve.mutate()}>
+            <Button disabled={busy || allZero || anyOver} onClick={() => approve.mutate()}>
               {approve.isPending ? <LoaderCircle className="animate-spin" /> : <Check />}
               {reduced.length ? "Qisman tasdiqlash" : "Tasdiqlash"}
             </Button>
@@ -232,5 +317,34 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
         )
       ) : null}
     </li>
+  );
+}
+
+function QtyInput({
+  value,
+  suffix,
+  label,
+  invalid,
+  onChange,
+}: {
+  value: string;
+  suffix: string;
+  label: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1">
+      <input
+        inputMode="numeric"
+        aria-label={label}
+        aria-invalid={invalid || undefined}
+        value={value}
+        onFocus={(event) => event.target.select()}
+        onChange={(event) => onChange(digits(event.target.value))}
+        className={cn(inputClass, "tabular h-8 w-14 text-right")}
+      />
+      <span className="text-ink-faint text-fine">{suffix}</span>
+    </label>
   );
 }

@@ -250,7 +250,8 @@ export type LoadRequest = {
   note: string;
   rejectReason: string;
   /** `approvedQuantity` — `null` gacha qaror yo'q; ikkalasi ham qoladi (nizo uchun dalil). */
-  lines: Array<{ item: ItemRef; quantity: number; approvedQuantity: number | null }>;
+  /** `packageSize` — har safar javobdan (`item.package_size`), 1 = karobkasiz (hujjat 44 §2). */
+  lines: Array<{ item: ItemRef; packageSize: number; quantity: number; approvedQuantity: number | null }>;
   totalQty: number;
   approvedQty: number;
   createdAt: string;
@@ -276,6 +277,7 @@ export function mapLoadRequest(raw: unknown): LoadRequest {
       const row = asRecord(entry);
       return {
         item: mapItemRef(row.item ?? { id: row.item_id }),
+        packageSize: Math.max(1, asInt(asRecord(row.item).package_size, 1)),
         quantity: asInt(row.quantity),
         approvedQuantity: asOptionalInt(row.approved_quantity),
       };

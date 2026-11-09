@@ -235,7 +235,7 @@ describe("haqiqiy javoblar (test server, 2026-10-31)", () => {
   it("sklad: me → `sklad_id` va viloyatlar, sklads — faqat o'zi, stock — sklad omborlari (V7/V8/V16)", () => {
     const me = mapSkladMe(LIVE.skladMe);
     // Eski (prod) javob: `sklad` obyekti yo'q — `sklad_id` + `regions` dan o'qiladi.
-    expect(me).toEqual({ sklad: { id: 2, name: "", regions: ["toshkent_shahar"] }, canView: true });
+    expect(me).toEqual({ sklad: { id: 2, name: "", regions: ["toshkent_shahar"] }, canView: true, canWrite: false });
     expect(mapOwnSklad(LIVE.sklads, me.sklad)).toMatchObject({ id: 2, name: "Test Bosh Kuryer skladi", regions: ["toshkent_shahar"] });
     const couriers = asPage(LIVE.skladCouriers).items.map(mapCourierStock);
     expect(couriers[0]).toEqual({ courier: { id: 27, fullName: "Test Kuryer", onShift: false }, onHand: 0, items: [] });

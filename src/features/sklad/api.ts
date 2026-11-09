@@ -3,6 +3,7 @@ import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
 
 import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, skladStockRows, skladStore } from "./types";
+import type { PackedQuantity } from "./packaging";
 import type { ChiefSklad, LoadRequest, LoadRequestStatus } from "./types";
 
 /** `stock/` sahifali (50 tadan) — hamma sahifa olinadi (sklad + kuryerlar ombori bir necha sahifa). */
@@ -81,10 +82,14 @@ export async function fetchLoadRequests(status: LoadRequestStatus, signal?: Abor
   return asPage(raw).items.map(mapLoadRequest);
 }
 
-/** `lines` — faqat kamaytirilgan qatorlar (0 = o'sha qator rad); bo'sh — to'liq tasdiq. */
-export async function approveLoadRequest(id: number, lines: Array<{ itemId: number; quantity: number }>): Promise<void> {
+/**
+ * `lines` — faqat kamaytirilgan qatorlar (0 = o'sha qator rad); bo'sh — to'liq tasdiq.
+ * Miqdor karobka + dona alohida — server ko'paytiradi va so'ralgandan oshmasligini
+ * ko'paytirgandan keyin tekshiradi (hujjat 44 §3.2).
+ */
+export async function approveLoadRequest(id: number, lines: Array<{ itemId: number } & PackedQuantity>): Promise<void> {
   await api.post<unknown>(ENDPOINTS.chiefLoadRequestApprove(id), {
-    json: lines.length ? { lines: lines.map((line) => ({ item_id: line.itemId, quantity: line.quantity })) } : {},
+    json: lines.length ? { lines: lines.map(({ itemId, ...packed }) => ({ item_id: itemId, ...packed })) } : {},
     fallbackError: "Tasdiqlab bo'lmadi",
   });
 }
