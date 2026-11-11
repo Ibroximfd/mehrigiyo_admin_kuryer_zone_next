@@ -18,14 +18,19 @@ export type PlanRow = {
   excluded: boolean;
 };
 
-/** Server rejasi + zakaz kartasi; rejada yo'q zakaz qatorga tushmaydi. */
+/** Server rejasi + zakaz kartasi; rejada yo'q zakaz qatorga tushmaydi. Karta avval rejaning o'zidan. */
 export function planFromPreview(rows: readonly AutoAssignPreviewRow[], orders: readonly LogistOrder[]): PlanRow[] {
   const byId = new Map(orders.map((order) => [order.id, order]));
   return rows.flatMap((row) => {
-    const order = byId.get(row.orderId);
+    const order = row.order ?? byId.get(row.orderId);
     if (!order) return [];
     return [{ order, zoneId: row.zone?.id ?? null, courierId: row.courier?.id ?? null, reason: row.reason, excluded: false }];
   });
+}
+
+/** Reja zakaz kartalari bilan keldimi (`include_order`) — kelsa `chief/orders/` so'ralmaydi. */
+export function previewHasOrders(rows: readonly AutoAssignPreviewRow[]): boolean {
+  return rows.every((row) => row.order !== null);
 }
 
 export function couriersOfZone(couriers: readonly Courier[], zoneId: number | null): Courier[] {

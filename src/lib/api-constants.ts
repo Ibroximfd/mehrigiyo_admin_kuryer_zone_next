@@ -96,6 +96,8 @@ export const ENDPOINTS = {
   chiefRatings: "/operator/chief/ratings/",
   /** Qo'lda kiritilgan tuman/shahar/qishloq (V6). */
   chiefPlaces: "/operator/chief/places/",
+  /** Tumanni tahrirlash (hujjat 51). Kodda `/` bor (`fargona/qoqon_sh`) — server `<path:code>` bilan oladi. */
+  chiefPlace: (code: string) => `/operator/chief/places/${code.split("/").map(encodeURIComponent).join("/")}/`,
 } as const;
 
 /**

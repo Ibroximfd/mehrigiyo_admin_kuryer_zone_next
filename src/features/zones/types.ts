@@ -26,10 +26,25 @@ export type District = {
   nameUz: string;
   nameRu: string | null;
   nameUzCyrl: string | null;
-  /** `city` · `district` va h.k. — server qiymati xom holida. */
+  /** `city` · `district` · `custom` (bosh kuryer qo'shgan) — server qiymati xom holida. */
   kind: string | null;
   isActive: boolean;
+  /**
+   * Bosh kuryer nomini o'zgartirgan bo'lsa — lug'atdagi asl nom (hujjat 51).
+   * `null` — o'zgartirilmagan yoki server hali bermaydi.
+   */
+  defaultNameUz: string | null;
 };
+
+/** Bosh kuryer o'zi qo'shgan joy (`POST chief/places/`). */
+export function isCustomDistrict(district: District): boolean {
+  return district.kind === "custom";
+}
+
+/** Nomi bosh kuryer tomonidan o'zgartirilgan — «asl nomiga qaytarish» ko'rinadi. */
+export function isRenamedDistrict(district: District): boolean {
+  return district.defaultNameUz !== null && district.defaultNameUz !== district.nameUz;
+}
 
 export type RegionDistricts = {
   region: string;
@@ -49,6 +64,7 @@ function mapDistrict(raw: unknown, region: string): District | null {
     nameUzCyrl: asOptionalString(raw.name_uz_cyrl),
     kind: asOptionalString(raw.kind),
     isActive: asBool(raw.is_active, true),
+    defaultNameUz: asOptionalString(raw.default_name_uz),
   };
 }
 

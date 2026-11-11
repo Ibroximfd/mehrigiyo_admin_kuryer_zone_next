@@ -143,6 +143,11 @@ export type AutoAssignPreviewRow = {
   zone: { id: number; name: string } | null;
   courier: { id: number; fullName: string } | null;
   reason: AutoAssignReason;
+  /**
+   * Zakaz kartasi (`include_order: true`, 51-javob §5.2) — `chief/orders/` qatori bilan bir xil.
+   * Server bermasa `null`: karta `chief/orders/` dan alohida olinadi.
+   */
+  order: LogistOrder | null;
 };
 
 function asReason(value: unknown): AutoAssignReason {
@@ -159,6 +164,7 @@ export function mapAutoAssignPreview(raw: unknown): AutoAssignPreviewRow[] {
       zone: isRecord(row.zone) ? { id: asInt(zone.id), name: asString(zone.name) } : null,
       courier: isRecord(row.courier) ? { id: asInt(courier.id), fullName: asString(courier.full_name) } : null,
       reason: asReason(row.reason),
+      order: isRecord(row.order) ? mapLogistOrder(row.order) : null,
     };
   });
 }

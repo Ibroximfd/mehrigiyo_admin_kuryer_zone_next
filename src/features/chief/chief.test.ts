@@ -6,7 +6,7 @@ import type { Zone } from "@/features/zones/types";
 import { mapCourier } from "@/features/couriers/types";
 import { mapLogistOrder } from "@/features/orders/types";
 
-import { pickCourier, planFromPreview, readyRows } from "./auto-plan";
+import { pickCourier, planFromPreview, previewHasOrders, readyRows } from "./auto-plan";
 import { chiefCan, mapAutoAssignPreview, mapAutoAssignResult, mapChiefMe, mapChiefOrderDetail } from "./types";
 import { districtMoves } from "./zones";
 import { addressChangedBy } from "./order-view";
@@ -80,6 +80,15 @@ describe("avto-taqsimlash rejasi — server preview (V5)", () => {
     expect(readyRows([{ ...plan[0]!, excluded: true }])).toEqual([]);
     expect(pickCourier(couriers, 1)?.id).toBe(11);
     expect(pickCourier(couriers, null)).toBeNull();
+  });
+
+  it("reja ichidagi zakaz kartasi ishlatiladi — `chief/orders/` kerak emas", () => {
+    const full = mapAutoAssignPreview({
+      rows: [{ order_id: "x", zone: null, courier: null, reason: "no_zone", order: { id: "x", status: "shipping" } }],
+    });
+    expect(previewHasOrders(full)).toBe(true);
+    expect(previewHasOrders(preview)).toBe(false);
+    expect(planFromPreview(full, []).map((row) => row.order.id)).toEqual(["x"]);
   });
 
   it("apply natijasi", () => {

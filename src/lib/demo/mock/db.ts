@@ -228,6 +228,8 @@ function initialState(now = new Date()) {
     filialHandovers: buildHistory(now),
     /** Bosh kuryer qo'lda qo'shgan joylar (V6) — lug'atga tushadi. */
     customPlaces: [] as DemoDistrict[],
+    /** Bosh kuryer tahriri (hujjat 51): kod → nom / ruscha nom / yashirilgan. */
+    placeEdits: new Map<string, { nameUz?: string; nameRu?: string | null; isActive?: boolean }>(),
     settlements: buildSettlements(orders),
     nextId: 900,
   };
@@ -251,7 +253,7 @@ export function allDistricts(): DemoDistrict[] {
 }
 
 export function districtName(code: string): string {
-  return allDistricts().find((district) => district.code === code)?.name ?? code;
+  return demoDb.placeEdits.get(code)?.nameUz ?? allDistricts().find((district) => district.code === code)?.name ?? code;
 }
 
 export function pushHistory(order: DemoOrderRow, action: string, courier: string | null): void {

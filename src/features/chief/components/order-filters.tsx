@@ -115,6 +115,7 @@ function useFilterOptions(me: ChiefMe) {
       regions
         .filter((item) => region === null || item.region === region)
         .flatMap((item) => item.districts)
+        .filter((district) => district.isActive)
         .map((district) => ({ value: district.code, label: districtName(district, locale), translate: false })),
   };
 }

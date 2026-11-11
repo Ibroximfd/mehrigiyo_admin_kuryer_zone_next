@@ -136,22 +136,66 @@ export function assignChiefOrder(
   });
 }
 
+/** Reja uchun sahifa hajmi — server `page_size` ni 200 gacha qabul qiladi (prodda o'lchandi, 2026-11-10). */
+const INCOMING_PAGE_SIZE = 200;
+/** Cheksiz aylanishdan himoya: 100 × 200 = 20 000 zakaz. */
+const INCOMING_MAX_PAGES = 100;
+
+export type IncomingProgress = { loaded: number; total: number | null };
+
 /**
- * Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). Server endi sahifalab
- * beradi (10 tadan): faqat 1-sahifa olinsa reja 10 ta zakaz bilan cheklanib qolardi
- * (2026-11-03). Hamma sahifa ketma-ket yig'iladi; cheksiz aylanishdan himoya — 100 sahifa.
+ * Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). Avval 10 tadan ketma-ket
+ * yig'ilardi: 477 zakazda 48 so'rov × ~0,4 s ≈ 20 s kutish (2026-11-10). Endi 1-sahifa
+ * 200 tadan, `count` bo'yicha qolgan sahifalar bir vaqtda so'raladi — 2–3 so'rov.
+ * Server `page_size` ni e'tiborsiz qoldirsa ham ishlaydi: sahifa hajmi 1-javobdan olinadi.
  */
-export function fetchIncomingOrders(signal?: AbortSignal): Promise<LogistOrder[]> {
+export function fetchIncomingOrders(
+  signal?: AbortSignal,
+  onProgress?: (progress: IncomingProgress) => void,
+): Promise<LogistOrder[]> {
+  const fetchPage = async (page: number) =>
+    asPage(
+      await api.get<unknown>(ENDPOINTS.chiefOrders, {
+        searchParams: { scope: "incoming", page, page_size: INCOMING_PAGE_SIZE },
+        signal,
+      }),
+    );
+
   return call(async () => {
-    const orders: LogistOrder[] = [];
-    for (let page = 1; page <= 100; page += 1) {
-      const result = asPage(
-        await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams: { scope: "incoming", page }, signal }),
-      );
-      orders.push(...result.items.map(mapLogistOrder));
-      if (!result.hasMore) break;
+    const first = await fetchPage(1);
+    let loaded = first.items.length;
+    onProgress?.({ loaded, total: first.total });
+    if (!first.hasMore || first.items.length === 0) return first.items.map(mapLogistOrder);
+
+    // `count` yo'q bo'lsa — eski usul: `next` tugaguncha ketma-ket.
+    if (first.total === null) {
+      const items = [...first.items];
+      for (let page = 2; page <= INCOMING_MAX_PAGES; page += 1) {
+        const next = await fetchPage(page);
+        items.push(...next.items);
+        onProgress?.({ loaded: items.length, total: null });
+        if (!next.hasMore) break;
+      }
+      return items.map(mapLogistOrder);
     }
-    return orders;
+
+    const pageCount = Math.min(Math.ceil(first.total / first.items.length), INCOMING_MAX_PAGES);
+    const total = first.total;
+    const rest = await Promise.all(
+      Array.from({ length: pageCount - 1 }, async (_, index) => {
+        const page = await fetchPage(index + 2);
+        loaded += page.items.length;
+        onProgress?.({ loaded, total });
+        return page.items;
+      }),
+    );
+    // Sahifalar orasida zakaz kuryerga o'tsa, siljish takror berishi mumkin — id bo'yicha bir marta.
+    const byId = new Map<string, LogistOrder>();
+    for (const raw of [first.items, ...rest].flat()) {
+      const order = mapLogistOrder(raw);
+      byId.set(order.id, order);
+    }
+    return [...byId.values()];
   });
 }
 
@@ -171,11 +215,14 @@ export async function fetchChiefOrderDetail(id: string, signal?: AbortSignal): P
   }
 }
 
-/** Avto-taqsimlash rejasi (V5) — server qoidasi bilan; hech narsa yozilmaydi. */
+/**
+ * Avto-taqsimlash rejasi (V5) — server qoidasi bilan; hech narsa yozilmaydi.
+ * `include_order` — har qatorga zakaz kartasi (51-javob): reja bitta so'rovda keladi.
+ */
 export function previewAutoAssign(signal?: AbortSignal): Promise<AutoAssignPreviewRow[]> {
   return call(async () =>
     mapAutoAssignPreview(
-      await api.post<unknown>(ENDPOINTS.chiefAutoAssignPreview, { json: {}, signal, fallbackError: "Rejani tuzishda xatolik" }),
+      await api.post<unknown>(ENDPOINTS.chiefAutoAssignPreview, { json: { include_order: true }, signal, fallbackError: "Rejani tuzishda xatolik" }),
     ),
   );
 }
@@ -316,6 +363,38 @@ export function updateChiefZone(id: number, input: ChiefZoneInput): Promise<Zone
   return call(async () =>
     mapZone(await api.patch<unknown>(ENDPOINTS.chiefZone(id), { json: zoneJson(input), fallbackError: "Zonani saqlashda xatolik" })),
   );
+}
+
+export type ChiefPlacePatch = {
+  /** Yangi nom (o'zbek lotin). */
+  nameUz?: string;
+  /** Ruscha nom; bo'sh — `null`, sayt `name_uz` ni ko'rsatadi. */
+  nameRu?: string | null;
+  /** `false` — tanlov ro'yxatlaridan yashiriladi (zonada bo'lsa server `409 district_in_zone`). */
+  isActive?: boolean;
+  /** Lug'atdagi asl nomga qaytarish. */
+  resetName?: true;
+};
+
+/**
+ * Tumanni tahrirlash (hujjat 51): nomi, ruscha nomi, yashirish/qaytarish.
+ * O'zgarish `/meta/regions/` ga tushadi — zonalar, filtr, manzil tuzatish hammasi o'qiydi.
+ */
+export function updateChiefPlace(code: string, patch: ChiefPlacePatch): Promise<void> {
+  const json: Record<string, unknown> = {};
+  if (patch.nameUz !== undefined) json.name_uz = patch.nameUz;
+  if (patch.nameRu !== undefined) json.name_ru = patch.nameRu;
+  if (patch.isActive !== undefined) json.is_active = patch.isActive;
+  if (patch.resetName) json.reset_name = true;
+  return call(async () => {
+    try {
+      await api.patch<unknown>(ENDPOINTS.chiefPlace(code), { json, fallbackError: "Tumanni saqlashda xatolik" });
+    } catch (error) {
+      // Hozir `chief/places/` faqat POST — PATCH chiqmaguncha `405`: «backend kutilmoqda».
+      if (error instanceof ApiError && error.status === 405) throw notReady();
+      throw error;
+    }
+  });
 }
 
 /** Ro'yxatda yo'q joyni qo'lda qo'shish — lug'atga tushadi va zonaga biriktiriladi. */

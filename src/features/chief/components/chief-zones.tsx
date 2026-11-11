@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Hexagon, LoaderCircle, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Hexagon, ListTree, LoaderCircle, Pencil, Plus, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
 import { districtMoves } from "../zones";
+import { DistrictsManager } from "./chief-districts";
 
 /**
  * Zonalar (§5b): bosh kuryer faqat o'z viloyatlari ichida zona yaratadi va
@@ -40,6 +41,7 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   const locale = useLocaleStore((state) => state.locale);
   const canManage = chiefCan(me, "zones.manage");
   const [editing, setEditing] = useState<Zone | "new" | null>(null);
+  const [districtsOpen, setDistrictsOpen] = useState(false);
   const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
   const dictionary = useRegionsDictionary();
@@ -77,12 +79,22 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
     );
   }
 
-  const addButton = canManage ? (
-    <Button onClick={() => setEditing("new")}>
-      <Plus />
-      Zona qo&apos;shish
-    </Button>
-  ) : null;
+  // Tumanlar — har bosh kuryerga o'z viloyatida (51-javob Q13, `zones.manage` talab qilinmaydi);
+  // zona qo'shish esa avvalgidek dopusk bilan.
+  const addButton = (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={() => setDistrictsOpen(true)}>
+        <ListTree />
+        Tumanlar
+      </Button>
+      {canManage ? (
+        <Button onClick={() => setEditing("new")}>
+          <Plus />
+          Zona qo&apos;shish
+        </Button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -138,6 +150,19 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
               regions={regions}
               districtLabel={nameOf}
               onClose={() => setEditing(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={districtsOpen} onOpenChange={setDistrictsOpen}>
+        <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-3xl")}>
+          {districtsOpen ? (
+            <DistrictsManager
+              // `scope=all` bosh kuryerda `regions` bo'sh — hamma viloyat tahrirlanadi (51-javob Q13).
+              regions={me.regions.length > 0 ? regions : (dictionary.data ?? [])}
+              zones={list}
+              onClose={() => setDistrictsOpen(false)}
             />
           ) : null}
         </DialogContent>

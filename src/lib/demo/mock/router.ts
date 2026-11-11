@@ -512,12 +512,17 @@ function regionsDictionary(): DemoResponse {
     DEMO_REGIONS.map((region) => ({
       region: region.region,
       name: region.name,
-      districts: [...region.districts, ...demoDb.customPlaces.filter((place) => place.region === region.region)].map((district) => ({
-        code: district.code,
-        name_uz: district.name,
-        kind: district.kind,
-        is_active: true,
-      })),
+      districts: [...region.districts, ...demoDb.customPlaces.filter((place) => place.region === region.region)].map((district) => {
+        const edit = demoDb.placeEdits.get(district.code);
+        return {
+          code: district.code,
+          name_uz: edit?.nameUz ?? district.name,
+          name_ru: edit?.nameRu ?? null,
+          default_name_uz: edit?.nameUz !== undefined ? district.name : null,
+          kind: district.kind,
+          is_active: edit?.isActive ?? true,
+        };
+      }),
     })),
   );
 }
@@ -534,6 +539,31 @@ function createPlace(request: DemoRequest): DemoResponse {
   const place = { code: `${region}/c_${nextDemoId()}`, region, name, kind: "custom" as const };
   demoDb.customPlaces.push(place);
   return { status: 201, data: { code: place.code, name_uz: place.name, region, kind: place.kind } };
+}
+
+/** Hujjat 51: tumanni tahrirlash — nom, ruscha nom, yashirish; zonadagi tuman yashirilmaydi. */
+function updatePlace(code: string, request: DemoRequest): DemoResponse {
+  const place = allDistricts().find((district) => district.code === code);
+  if (!place) return fail(404, "not_found");
+  if (!DEMO_CHIEF.regions.some((region) => region === place.region)) return fail(403, "zone_other_region");
+  const json = body(request);
+  const edit = { ...demoDb.placeEdits.get(code) };
+  if (json.reset_name === true) {
+    delete edit.nameUz;
+    delete edit.nameRu;
+  }
+  if (typeof json.name_uz === "string") {
+    const name = json.name_uz.trim();
+    if (name.length < 2) return fail(400, "validation_error");
+    edit.nameUz = name;
+  }
+  if (json.name_ru !== undefined) edit.nameRu = typeof json.name_ru === "string" && json.name_ru.trim() ? json.name_ru.trim() : null;
+  if (json.is_active === false && demoDb.zones.some((zone) => zone.districtCodes.includes(code))) {
+    return fail(409, "district_in_zone");
+  }
+  if (typeof json.is_active === "boolean") edit.isActive = json.is_active;
+  demoDb.placeEdits.set(code, edit);
+  return ok({ code, region: place.region, name_uz: edit.nameUz ?? place.name, kind: place.kind, is_active: edit.isActive ?? true });
 }
 
 // ── Hisobot ─────────────────────────────────────────────────────────────────
@@ -1107,6 +1137,7 @@ const ROUTES: Route[] = [
   ["patch", /^\/operator\/chief\/zones\/(\d+)\/$/, (request, match) => updateZone(Number(match[1]), request)],
   ["get", /^\/operator\/chief\/filials\/$/, () => ok(DEMO_FILIALS.map((filial) => ({ id: filial.id, name: filial.name, is_main: filial.isMain })))],
   ["post", /^\/operator\/chief\/places\/$/, createPlace],
+  ["patch", /^\/operator\/chief\/places\/(.+)\/$/, (request, match) => updatePlace(decodeURIComponent(match[1]!), request)],
   ["get", /^\/operator\/chief\/couriers\/(\d+)\/cod\/$/, (request, match) => courierCod(Number(match[1]), request)],
   ["get", /^\/operator\/chief\/finance\/$/, chiefFinance],
   ["get", /^\/operator\/chief\/ratings\/$/, chiefRatings],

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleOff, LoaderCircle, MapPinOff, RotateCcw, Send, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { Check, CircleOff, LoaderCircle, MapPinOff, RotateCcw, Send, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ADAPTIVE_DIALOG } from "@/components/kit/adaptive-dialog";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { applyAutoAssign, fetchChiefCouriers, fetchChiefZones, fetchIncomingOrders, previewAutoAssign } from "@/features/chief/api";
+import type { IncomingProgress } from "@/features/chief/api";
 import { AUTO_ASSIGN_REASONS } from "@/features/chief/types";
 import type { AutoAssignPreviewRow } from "@/features/chief/types";
 import type { Courier } from "@/features/couriers/types";
@@ -23,7 +24,7 @@ import { ApiError, errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
-import { courierOptions, pickCourier, planFromPreview, readyRows } from "../auto-plan";
+import { courierOptions, pickCourier, planFromPreview, previewHasOrders, readyRows } from "../auto-plan";
 import type { PlanRow } from "../auto-plan";
 import { orderProductsLine } from "../order-view";
 
@@ -34,21 +35,33 @@ import { orderProductsLine } from "../order-view";
  * «Taqsimlash» bosilgandagina `auto-assign/apply/` bilan yuboriladi.
  */
 export function AutoAssignPreview({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
   // Reja har ochilishda yangidan — eski reja yuborilmasin.
-  const orders = useQuery({
-    queryKey: queryKeys.chiefOrders({ scope: "incoming", plan: true }),
-    queryFn: ({ signal }) => fetchIncomingOrders(signal),
-    staleTime: 0,
-  });
   const preview = useQuery({
     queryKey: queryKeys.chiefAutoAssignPreview,
     queryFn: ({ signal }) => previewAutoAssign(signal),
     staleTime: 0,
     gcTime: 0,
   });
+  // Server rejani zakaz kartalari bilan bersa (51-javob, `include_order`) — zakazlar alohida so'ralmaydi.
+  // Bermasa (eski server) — reja bilan parallel yuklanadi, kutish uzaymasin.
+  const ordersInPlan = preview.data !== undefined && previewHasOrders(preview.data);
+  const ordersKey = queryKeys.chiefOrders({ scope: "incoming", plan: true });
+  const [progress, setProgress] = useState<IncomingProgress | null>(null);
+  const orders = useQuery({
+    queryKey: ordersKey,
+    queryFn: ({ signal }) => fetchIncomingOrders(signal, setProgress),
+    staleTime: 0,
+    enabled: !ordersInPlan,
+  });
+  useEffect(() => {
+    if (ordersInPlan) void queryClient.cancelQueries({ queryKey: ordersKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- kalit doimiy
+  }, [ordersInPlan, queryClient]);
   const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
-  const failed = orders.error ?? preview.error ?? zones.error ?? couriers.error;
+  const planOrders = ordersInPlan ? [] : orders.data;
+  const failed = (ordersInPlan ? null : orders.error) ?? preview.error ?? zones.error ?? couriers.error;
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -69,23 +82,84 @@ export function AutoAssignPreview({ onClose }: { onClose: () => void }) {
               void couriers.refetch();
             }}
           />
-        ) : orders.data && preview.data && zones.data && couriers.data ? (
+        ) : planOrders && preview.data && zones.data && couriers.data ? (
           <PlanEditor
             preview={preview.data}
-            orders={orders.data}
+            orders={planOrders}
             zones={zones.data.zones.filter((zone) => zone.isActive)}
             couriers={couriers.data.filter((courier) => courier.isActive)}
             onClose={onClose}
           />
         ) : (
-          <div className="flex flex-col gap-2 p-5" aria-label="Yuklanmoqda">
-            {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} className="h-20 rounded-xl" />
-            ))}
-          </div>
+          <PlanLoading
+            ordersNeeded={!ordersInPlan}
+            ordersDone={orders.isSuccess}
+            progress={progress}
+            previewDone={preview.isSuccess}
+            couriersDone={zones.isSuccess && couriers.isSuccess}
+          />
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Reja tuzilayotganda — bo'sh oyna emas: qaysi bosqich ketayotgani va nechta
+ * zakaz yuklangani matn bilan (egasi, 2026-11-10: «kutishda hech reaksiya yo'q»).
+ */
+function PlanLoading({
+  ordersNeeded,
+  ordersDone,
+  progress,
+  previewDone,
+  couriersDone,
+}: {
+  ordersNeeded: boolean;
+  ordersDone: boolean;
+  progress: IncomingProgress | null;
+  previewDone: boolean;
+  couriersDone: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4 p-5" role="status" aria-live="polite">
+      <ul className="border-line bg-subtle flex flex-col gap-2.5 rounded-xl border px-4 py-3.5">
+        <LoadingStep done={previewDone}>
+          <span>Server zona va kuryerlarni hisoblayapti</span>
+        </LoadingStep>
+        {ordersNeeded ? (
+          <LoadingStep done={ordersDone}>
+            <span>Kelgan zakazlar yuklanmoqda</span>
+            {progress && progress.loaded > 0 ? (
+              <span className="text-ink-faint tabular" data-no-translit>
+                {progress.total === null ? progress.loaded : `${progress.loaded} / ${progress.total}`}
+              </span>
+            ) : null}
+          </LoadingStep>
+        ) : null}
+        <LoadingStep done={couriersDone}>
+          <span>Zonalar va kuryerlar</span>
+        </LoadingStep>
+      </ul>
+      <div className="flex flex-col gap-2" aria-hidden>
+        {[0, 1, 2].map((index) => (
+          <Skeleton key={index} className="h-20 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoadingStep({ done, children }: { done: boolean; children: React.ReactNode }) {
+  return (
+    <li className={cn("flex items-center gap-2.5 text-dense", done ? "text-ink-muted" : "text-ink")}>
+      {done ? (
+        <Check className="text-ok size-4 shrink-0" aria-hidden />
+      ) : (
+        <LoaderCircle className="text-brand size-4 shrink-0 animate-spin" aria-hidden />
+      )}
+      {children}
+    </li>
   );
 }
 
