@@ -29,7 +29,7 @@ import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
-import { districtMoves } from "../zones";
+import { districtMoves, zonesByRegion } from "../zones";
 import { DistrictsManager } from "./chief-districts";
 
 /**
@@ -40,12 +40,15 @@ import { DistrictsManager } from "./chief-districts";
 export function ChiefZones({ me }: { me: ChiefMe }) {
   const locale = useLocaleStore((state) => state.locale);
   const canManage = chiefCan(me, "zones.manage");
-  const [editing, setEditing] = useState<Zone | "new" | null>(null);
+  /** Tahrir: mavjud zona yoki yangi zona (`region` — oldindan tanlangan viloyat). */
+  const [editing, setEditing] = useState<{ zone: Zone | null; region?: string } | null>(null);
   const [districtsOpen, setDistrictsOpen] = useState(false);
   const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
   const dictionary = useRegionsDictionary();
-  const regions = (dictionary.data ?? []).filter((item) => me.regions.includes(item.region));
+  // `scope=all` bosh kuryerda `regions` bo'sh — hamma viloyat ochiq (51-javob Q13).
+  const regions =
+    me.regions.length > 0 ? (dictionary.data ?? []).filter((item) => me.regions.includes(item.region)) : (dictionary.data ?? []);
 
   const nameOf = (code: string) => {
     for (const region of regions) {
@@ -59,6 +62,8 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
 
   const list = zones.data?.zones ?? [];
   const unzoned = zones.data?.unzonedDistricts ?? [];
+  // Biriktirilgan har viloyat — zonasi yo'q bo'lsa ham (Namangan kabi) o'z bo'limi bilan.
+  const sections = zonesByRegion(list, me.regions);
 
   if (zones.isPending) {
     return (
@@ -88,7 +93,7 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
         Tumanlar
       </Button>
       {canManage ? (
-        <Button onClick={() => setEditing("new")}>
+        <Button onClick={() => setEditing({ zone: null })}>
           <Plus />
           Zona qo&apos;shish
         </Button>
@@ -108,7 +113,7 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
         </p>
       ) : null}
 
-      {list.length === 0 ? (
+      {sections.length === 0 ? (
         <EmptyView
           Icon={Hexagon}
           title="Hali zona yo'q"
@@ -117,25 +122,42 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
           className="border-line bg-surface rounded-2xl border"
         />
       ) : (
-        groupByRegion(list, me.regions).map(([region, items], index) => (
+        sections.map(([region, items], index) => (
           <Section
             key={region}
             title={regionLabel(region)}
             description={`${items.length} ta zona`}
             action={index === 0 ? addButton : null}
           >
-            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((zone) => (
-                <ZoneCard
-                  key={zone.id}
-                  zone={zone}
-                  districts={zone.districtCodes.map(nameOf)}
-                  couriers={couriersIn(zone.id)}
-                  canManage={canManage}
-                  onEdit={() => setEditing(zone)}
-                />
-              ))}
-            </ul>
+            {items.length === 0 ? (
+              <EmptyView
+                Icon={Hexagon}
+                title="Zona yo'q"
+                description="Bu viloyat tuman va shaharlari hali zonaga bo'linmagan — zakaz zona kuryeriga tushmaydi."
+                action={
+                  canManage ? (
+                    <Button onClick={() => setEditing({ zone: null, region })}>
+                      <Plus />
+                      Zona qo&apos;shish
+                    </Button>
+                  ) : null
+                }
+                className="border-line bg-surface rounded-2xl border py-8"
+              />
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((zone) => (
+                  <ZoneCard
+                    key={zone.id}
+                    zone={zone}
+                    districts={zone.districtCodes.map(nameOf)}
+                    couriers={couriersIn(zone.id)}
+                    canManage={canManage}
+                    onEdit={() => setEditing({ zone })}
+                  />
+                ))}
+              </ul>
+            )}
           </Section>
         ))
       )}
@@ -144,8 +166,9 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
         <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-3xl")}>
           {editing !== null ? (
             <ZoneForm
-              key={editing === "new" ? "new" : editing.id}
-              zone={editing === "new" ? null : editing}
+              key={editing.zone?.id ?? `new-${editing.region ?? ""}`}
+              zone={editing.zone}
+              initialRegion={editing.region}
               zones={list}
               regions={regions}
               districtLabel={nameOf}
@@ -159,8 +182,7 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
         <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-3xl")}>
           {districtsOpen ? (
             <DistrictsManager
-              // `scope=all` bosh kuryerda `regions` bo'sh — hamma viloyat tahrirlanadi (51-javob Q13).
-              regions={me.regions.length > 0 ? regions : (dictionary.data ?? [])}
+              regions={regions}
               zones={list}
               onClose={() => setDistrictsOpen(false)}
             />
@@ -169,14 +191,6 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
       </Dialog>
     </div>
   );
-}
-
-/** Zonalar viloyat bo'yicha — bosh kuryer viloyatlari tartibida. */
-function groupByRegion(zones: Zone[], order: string[]): Array<[string, Zone[]]> {
-  const groups = new Map<string, Zone[]>();
-  for (const zone of zones) groups.set(zone.region, [...(groups.get(zone.region) ?? []), zone]);
-  const rank = (region: string) => (order.includes(region) ? order.indexOf(region) : order.length);
-  return [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
 }
 
 function ZoneCard({
@@ -225,12 +239,15 @@ function ZoneCard({
 
 function ZoneForm({
   zone,
+  initialRegion,
   zones,
   regions,
   districtLabel,
   onClose,
 }: {
   zone: Zone | null;
+  /** Yangi zona uchun oldindan tanlangan viloyat (viloyat bo'limidagi «Zona qo'shish»). */
+  initialRegion?: string;
   zones: Zone[];
   regions: RegionDistricts[];
   districtLabel: (code: string) => string;
@@ -238,7 +255,7 @@ function ZoneForm({
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(zone?.name ?? "");
-  const [region, setRegion] = useState(zone?.region ?? regions[0]?.region ?? "");
+  const [region, setRegion] = useState(zone?.region ?? initialRegion ?? regions[0]?.region ?? "");
   const [codes, setCodes] = useState<string[]>(zone?.districtCodes ?? []);
   const [isActive, setIsActive] = useState(zone?.isActive ?? true);
   const [touched, setTouched] = useState(false);

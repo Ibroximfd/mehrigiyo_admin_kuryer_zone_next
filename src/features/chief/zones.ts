@@ -15,3 +15,14 @@ export function districtMoves(
     return kept.length === zone.districtCodes.length ? [] : [{ zoneId: zone.id, districtCodes: kept }];
   });
 }
+
+/**
+ * Zonalar viloyat bo'yicha: bosh kuryerga biriktirilgan **har** viloyat chiqadi —
+ * zonasi yo'q bo'lsa ham (bo'sh ro'yxat bilan), o'sha tartibda. Biriktirilmagan
+ * viloyatdagi zona (masalan, `scope=all`) oxirida keladi.
+ */
+export function zonesByRegion(zones: readonly Zone[], assigned: readonly string[]): Array<[string, Zone[]]> {
+  const groups = new Map<string, Zone[]>(assigned.map((region) => [region, []]));
+  for (const zone of zones) groups.set(zone.region, [...(groups.get(zone.region) ?? []), zone]);
+  return [...groups.entries()];
+}

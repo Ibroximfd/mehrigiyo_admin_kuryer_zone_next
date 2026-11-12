@@ -156,6 +156,8 @@ export const CHIEF: Dictionary = {
   // ── Zonalar (§5b) ───────────────────────────────────────────────────────
   "Hech qaysi zonada emas · {x}:": "Не входят ни в одну зону · {x}:",
   "Hali zona yo'q": "Зон пока нет",
+  "Bu viloyat tuman va shaharlari hali zonaga bo'linmagan — zakaz zona kuryeriga tushmaydi.":
+    "Районы и города этой области ещё не разделены на зоны — заказы не попадут курьеру зоны.",
   "Viloyatingiz tuman va shaharlarini zonalarga bo'ling — zakaz manzili qaysi zonada bo'lsa, o'sha zona kuryeriga tushadi.":
     "Разделите районы и города вашей области на зоны — заказ попадает курьеру той зоны, где адрес.",
   "{x} tuman · {x2} kuryer": "{x} р-н · {x2} кур.",

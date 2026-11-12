@@ -8,7 +8,7 @@ import { mapLogistOrder } from "@/features/orders/types";
 
 import { pickCourier, planFromPreview, previewHasOrders, readyRows } from "./auto-plan";
 import { chiefCan, mapAutoAssignPreview, mapAutoAssignResult, mapChiefMe, mapChiefOrderDetail } from "./types";
-import { districtMoves } from "./zones";
+import { districtMoves, zonesByRegion } from "./zones";
 import { addressChangedBy } from "./order-view";
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format";
 
@@ -45,6 +45,19 @@ describe("zonalar: tuman boshqa zonaga o'tadi (§5b)", () => {
     const zones = [zone(1, ["a", "b"])];
     expect(districtMoves(zones, null, ["b"])).toEqual([{ zoneId: 1, districtCodes: ["a"] }]);
     expect(districtMoves(zones, null, ["x"])).toEqual([]);
+  });
+
+  it("zonesByRegion: zonasiz biriktirilgan viloyat ham chiqadi, tartib saqlanadi", () => {
+    const zones = [zone(1, ["a"]), { ...zone(2, ["b"]), region: "andijon" }, { ...zone(3, ["c"]), region: "toshkent" }];
+    const groups = zonesByRegion(zones, ["andijon", "fargona", "namangan"]);
+    expect(groups.map(([region, items]) => [region, items.map((item) => item.id)])).toEqual([
+      ["andijon", [2]],
+      ["fargona", [1]],
+      ["namangan", []],
+      ["toshkent", [3]],
+    ]);
+    // `scope=all` — biriktirilgan ro'yxat bo'sh, faqat zonalar viloyatlari.
+    expect(zonesByRegion([], [])).toEqual([]);
   });
 });
 
