@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 
+import { FilterMemory } from "@/components/panel/filter-memory";
 import { MainScrollMemory } from "@/components/panel/main-scroll-memory";
 import { PanelShell } from "@/components/panel/panel-shell";
 import { RequireAuth } from "@/components/require-auth";
@@ -27,6 +28,8 @@ export default function PanelLayout({
             eksportda Suspense chegarasi talab qilinadi. */}
         <Suspense fallback={null}>
           <MainScrollMemory />
+          {/* Har sahifa filtri xodim bo'yicha saqlanadi — chiqib kirsa ham qaytadi (52-hujjat). */}
+          <FilterMemory />
           <ChiefSiteGate>{children}</ChiefSiteGate>
         </Suspense>
       </PanelShell>

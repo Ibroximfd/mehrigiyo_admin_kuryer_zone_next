@@ -281,6 +281,7 @@ export function CourierCollection({ canAccept }: { canAccept: boolean }) {
             id: selectedCourier.id,
             fullName: selectedCourier.fullName,
           }}
+          canAccept={canAccept}
           onClose={() => setCodOpen(false)}
         />
       ) : null}

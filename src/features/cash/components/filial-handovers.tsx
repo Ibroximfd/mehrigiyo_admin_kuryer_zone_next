@@ -1,11 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { parseISO } from "date-fns";
+import { parseISO, subDays } from "date-fns";
 import { Building2, HandCoins, LoaderCircle, ReceiptText, TriangleAlert } from "lucide-react";
+import { parseAsString, useQueryStates } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DateRangeField } from "@/components/kit/date-range";
 import { Field, inputClass } from "@/components/kit/field";
 import { KeyFigures, Section } from "@/components/kit/key-figures";
 import { EmptyView, ErrorView } from "@/components/kit/state-views";
@@ -15,12 +17,13 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FinanceFilialRow } from "@/features/report/types";
 import { errorMessage } from "@/lib/api-client";
-import { formatMoneyInput, formatSom, formatUzDate, parseMoneyInput, todayIso } from "@/lib/format";
+import { formatMoneyInput, formatSom, formatUzDate, parseMoneyInput, toIsoDay, todayIso } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { fetchChiefCash, submitChiefHandover } from "../api";
-import { MAX_HANDOVER_DELAY_DAYS, handoverTiming } from "../types";
+import { MAX_HANDOVER_DELAY_DAYS, awaitingFilial, handoverTiming } from "../types";
+import type { CourierMoneyTotals } from "../courier-debts";
 import type { ChiefCash, ChiefHandover, FilialChoice, HandoverStatus, HandoverTiming } from "../types";
 
 function day(iso: string): string {
@@ -53,7 +56,29 @@ const HANDOVER_STATUS: Record<HandoverStatus, { label: string; color: string }> 
  * Pul bir nechta filialniki bo'lsa server `filial_required` qaytaradi — tanlov
  * oynada ko'rsatiladi va o'sha e'lon qayta yuboriladi.
  */
-export function FilialHandovers({ collectedToday, canAccept }: { collectedToday: number | null; canAccept: boolean }) {
+/** Kuryerlardagi pul (filtrsiz) — yuqoridagi raqam uchun; `null` — hali yuklanmoqda. */
+export type CourierMoney = CourierMoneyTotals | null;
+
+/**
+ * Kassa 2-pog'ona: har filialga alohida (`chief/cash/`, `chief/cash/handover/`).
+ * Summa cheklanmaydi — to'liq summa topshiriladi; haqingiz undan ushlanmaydi.
+ * Pul bir nechta filialniki bo'lsa server `filial_required` qaytaradi — tanlov
+ * oynada ko'rsatiladi va o'sha e'lon qayta yuboriladi.
+ *
+ * Topshirish summasi DOIM sukut davrdan (server qoldig'i) olinadi — sana
+ * filtri faqat tarixga ta'sir qiladi, aks holda «Bugun» tanlanganda qoldiqning
+ * bir qismi topshirilib qolardi.
+ */
+export function FilialHandovers({
+  courierMoney,
+  canAccept,
+  courierSection,
+}: {
+  courierMoney: CourierMoney;
+  canAccept: boolean;
+  /** «Kuryerlardagi pul» — raqamlardan keyin, eng birinchi ish (bosh kuryer telefonda ko'radi). */
+  courierSection: React.ReactNode;
+}) {
   const [target, setTarget] = useState<FinanceFilialRow | null>(null);
   const cash = useQuery({ queryKey: queryKeys.chiefCash, queryFn: ({ signal }) => fetchChiefCash({}, signal) });
 
@@ -77,21 +102,26 @@ export function FilialHandovers({ collectedToday, canAccept }: { collectedToday:
 
   const data = cash.data;
   const toHandOver = data.byFilial.reduce((sum, row) => sum + row.toHandOver, 0);
-  const awaiting = data.handovers.filter((item) => item.status === "pending").reduce((sum, item) => sum + item.amount, 0);
+  const awaiting = awaitingFilial(data);
 
   return (
     <div className="flex flex-col gap-6">
       <KeyFigures
         items={[
           {
-            label: "Kuryerlarda (bugun)",
-            value: collectedToday === null ? "—" : formatSom(collectedToday),
-            hint: "hali qabul qilinmagan",
+            // Kuryer zimmasidagi HAMMA pul: qabul qilinmagan + kamomad qarzi (63-javob B8 —
+            // yopilgan kundan keyingi tahrir farqi qarz bo'lib yoziladi).
+            label: "Kuryerlarda (qabul qilinmagan)",
+            value: courierMoney === null ? "—" : formatSom(courierMoney.total + courierMoney.shortage),
+            hint: courierMoneyHint(courierMoney),
+            tone: courierMoney && (courierMoney.overdue > 0 || courierMoney.shortage > 0) ? "warn" : undefined,
           },
           { label: "Filiallarga topshirish kerak", value: formatSom(toHandOver), tone: toHandOver > 0 ? "warn" : "ok" },
           { label: "Filial qabul qilishi kutilmoqda", value: formatSom(awaiting) },
         ]}
       />
+
+      {courierSection}
 
       <Section
         title="Filiallarga topshirish"
@@ -100,12 +130,104 @@ export function FilialHandovers({ collectedToday, canAccept }: { collectedToday:
         <FilialRows data={data} onHandover={canAccept ? setTarget : null} />
       </Section>
 
-      <Section title="Topshiriqlar tarixi">
-        <History handovers={data.handovers} />
-      </Section>
+      <HandoverHistory fallback={data} />
 
       {target ? <HandoverDialog cash={data} initial={target} onClose={() => setTarget(null)} /> : null}
     </div>
+  );
+}
+
+/** Tarix davri URLda (`hfrom`, `hto`) — boshqa filtrlardan alohida, filtr xotirasi saqlaydi. */
+function useHistoryPeriod() {
+  const [state, setState] = useQueryStates({ hfrom: parseAsString, hto: parseAsString });
+  const range = state.hfrom || state.hto ? { from: state.hfrom ?? state.hto ?? "", to: state.hto ?? state.hfrom ?? "" } : null;
+  return {
+    range,
+    set: (from: string, to: string) => void setState({ hfrom: from || null, hto: to || null }),
+    clear: () => void setState({ hfrom: null, hto: null }),
+  };
+}
+
+/** Topshiriqlar tarixi: sukut — server davri (31 kun), xohlasa sana bo'yicha. */
+function HandoverHistory({ fallback }: { fallback: ChiefCash }) {
+  const period = useHistoryPeriod();
+  const today = todayIso();
+  const yesterday = toIsoDay(subDays(new Date(), 1));
+  const ranged = useQuery({
+    queryKey: queryKeys.chiefCashPeriod(period.range ?? { from: "", to: "" }),
+    queryFn: ({ signal }) => fetchChiefCash(period.range ?? {}, signal),
+    enabled: period.range !== null,
+  });
+  const preset =
+    period.range === null
+      ? "default"
+      : period.range.from === today && period.range.to === today
+        ? "today"
+        : period.range.from === yesterday && period.range.to === yesterday
+          ? "yesterday"
+          : "custom";
+  const data = period.range === null ? fallback : ranged.data;
+  const handovers = data?.handovers ?? [];
+  const sent = handovers.reduce((sum, item) => sum + item.amount, 0);
+  const shortage = handovers.reduce((sum, item) => sum + (item.shortage ?? 0), 0);
+
+  return (
+    <Section
+      title="Topshiriqlar tarixi"
+      description={data ? `${day(data.dateFrom)} – ${day(data.dateTo)} · ${handovers.length} ta · ${formatSom(sent)}${shortage ? ` · kamomad ${formatSom(shortage)}` : ""}` : undefined}
+    >
+      <div role="group" aria-label="Davr" className="flex flex-wrap items-center gap-1.5">
+        <PeriodChip active={preset === "default"} onClick={period.clear}>
+          Oxirgi 31 kun
+        </PeriodChip>
+        <PeriodChip active={preset === "today"} onClick={() => period.set(today, today)}>
+          Bugun
+        </PeriodChip>
+        <PeriodChip active={preset === "yesterday"} onClick={() => period.set(yesterday, yesterday)}>
+          Kecha
+        </PeriodChip>
+        <DateRangeField
+          from={preset === "custom" ? (period.range?.from ?? "") : ""}
+          to={preset === "custom" ? (period.range?.to ?? "") : ""}
+          onChange={period.set}
+          onClear={preset === "custom" ? period.clear : undefined}
+        />
+      </div>
+      {period.range !== null && ranged.isPending ? (
+        <Skeleton className="h-32 rounded-2xl" />
+      ) : period.range !== null && ranged.isError ? (
+        <ErrorView
+          message={errorMessage(ranged.error, "Tarixni yuklashda xatolik")}
+          onRetry={() => void ranged.refetch()}
+          className="border-line bg-surface rounded-2xl border"
+        />
+      ) : (
+        <History handovers={handovers} filtered={period.range !== null} onClear={period.clear} />
+      )}
+    </Section>
+  );
+}
+
+function courierMoneyHint(money: CourierMoney): string {
+  if (money === null) return "hammasi, filtrsiz";
+  if (money.shortage > 0) return `shundan qarz ${formatSom(money.shortage)}`;
+  if (money.overdue > 0) return `muddati o'tgan ${formatSom(money.overdue)}`;
+  return "hammasi, filtrsiz";
+}
+
+function PeriodChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex h-(--control-h) items-center rounded-full border px-3.5 text-dense font-medium transition-colors duration-(--dur-micro)",
+        active ? "border-brand bg-brand-soft text-brand" : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -168,7 +290,22 @@ function FilialRows({ data, onHandover }: { data: ChiefCash; onHandover: ((row: 
   );
 }
 
-function History({ handovers }: { handovers: ChiefHandover[] }) {
+function History({ handovers, filtered, onClear }: { handovers: ChiefHandover[]; filtered: boolean; onClear: () => void }) {
+  if (handovers.length === 0 && filtered) {
+    return (
+      <EmptyView
+        Icon={ReceiptText}
+        title="Bu davrda topshiriq yo'q"
+        description="Boshqa sanani tanlang."
+        action={
+          <Button variant="outline" onClick={onClear}>
+            Oxirgi 31 kun
+          </Button>
+        }
+        className="border-line bg-surface rounded-2xl border"
+      />
+    );
+  }
   if (handovers.length === 0) {
     return (
       <EmptyView
@@ -184,18 +321,25 @@ function History({ handovers }: { handovers: ChiefHandover[] }) {
       {handovers.map((item) => {
         const status = HANDOVER_STATUS[item.status];
         return (
-          <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-            <span className="text-ink w-24 shrink-0 text-dense">{day(item.date)}</span>
-            <span className="min-w-0 flex-1 truncate text-dense">
-              {item.filial ? (
-                <span className="text-ink-muted" data-no-translit>{item.filial.name}</span>
-              ) : (
-                <span className="text-ink-faint">Filialsiz</span>
-              )}
-              {item.shortage ? <span className="text-danger">{` · kamomad ${formatSom(item.shortage)}`}</span> : null}
+          // Telefonda 2 qator: sana + summa, ostida filial + holat (sana sinmasin, nom qisqarmasin).
+          <li key={item.id} className="flex flex-col gap-1 px-4 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+            <span className="flex items-center justify-between gap-3 sm:contents">
+              <span className="text-ink text-dense sm:w-24 sm:shrink-0">{day(item.date)}</span>
+              <span className="text-ink tabular text-dense font-semibold sm:order-3">{formatSom(item.amount)}</span>
             </span>
-            <span className="text-ink tabular text-dense font-semibold">{formatSom(item.amount)}</span>
-            <StatusPill label={status.label} color={status.color} size="sm" />
+            <span className="flex items-center justify-between gap-3 sm:contents">
+              <span className="min-w-0 truncate text-dense sm:order-2 sm:flex-1">
+                {item.filial ? (
+                  <span className="text-ink-muted" data-no-translit>{item.filial.name}</span>
+                ) : (
+                  <span className="text-ink-faint">Filialsiz</span>
+                )}
+                {item.shortage ? <span className="text-danger">{` · kamomad ${formatSom(item.shortage)}`}</span> : null}
+              </span>
+              <span className="shrink-0 sm:order-4">
+                <StatusPill label={status.label} color={status.color} size="sm" />
+              </span>
+            </span>
           </li>
         );
       })}
@@ -228,6 +372,8 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
   const expected = chosen ? chosen.toHandOver : filialId === (initial.filial?.id ?? null) ? initial.toHandOver : null;
   const filialName = chosen?.name ?? initial.filial?.name ?? null;
   const blocked = choices !== null && filialId === null;
+  // Topshirilmagan kunlar — hamma vaqt (59-javob); eski serverda davr ichidan.
+  const openDays = cash.outstandingAllTime?.days ?? cash.outstandingDays;
 
   const submit = useMutation({
     mutationFn: () =>
@@ -235,8 +381,8 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
         amount,
         filialId,
         date,
-        periodFrom: (chosen ? null : initial.oldestDay) ?? cash.outstandingDays[0] ?? null,
-        periodTo: cash.outstandingDays[cash.outstandingDays.length - 1] ?? null,
+        periodFrom: (chosen ? null : initial.oldestDay) ?? openDays[0] ?? null,
+        periodTo: openDays[openDays.length - 1] ?? null,
         note,
         clientActionId,
       }),

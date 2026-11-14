@@ -44,3 +44,9 @@ export function addressChangedBy(order: Pick<LogistOrder, "deliveryInfo">): stri
   const who = order.deliveryInfo?.addressChangedBy;
   return who ? (CHANGED_BY[who] ?? who) : null;
 }
+
+/** `ORD-20261114172926-893D459A` → `893D459A` (kuryer ilovasi ham shunday ko'rsatadi). */
+export function shortOrderNumber(orderNumber: string): string {
+  const tail = orderNumber.split("-").pop() ?? "";
+  return tail.length >= 4 ? tail : orderNumber;
+}

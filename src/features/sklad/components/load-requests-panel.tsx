@@ -82,7 +82,7 @@ export function LoadRequestsPanel() {
           Icon={Inbox}
           title={status === "pending" ? "Kutilayotgan so'rov yo'q" : "So'rov yo'q"}
           description={status === "pending" ? "Kuryer ilovadan kirim so'rasa, shu yerda chiqadi." : undefined}
-          className="border-line bg-surface rounded-2xl border"
+          className="border-line bg-surface rounded-2xl border py-6 sm:py-8"
         />
       ) : (
         <ul className="flex flex-col gap-3">

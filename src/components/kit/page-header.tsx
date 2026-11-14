@@ -48,15 +48,16 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "border-line glass-chrome sticky top-0 z-20 border-b",
+        // Telefonda yopishqoq emas: kichik ekranda har piksel ro'yxatga kerak.
+        "border-line glass-chrome border-b sm:sticky sm:top-0 sm:z-20",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-5 pb-3.5 sm:px-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3.5 pb-2.5 sm:px-6 sm:pt-5 sm:pb-3.5">
         <div className="min-w-0 flex-1">
           <h1 className="text-ink text-h1 sm:text-display truncate">{title}</h1>
           {description ? (
-            <p className="text-ink-muted text-meta mt-1 truncate">
+            <p className="text-ink-muted text-meta mt-1 hidden truncate sm:block">
               {description}
             </p>
           ) : null}

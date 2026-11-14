@@ -52,7 +52,7 @@ export function ErrorView({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center px-6 py-16 text-center",
+        "flex flex-col items-center justify-center px-6 py-10 text-center sm:py-16",
         className,
       )}
     >
@@ -91,7 +91,7 @@ export function EmptyView({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center px-6 py-16 text-center",
+        "flex flex-col items-center justify-center px-6 py-10 text-center sm:py-16",
         className,
       )}
     >

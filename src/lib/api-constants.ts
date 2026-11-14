@@ -98,6 +98,12 @@ export const ENDPOINTS = {
   chiefPlaces: "/operator/chief/places/",
   /** Tumanni tahrirlash (hujjat 51). Kodda `/` bor (`fargona/qoqon_sh`) — server `<path:code>` bilan oladi. */
   chiefPlace: (code: string) => `/operator/chief/places/${code.split("/").map(encodeURIComponent).join("/")}/`,
+
+  // ── Xodim sozlamalari ────────────────────────────────────────────────────
+  /** Sahifa filtrlari va saqlangan to'plamlar (52-hujjat): sayt tokendan aniqlanadi (`chief`). */
+  myUiPrefs: "/operator/me/ui-prefs/",
+  /** Mahsulotlar katalogi (filtr uchun) — do'kon ro'yxati, sahifalangan. */
+  shopMedicines: "/shop/medicines/",
 } as const;
 
 /**

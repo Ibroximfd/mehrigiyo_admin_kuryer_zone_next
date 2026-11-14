@@ -37,7 +37,7 @@ const MESSAGES: Record<Exclude<ChiefActionFailureKind, "other" | "validation">, 
 };
 
 /** `fields{}` — `{maydon: "matn"}` yoki DRF shaklidagi `{maydon: ["matn"]}`; faqat ma'lum maydonlar olinadi. */
-function fieldErrors<F extends string>(data: unknown, known: readonly F[]): FieldErrors<F> {
+export function fieldErrors<F extends string>(data: unknown, known: readonly F[]): FieldErrors<F> {
   const json = asRecord(data);
   const source = asRecord(json.fields);
   const result: FieldErrors<F> = {};

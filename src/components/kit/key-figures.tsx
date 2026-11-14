@@ -25,16 +25,36 @@ export function KeyFigures({ items, className }: { items: KeyFigure[]; className
       className={cn(
         // Ajratgichlar — kataklar orasidagi 1px tirqish (`bg-line` ko'rinadi).
         "border-line bg-line grid gap-px overflow-hidden rounded-2xl border",
-        items.length % 2 === 0 ? "grid-cols-2" : "grid-cols-1",
+        // Toq sonda (3) telefonda birinchisi to'liq qatorda, qolgani yonma-yon — ustma-ust 3 qator emas.
+        items.length === 1 ? "grid-cols-1" : "grid-cols-2",
         items.length >= 4 ? "sm:grid-cols-4" : items.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2",
         className,
       )}
     >
-      {items.map((item) => (
-        <div key={item.label} className="bg-surface min-w-0 px-4 py-3.5">
+      {items.map((item, index) => (
+        // Telefonda ixcham: izohsiz, kichikroq — ro'yxat tezroq ko'rinsin.
+        <div
+          key={item.label}
+          className={cn(
+            "bg-surface min-w-0 px-3 py-2.5 sm:px-4 sm:py-3.5",
+            items.length % 2 === 1 && index === 0 && items.length > 1 && "col-span-2 sm:col-span-1",
+          )}
+        >
           <dt className="text-ink-muted truncate text-meta">{item.label}</dt>
-          <dd className={cn("tabular mt-1 truncate text-title", TONE[item.tone ?? "default"])}>{item.value}</dd>
-          {item.hint ? <dd className="text-ink-faint mt-0.5 truncate text-meta">{item.hint}</dd> : null}
+          <dd className={cn("tabular mt-0.5 truncate text-lg2 sm:mt-1 sm:text-title", TONE[item.tone ?? "default"])}>
+            {item.value}
+          </dd>
+          {/* Telefonda izoh faqat ogohlantirish bo'lsa — oddiysi joy olmasin. */}
+          {item.hint ? (
+            <dd
+              className={cn(
+                "mt-0.5 truncate text-meta sm:block",
+                item.tone === "warn" ? "text-warn" : "text-ink-faint hidden",
+              )}
+            >
+              {item.hint}
+            </dd>
+          ) : null}
         </div>
       ))}
     </dl>
@@ -57,7 +77,8 @@ export function Section({
 }) {
   return (
     <section className={cn("flex flex-col gap-3", className)}>
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+      {/* Telefonda amallar sarlavha ostida, butun kenglikda — sarlavha siqilmasin. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-4">
         <div className="min-w-0 flex-1">
           <h2 className="text-ink text-lg2 font-semibold">{title}</h2>
           {description ? <p className="text-ink-muted mt-0.5 text-meta">{description}</p> : null}

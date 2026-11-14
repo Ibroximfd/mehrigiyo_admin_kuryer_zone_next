@@ -12,7 +12,7 @@ import type { QueryValue } from "@/lib/api-client";
 import { isEndpointMissing } from "@/lib/api-availability";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
-import { asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
+import { asInt, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
 import {
   mapChiefCouriers,
@@ -34,6 +34,7 @@ import type {
   ChiefZones,
   ReturnReason,
 } from "./types";
+import type { DistrictFilter } from "./order-sort";
 
 /**
  * Bosh kuryer tarmoq qatlami (backend K1, 2026-10-30 §C). Endpoint hali
@@ -69,6 +70,12 @@ export type ChiefOrderFilters = {
   filialId?: number | null;
   region?: string | null;
   district?: string | null;
+  productIds?: readonly number[];
+  productMatch?: "any" | "all";
+  amountMin?: number | null;
+  amountMax?: number | null;
+  ordering?: string | null;
+  districtFilter?: DistrictFilter | null;
 };
 
 export type ChiefOrdersQuery = ChiefOrderFilters & {
@@ -79,7 +86,10 @@ export type ChiefOrdersQuery = ChiefOrderFilters & {
 /**
  * Server filtrlari (K1 §2.2 + V3): `scope`, `status`, `courier_id`, sana,
  * `q` (raqam, mijoz, telefon, manzil, mahsulot), `zone_id`, `filial_id`,
- * `region`, `district`, `page` (10 tadan). «Yetkazilgan» — `scope=all&status=delivered`.
+ * `region`, `district`, `page`. «Yetkazilgan» — `scope=all&status=delivered`.
+ * 60-javob (prod, 6/6): mahsulot, summa, `ordering`, `date_field`, `has_zone`,
+ * `district_state` — hammasi serverda; sayt o'zi saralamaydi.
+ * Sana: «Yetkazilgan» da yetkazilgan kuni, boshqalarida bosh kuryerga kelgan kuni.
  */
 function orderFilterParams(query: ChiefOrdersQuery): Record<string, QueryValue> {
   return {
@@ -93,18 +103,63 @@ function orderFilterParams(query: ChiefOrdersQuery): Record<string, QueryValue> 
     district: query.district ?? null,
     date_from: query.from ?? null,
     date_to: query.to ?? null,
+    date_field: query.from || query.to ? (query.scope === "delivered" ? "delivered" : "arrived") : null,
+    product_ids: query.productIds?.length ? query.productIds.join(",") : null,
+    product_match: query.productIds?.length && query.productMatch === "all" ? "all" : null,
+    amount_min: query.amountMin ?? null,
+    amount_max: query.amountMax ?? null,
+    ordering: query.ordering ?? null,
+    has_zone: query.districtFilter === "no_zone" ? "false" : null,
+    district_state: query.districtFilter && query.districtFilter !== "no_zone" ? query.districtFilter : null,
   };
 }
+
+/** Ro'yxat sahifasi — server `page_size` ni 200 gacha qabul qiladi. */
+const LIST_PAGE_SIZE = 50;
 
 export function fetchChiefOrders(
   query: ChiefOrdersQuery,
   signal?: AbortSignal,
 ): Promise<{ orders: LogistOrder[]; count: number; hasMore: boolean }> {
-  const searchParams: Record<string, QueryValue> = { ...orderFilterParams(query), page: query.page ?? 1 };
+  const searchParams: Record<string, QueryValue> = {
+    ...orderFilterParams(query),
+    page: query.page ?? 1,
+    page_size: LIST_PAGE_SIZE,
+  };
   return call(async () => {
     const page = asPage(await api.get<unknown>(ENDPOINTS.chiefOrders, { searchParams, signal }));
     return { orders: page.items.map(mapLogistOrder), count: page.total ?? page.items.length, hasMore: page.hasMore };
   });
+}
+
+/** Filtr uchun mahsulot: id va nomi (nom — server tilida, `Accept-Language`). */
+export type ProductOption = { id: number; title: string };
+
+/**
+ * Mahsulotlar katalogi (`/shop/medicines/`, 41 ta, 2026-11-14) — filtr ro'yxati.
+ * Sahifalangan bo'lsa ham hammasi yig'iladi (5 sahifagacha himoya).
+ */
+export async function fetchProductOptions(signal?: AbortSignal): Promise<ProductOption[]> {
+  const items: unknown[] = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const result = asPage(
+      await api.get<unknown>(ENDPOINTS.shopMedicines, {
+        searchParams: { page, page_size: 100 },
+        signal,
+        fallbackError: "Mahsulotlarni yuklashda xatolik",
+      }),
+    );
+    items.push(...result.items);
+    if (!result.hasMore) break;
+  }
+  const byId = new Map<number, ProductOption>();
+  for (const raw of items) {
+    const json = asRecord(raw);
+    const id = asInt(json.id, -1);
+    const title = asString(json.title).trim();
+    if (id > 0 && title) byId.set(id, { id, title });
+  }
+  return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export function fetchChiefCandidates(orderId: string, signal?: AbortSignal): Promise<CourierCandidates> {
@@ -144,59 +199,74 @@ const INCOMING_MAX_PAGES = 100;
 export type IncomingProgress = { loaded: number; total: number | null };
 
 /**
- * Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). Avval 10 tadan ketma-ket
- * yig'ilardi: 477 zakazda 48 so'rov × ~0,4 s ≈ 20 s kutish (2026-11-10). Endi 1-sahifa
- * 200 tadan, `count` bo'yicha qolgan sahifalar bir vaqtda so'raladi — 2–3 so'rov.
+ * Ro'yxatning HAMMA sahifasi. Avval 10 tadan ketma-ket yig'ilardi: 477 zakazda
+ * 48 so'rov × ~0,4 s ≈ 20 s kutish (2026-11-10). Endi 1-sahifa 200 tadan,
+ * `count` bo'yicha qolgan sahifalar bir vaqtda so'raladi — 2–3 so'rov.
  * Server `page_size` ni e'tiborsiz qoldirsa ham ishlaydi: sahifa hajmi 1-javobdan olinadi.
+ * `truncated` — `maxPages` chegarasiga yetildi, ro'yxat to'liq emas.
  */
-export function fetchIncomingOrders(
+async function fetchAllOrderPages(
+  searchParams: Record<string, QueryValue>,
+  maxPages: number,
   signal?: AbortSignal,
   onProgress?: (progress: IncomingProgress) => void,
-): Promise<LogistOrder[]> {
+): Promise<{ orders: LogistOrder[]; truncated: boolean }> {
   const fetchPage = async (page: number) =>
     asPage(
       await api.get<unknown>(ENDPOINTS.chiefOrders, {
-        searchParams: { scope: "incoming", page, page_size: INCOMING_PAGE_SIZE },
+        searchParams: { ...searchParams, page, page_size: INCOMING_PAGE_SIZE },
         signal,
       }),
     );
 
-  return call(async () => {
-    const first = await fetchPage(1);
-    let loaded = first.items.length;
-    onProgress?.({ loaded, total: first.total });
-    if (!first.hasMore || first.items.length === 0) return first.items.map(mapLogistOrder);
+  const first = await fetchPage(1);
+  let loaded = first.items.length;
+  onProgress?.({ loaded, total: first.total });
+  if (!first.hasMore || first.items.length === 0) return { orders: first.items.map(mapLogistOrder), truncated: false };
 
-    // `count` yo'q bo'lsa — eski usul: `next` tugaguncha ketma-ket.
-    if (first.total === null) {
-      const items = [...first.items];
-      for (let page = 2; page <= INCOMING_MAX_PAGES; page += 1) {
-        const next = await fetchPage(page);
-        items.push(...next.items);
-        onProgress?.({ loaded: items.length, total: null });
-        if (!next.hasMore) break;
-      }
-      return items.map(mapLogistOrder);
+  // `count` yo'q bo'lsa — eski usul: `next` tugaguncha ketma-ket.
+  if (first.total === null) {
+    const items = [...first.items];
+    let more: boolean = first.hasMore;
+    for (let page = 2; page <= maxPages && more; page += 1) {
+      const next = await fetchPage(page);
+      items.push(...next.items);
+      onProgress?.({ loaded: items.length, total: null });
+      more = next.hasMore;
     }
+    return { orders: uniqueOrders([items]), truncated: more };
+  }
 
-    const pageCount = Math.min(Math.ceil(first.total / first.items.length), INCOMING_MAX_PAGES);
-    const total = first.total;
-    const rest = await Promise.all(
-      Array.from({ length: pageCount - 1 }, async (_, index) => {
-        const page = await fetchPage(index + 2);
-        loaded += page.items.length;
-        onProgress?.({ loaded, total });
-        return page.items;
-      }),
-    );
-    // Sahifalar orasida zakaz kuryerga o'tsa, siljish takror berishi mumkin — id bo'yicha bir marta.
-    const byId = new Map<string, LogistOrder>();
-    for (const raw of [first.items, ...rest].flat()) {
-      const order = mapLogistOrder(raw);
-      byId.set(order.id, order);
-    }
-    return [...byId.values()];
-  });
+  const needed = Math.ceil(first.total / first.items.length);
+  const pageCount = Math.min(needed, maxPages);
+  const total = first.total;
+  const rest = await Promise.all(
+    Array.from({ length: pageCount - 1 }, async (_, index) => {
+      const page = await fetchPage(index + 2);
+      loaded += page.items.length;
+      onProgress?.({ loaded, total });
+      return page.items;
+    }),
+  );
+  return { orders: uniqueOrders([first.items, ...rest]), truncated: needed > maxPages };
+}
+
+/** Sahifalar orasida zakaz kuryerga o'tsa, siljish takror berishi mumkin — id bo'yicha bir marta. */
+function uniqueOrders(pages: unknown[][]): LogistOrder[] {
+  const byId = new Map<string, LogistOrder>();
+  for (const raw of pages.flat()) {
+    const order = mapLogistOrder(raw);
+    byId.set(order.id, order);
+  }
+  return [...byId.values()];
+}
+
+/** Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). */
+export function fetchIncomingOrders(
+  signal?: AbortSignal,
+  onProgress?: (progress: IncomingProgress) => void,
+): Promise<LogistOrder[]> {
+  return call(async () => (await fetchAllOrderPages({ scope: "incoming" }, INCOMING_MAX_PAGES, signal, onProgress)).orders);
 }
 
 /**

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Field, inputClass } from "@/components/kit/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { errorMessage } from "@/lib/api-client";
+import { errorCode, errorMessage } from "@/lib/api-client";
 import { formatMoneyInput, formatSom, formatUzDate, parseMoneyInput } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,8 @@ export function AcceptDialog({
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(formatMoneyInput(amount));
   const [note, setNote] = useState("");
+  // Oyna bitta qabul — qayta bosilsa ham shu kalit ketadi.
+  const [clientActionId] = useState(() => crypto.randomUUID());
   const counted = parseMoneyInput(draft);
   const valid = Number.isFinite(counted) && counted >= 0;
   const accept = useMutation({
@@ -46,13 +48,27 @@ export function AcceptDialog({
         dateTo,
         confirmedAmount: counted === Math.round(amount) ? null : counted,
         note,
+        clientActionId,
       }),
     onSuccess: () => {
       toast.success(`${courier.fullName} · ${formatSom(counted)} qabul qilindi`);
       void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
       onClose();
     },
-    onError: (error) => toast.error(errorMessage(error, "Naqdni qabul qilishda xatolik")),
+    onError: (error) => {
+      // Boshqa oyna/qurilmada qabul qilingan yoki oraliqda qabul qilingan kun bor (59-javob B4).
+      if (errorCode(error) === "already_settled") {
+        toast.error(
+          date === dateTo
+            ? "Bu kun allaqachon qabul qilingan — ro'yxat yangilandi"
+            : "Oraliqda allaqachon qabul qilingan kun bor — ro'yxat yangilandi, kunma-kun qabul qiling",
+        );
+        void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+        onClose();
+        return;
+      }
+      toast.error(errorMessage(error, "Naqdni qabul qilishda xatolik"));
+    },
   });
 
   return (

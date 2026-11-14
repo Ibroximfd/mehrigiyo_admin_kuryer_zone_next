@@ -87,13 +87,13 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   // Tumanlar — har bosh kuryerga o'z viloyatida (51-javob Q13, `zones.manage` talab qilinmaydi);
   // zona qo'shish esa avvalgidek dopusk bilan.
   const addButton = (
-    <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => setDistrictsOpen(true)}>
+    <div className="flex w-full gap-2 sm:w-auto">
+      <Button variant="outline" onClick={() => setDistrictsOpen(true)} className="flex-1 sm:flex-none">
         <ListTree />
         Tumanlar
       </Button>
       {canManage ? (
-        <Button onClick={() => setEditing({ zone: null })}>
+        <Button onClick={() => setEditing({ zone: null })} className="flex-1 sm:flex-none">
           <Plus />
           Zona qo&apos;shish
         </Button>

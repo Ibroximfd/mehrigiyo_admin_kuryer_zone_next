@@ -77,8 +77,9 @@ export function SkladView({ me }: { me: ChiefMe }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="border-line bg-surface grid items-center gap-5 rounded-2xl border p-4 sm:p-5 lg:grid-cols-5">
+        {/* Xarita — faqat keng ekranda: telefonda birinchi ekranni butunlay egallardi. */}
         <RegionMap
-          className="lg:col-span-3"
+          className="hidden sm:block lg:col-span-3"
           label="Skladingiz viloyatlari"
           regionName={regionLabel}
           areas={[{ id: "own", colorIndex: 0, regions, highlighted: true }]}
@@ -92,7 +93,7 @@ export function SkladView({ me }: { me: ChiefMe }) {
         <div className="flex flex-col gap-3 lg:col-span-2">
           <div>
             <h2 className="text-ink text-title" data-no-translit>{name}</h2>
-            <p className="text-ink-muted mt-1 text-dense">Sizga biriktirilgan sklad — hamma viloyatlaringiz uchun bitta.</p>
+            <p className="text-ink-muted mt-1 hidden text-dense sm:block">Sizga biriktirilgan sklad — hamma viloyatlaringiz uchun bitta.</p>
           </div>
           <SkladChiefs chiefs={data.sklad.chiefs} />
           <ul className="flex flex-wrap gap-1.5" aria-label="Viloyatlar">
@@ -108,6 +109,13 @@ export function SkladView({ me }: { me: ChiefMe }) {
 
       <Section title="Kirim so'rovlari" description="Kuryerlar ilovadan so'ragan mol — tasdiqlang yoki sabab bilan rad eting">
         <LoadRequestsPanel />
+      </Section>
+
+      <Section title="Kuryerlar ombori" description="Kuryerlar qo'lidagi mol — kuryer ilovasi yozgan holatda">
+        <CourierStocks
+          stocks={data.couriers}
+          actions={data.canWrite ? { stock: data.stock, store: data.store } : null}
+        />
       </Section>
 
       <Section title="Qoldiq">
@@ -131,12 +139,6 @@ export function SkladView({ me }: { me: ChiefMe }) {
         )}
       </Section>
 
-      <Section title="Kuryerlar ombori" description="Kuryerlar qo'lidagi mol — kuryer ilovasi yozgan holatda">
-        <CourierStocks
-          stocks={data.couriers}
-          actions={data.canWrite ? { stock: data.stock, store: data.store } : null}
-        />
-      </Section>
     </div>
   );
 }

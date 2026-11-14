@@ -268,7 +268,14 @@ function CourierRow({
           ) : null}
         </span>
         <span className="text-ink-faint tabular text-meta">
-          {courier.phone ? formatPhone(courier.phone) : "telefon yo'q"}
+          {/* Telefonda bir bosishda qo'ng'iroq. */}
+          {courier.phone ? (
+            <a href={`tel:+${courier.phone.replace(/\D/g, "")}`} className="text-link hover:underline">
+              {formatPhone(courier.phone)}
+            </a>
+          ) : (
+            "telefon yo'q"
+          )}
           {courier.isActive ? ` · bugun ${courier.today.delivered}/${courier.today.assigned}` : ""}
         </span>
       </span>

@@ -681,6 +681,19 @@
   }
 }
 
+/*
+ * iOS 16px dan kichik maydonga fokusda sahifani kattalashtiradi — bosh
+ * kuryerlar asosan telefonda ishlaydi. Telefonda hamma maydon 16px.
+ * Qatlamsiz: `text-*` utility klasslaridan ustun tursin.
+ */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: var(--text-lg2);
+  }
+}
+
 @layer base {
   * {
     @apply border-line;
@@ -1776,4 +1789,14 @@ html[data-i18n-pending] body > * {
 /* Telefonning pastki xavfsiz hududi (iPhone uy chizig'i) — pastki menyu shu qadar ko'tariladi. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Pastki tugmalar paneli: oddiy p-4 + iPhone uy chizig'i. */
+@utility pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+/* Telefonda pastki panel (h-16) + iPhone uy chizig'i — kontent panel ostida qolmasin. */
+@utility pb-bottom-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }

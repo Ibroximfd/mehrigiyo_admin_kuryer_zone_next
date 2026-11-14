@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { History, MapPinned, PackageX, Phone, Truck, Undo2 } from "lucide-react";
+import { History, MapPinned, PackageX, Phone, Truck, Undo2, X } from "lucide-react";
 import { useState } from "react";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
@@ -25,7 +25,9 @@ import { errorCode, errorMessage } from "@/lib/api-client";
 import { formatDateTime, formatPhone, formatSom } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 
-import { addressChangedBy, isOpenOrder, paymentLabel } from "../order-view";
+import { needsDistrictAction } from "../district-view";
+import { addressChangedBy, isOpenOrder, paymentLabel, shortOrderNumber } from "../order-view";
+import { DistrictPrompt } from "./district-prompt";
 import { AddressFixDialog, ReturnDialog } from "./order-actions";
 
 /**
@@ -54,6 +56,7 @@ export function OrderDetailSheet({
     <Sheet open={orderId !== null} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
         side="right"
+        showCloseButton={false}
         className="data-[side=right]:w-full data-[side=right]:sm:max-w-xl gap-0 overflow-y-auto p-0"
       >
         {orderId ? (
@@ -98,6 +101,11 @@ function DetailBody({
     return (
       <div className="p-5">
         <SheetTitle className="sr-only">Zakaz</SheetTitle>
+        <div className="-mt-2 -mr-2 mb-1 flex justify-end">
+          <Button variant="ghost" size="icon-lg" onClick={onClose} aria-label="Yopish">
+            <X />
+          </Button>
+        </div>
         <EmptyView
           Icon={PackageX}
           title="Zakaz endi sizda emas"
@@ -116,6 +124,11 @@ function DetailBody({
     return (
       <div className="p-5">
         <SheetTitle className="sr-only">Zakaz</SheetTitle>
+        <div className="-mt-2 -mr-2 mb-1 flex justify-end">
+          <Button variant="ghost" size="icon-lg" onClick={onClose} aria-label="Yopish">
+            <X />
+          </Button>
+        </div>
         {detail.isPending ? (
           <div className="space-y-3" aria-label="Yuklanmoqda">
             <Skeleton className="h-8 w-40" />
@@ -139,10 +152,16 @@ function DetailBody({
   const status = orderStatusInfo(order.status);
   return (
     <div className="flex min-h-full flex-col">
-      <header className="border-line bg-surface sticky top-0 z-10 border-b px-5 pt-5 pb-4">
-        <SheetTitle className="text-ink text-title tabular" data-no-translit>
-          {order.orderNumber}
+      {/* Yopish — sarlavhaning o'zida: Sheet'ning X tugmasi yopishqoq sarlavha ostida qolardi. */}
+      <header className="border-line bg-surface sticky top-0 z-10 flex items-start gap-2 border-b py-3 pr-3 pl-5 sm:pt-5 sm:pb-4">
+        <div className="min-w-0 flex-1">
+        <SheetTitle className="text-ink text-title tabular truncate" data-no-translit>
+          <span className="sm:hidden">{`#${shortOrderNumber(order.orderNumber)}`}</span>
+          <span className="hidden sm:inline">{order.orderNumber}</span>
         </SheetTitle>
+        <p className="text-ink-faint tabular mt-0.5 truncate text-micro sm:hidden" data-no-translit>
+          {order.orderNumber}
+        </p>
         <SheetDescription className="mt-1.5 flex flex-wrap items-center gap-2 text-meta">
           <StatusPill label={status.label} color={status.color} size="sm" />
           {order.createdAt ? (
@@ -151,6 +170,10 @@ function DetailBody({
             </span>
           ) : null}
         </SheetDescription>
+        </div>
+        <Button variant="ghost" size="icon-lg" onClick={onClose} aria-label="Yopish" className="shrink-0">
+          <X />
+        </Button>
       </header>
 
       <div className="flex flex-1 flex-col gap-5 px-5 py-4">
@@ -170,6 +193,12 @@ function DetailBody({
           <p className="text-ink-muted text-dense" data-no-translit>
             {formatDeliveryAddress(order) ?? "Manzil yo'q"}
           </p>
+          {order.zoning.districtState === "auto" ? (
+            <p className="text-ink-faint text-meta">Tuman manzil matnidan avtomatik aniqlangan</p>
+          ) : null}
+          {canDispatch && isOpenOrder(order) && needsDistrictAction(order.zoning) ? (
+            <DistrictPrompt order={order} onPickOther={() => setAction("address")} />
+          ) : null}
           {order.deliveryInfo?.landmark ? (
             <p className="text-ink-muted text-dense">
               {"Mo'ljal: "}
@@ -204,8 +233,10 @@ function DetailBody({
                 className="flex items-center gap-3 px-3 py-2"
               >
                 <ProductThumb src={item.imageUrl} name={item.name} />
+                {/* Telefonda nom alohida qatorda — narx uni «П…» gacha siqmasin. */}
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
                 <span
-                  className="text-ink min-w-0 flex-1 truncate text-dense"
+                  className="text-ink min-w-0 text-dense sm:flex-1 sm:truncate"
                   data-no-translit
                 >
                   {item.name || "—"}
@@ -220,7 +251,8 @@ function DetailBody({
                     `× ${item.quantity}`
                   )}
                 </span>
-                <span className="text-ink tabular w-28 text-right text-dense font-semibold">
+                </span>
+                <span className="text-ink tabular shrink-0 text-right text-dense font-semibold sm:w-28">
                   {formatSom(item.price)}
                 </span>
               </li>
@@ -283,7 +315,7 @@ function DetailBody({
       </div>
 
       {canDispatch && isOpenOrder(order) ? (
-        <footer className="border-line bg-surface sticky bottom-0 flex flex-col gap-2 border-t p-4">
+        <footer className="border-line bg-surface pb-safe-4 sticky bottom-0 flex flex-col gap-2 border-t p-4">
           <Button className="w-full" onClick={() => onAssign(order)}>
             <Truck />
             {order.courier ? "Kuryerni almashtirish" : "Kuryerga berish"}

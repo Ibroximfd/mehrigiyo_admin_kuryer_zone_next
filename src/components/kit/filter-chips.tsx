@@ -99,7 +99,7 @@ function Chip<T extends string | number | null>({
       onKeyDown={onKeyDown}
       style={{ "--accent": accent } as React.CSSProperties}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5",
+        "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2.5 sm:px-3 sm:py-1.5",
         "text-dense font-medium transition-colors",
         selected
           ? "border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] text-[var(--accent)]"

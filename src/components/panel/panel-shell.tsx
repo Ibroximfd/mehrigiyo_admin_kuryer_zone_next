@@ -34,7 +34,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       <div className="bg-canvas relative flex min-w-0 flex-1 flex-col">
         {!online ? <OfflineBanner /> : null}
         <MobileTopBar />
-        <main id={PANEL_MAIN_ID} className="relative min-w-0 flex-1 overflow-y-auto overscroll-contain pb-16 md:pb-0">
+        <main id={PANEL_MAIN_ID} className="relative min-w-0 flex-1 overflow-y-auto overscroll-contain pb-bottom-nav md:pb-0">
           {/* `key` — marshrut o'zgarganda kirish animatsiyasi qaytadan o'ynaydi. */}
           <div key={pathname} className="section-enter min-h-full">
             {children}

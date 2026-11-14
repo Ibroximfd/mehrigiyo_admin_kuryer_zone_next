@@ -18,10 +18,15 @@ export const queryKeys = {
   /** Hamma zakaz ro'yxatlari (har filtr) — `chiefOrders` ning ildizi. */
   chiefOrderLists: ["chief", "orders"] as const,
   chiefOrders: (filters: Record<string, unknown>) => ["chief", "orders", filters] as const,
+  /** Mahsulot/summa/tartib filtri — ro'yxat to'liq (shu ham `chiefOrderLists` ostida). */
+  /** Mahsulotlar katalogi (filtr) — kam o'zgaradi. */
+  productOptions: ["catalog", "products"] as const,
   chiefOrderDetail: (orderId: string) => ["chief", "order", orderId] as const,
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */
   chiefAutoAssignPreview: ["chief", "auto-assign-preview"] as const,
   chiefFilials: ["chief", "filials"] as const,
+  /** Kuryerning qabul qilinmagan HAMMA kunlari (`cod/?open=1`). */
+  chiefCourierOpenCod: (courierId: number) => ["chief", "courier-cod", courierId, "open"] as const,
   /** Kuryerning naqd hisobi (oraliq). */
   chiefCourierCod: (courierId: number, range: { from: string; to: string }) => ["chief", "courier-cod", courierId, range] as const,
   /** Kassa 1-pog'ona: kuryerlar e'lonlari (server filtri — holat, kuryer). */
@@ -34,8 +39,12 @@ export const queryKeys = {
   chiefLoadRequests: (status: string) => ["chief", "sklad", "load-requests", status] as const,
   /** Kuryer baholari — filtr va sahifa bo'yicha (kuryerlar sahifasi filtrsiz 1-sahifani bo'lishadi). */
   chiefRatings: (filters: Record<string, unknown>) => ["chief", "ratings", filters] as const,
-  /** Kassa 2-pog'ona — `chief/cash/` (filial kesimi va topshiriqlar). */
+  /** Kassa 2-pog'ona — `chief/cash/` (filial kesimi va topshiriqlar). Sukut davr — topshirish shu bilan. */
   chiefCash: ["chief", "cash"] as const,
+  /** Kassa tarixi tanlangan davrda (faqat ko'rish). */
+  chiefCashPeriod: (range: { from: string; to: string }) => ["chief", "cash", "period", range] as const,
+  /** Hamma kuryerdagi qabul qilinmagan pul (filtrsiz). */
+  chiefCourierDebts: (courierIds: readonly number[]) => ["chief", "courier-debts", courierIds] as const,
   /** Moliya va hisobot (davr bo'yicha). */
   chiefReport: (range: { from: string; to: string }) => ["chief", "report", range] as const,
 };

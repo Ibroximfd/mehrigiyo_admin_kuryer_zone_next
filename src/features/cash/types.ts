@@ -3,6 +3,10 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import { mapFilial } from "@/features/couriers/types";
 import { mapFinanceFilialRow } from "@/features/report/types";
 import type { FinanceFilialRow } from "@/features/report/types";
+
+import type { CourierDebt, CourierMoneyTotals } from "./courier-debts";
+
+export type ServerCourierMoney = { debts: CourierDebt[]; totals: CourierMoneyTotals };
 import { parseDate } from "@/lib/format";
 import { asArray, asBool, asInt, asNumber, asOptionalNumber, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
@@ -71,12 +75,19 @@ export type ChiefCash = {
   outstanding: number;
   /** Topshirilmagan kunlar, eski birinchi. */
   outstandingDays: string[];
-  /** Filial kesimi — `to_hand_over` har filialga qancha berish kerakligi. */
+  /** Filial kesimi — `to_hand_over` har filialga qancha berish kerakligi (hamma vaqt). */
   byFilial: FinanceFilialRow[];
+  /** Davr ichidagi topshiriqlar. */
   handovers: ChiefHandover[];
+  /** Filial qabulini kutayotgan HAMMA topshiriqlar, davrdan eski ham (59-javob B3); eski serverda `null`. */
+  handoversPending: ChiefHandover[] | null;
+  /** Bosh kuryerning filialga topshirmagan puli — hamma vaqt (59-javob B3); eski serverda `null`. */
+  outstandingAllTime: { amount: number; days: string[] } | null;
+  /** Kuryerlardagi pul (`couriers` bloki, 59-javob B1) — `api.ts` to'ldiradi; eski serverda `null`. */
+  courierMoney: ServerCourierMoney | null;
 };
 
-export function mapChiefCash(raw: unknown): ChiefCash {
+export function mapChiefCash(raw: unknown, courierMoney: ServerCourierMoney | null = null): ChiefCash {
   const json = asRecord(raw);
   const rows = asArray(json.by_filial).map(mapFinanceFilialRow);
   return {
@@ -86,10 +97,30 @@ export function mapChiefCash(raw: unknown): ChiefCash {
     outstanding: asNumber(json.outstanding),
     outstandingDays: asArray(json.outstanding_days).map((day) => asString(day)).filter(Boolean).sort(),
     byFilial: [...rows.filter((row) => row.filial), ...rows.filter((row) => !row.filial)],
-    handovers: asArray(json.handovers)
-      .map(mapChiefHandover)
-      .filter((item): item is ChiefHandover => item !== null),
+    handovers: mapHandovers(json.handovers),
+    courierMoney,
+    handoversPending: Array.isArray(json.handovers_pending) ? mapHandovers(json.handovers_pending) : null,
+    outstandingAllTime: isRecord(json.outstanding_all_time)
+      ? {
+          amount: asNumber(json.outstanding_all_time.amount),
+          days: asArray(json.outstanding_all_time.days).map((day) => asString(day)).filter(Boolean).sort(),
+        }
+      : null,
   };
+}
+
+function mapHandovers(raw: unknown): ChiefHandover[] {
+  return asArray(raw)
+    .map(mapChiefHandover)
+    .filter((item): item is ChiefHandover => item !== null);
+}
+
+/** Filial qabulini kutayotgan summa: yangi serverda hamma vaqt, eskisida davr ichidan. */
+export function awaitingFilial(cash: Pick<ChiefCash, "handovers" | "handoversPending">): number {
+  return (cash.handoversPending ?? cash.handovers.filter((item) => item.status === "pending")).reduce(
+    (sum, item) => sum + item.amount,
+    0,
+  );
 }
 
 /** `400 filial_required` dagi tanlov — qoldig'i kattasi birinchi. */
@@ -182,7 +213,18 @@ export type CodDay = {
   declared: boolean;
 };
 
-export type CourierCod = { days: CodDay[]; outstandingTotal: number; outstandingDays: number };
+export type CourierCod = {
+  days: CodDay[];
+  /** Oraliq so'rovida — oraliq ichida; `?open=1` da — hamma vaqt. */
+  outstandingTotal: number;
+  outstandingDays: number;
+  /** Qabul qilingan kunlardagi kamomad (59-javob B5.6); eski serverda 0. */
+  shortageDebt: number;
+  /** `?open=1` javobi (qabul qilinmagan HAMMA kunlar) — eski server bilmasa `false`. */
+  open: boolean;
+  /** Oraliqdan qat'i nazar (59-javob B2, `all_time`); eski serverda `null`. */
+  allTime: { outstandingTotal: number; outstandingDays: number; oldestDay: string | null } | null;
+};
 
 /**
  * Ikki shakl: oraliq (`date_from`/`date_to` bilan) — `days[]`; sanasiz so'rovda
@@ -199,7 +241,14 @@ export function mapCourierCod(raw: unknown, fallbackDate = ""): CourierCod {
     const settled = asBool(json.settled);
     const amount = asNumber(json.total);
     const days = orders.length ? [{ date: fallbackDate, orders, amount, settled, declared: false }] : [];
-    return { days, outstandingTotal: settled ? 0 : amount, outstandingDays: settled || !orders.length ? 0 : 1 };
+    return {
+      days,
+      outstandingTotal: settled ? 0 : amount,
+      outstandingDays: settled || !orders.length ? 0 : 1,
+      shortageDebt: 0,
+      open: false,
+      allTime: null,
+    };
   }
   const days = asArray(json.days).map((item) => {
     const day = asRecord(item);
@@ -216,9 +265,19 @@ export function mapCourierCod(raw: unknown, fallbackDate = ""): CourierCod {
       declared: isRecord(day.handover) && asString(handover.status) === "pending",
     };
   });
+  const allTime = isRecord(json.all_time) ? json.all_time : null;
   return {
     days: days.sort((a, b) => b.date.localeCompare(a.date)),
     outstandingTotal: asNumber(json.outstanding_total),
     outstandingDays: asInt(json.outstanding_days),
+    shortageDebt: asNumber(json.shortage_debt ?? allTime?.shortage_debt),
+    open: json.open === true,
+    allTime: allTime
+      ? {
+          outstandingTotal: asNumber(allTime.outstanding_total),
+          outstandingDays: asInt(allTime.outstanding_days),
+          oldestDay: asOptionalString(allTime.oldest_day),
+        }
+      : null,
   };
 }
