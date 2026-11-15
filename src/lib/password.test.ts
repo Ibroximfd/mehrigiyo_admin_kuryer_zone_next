@@ -10,9 +10,9 @@ describe("passwordError", () => {
   });
 
   it("kamida 6 belgi", () => {
-    expect(passwordError("abc12")).not.toBeNull();
-    expect(passwordError("  abc12  ")).not.toBeNull();
-    expect(passwordError("abc123")).toBeNull();
+    expect(passwordError("x".repeat(5))).not.toBeNull();
+    expect(passwordError(`  ${"x".repeat(5)}  `)).not.toBeNull();
+    expect(passwordError("x".repeat(6))).toBeNull();
   });
 });
 
