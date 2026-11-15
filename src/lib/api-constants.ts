@@ -65,6 +65,10 @@ export const ENDPOINTS = {
   chiefCourierCod: (id: number) => `/operator/chief/couriers/${id}/cod/`,
   chiefCouriers: "/operator/chief/couriers/",
   chiefCourier: (id: number) => `/operator/chief/couriers/${id}/`,
+  /** Kuryer login/paroli (hujjat 67): ko'rish, parol qo'yish (akkaunt ham ochadi), qurilmadan chiqarish. */
+  chiefCourierCredentials: (id: number) => `/operator/chief/couriers/${id}/credentials/`,
+  chiefCourierSetPassword: (id: number) => `/operator/chief/couriers/${id}/set-password/`,
+  chiefCourierLogoutDevice: (id: number) => `/operator/chief/couriers/${id}/logout-device/`,
   chiefZones: "/operator/chief/zones/",
   chiefZone: (id: number) => `/operator/chief/zones/${id}/`,
   /** Filial kesimidagi moliya (`TUZILMA_V2` §5.1). */
@@ -102,6 +106,8 @@ export const ENDPOINTS = {
   // ── Xodim sozlamalari ────────────────────────────────────────────────────
   /** Sahifa filtrlari va saqlangan to'plamlar (52-hujjat): sayt tokendan aniqlanadi (`chief`). */
   myUiPrefs: "/operator/me/ui-prefs/",
+  /** O'z login/paroli (hujjat 67 §4): `GET` / `PATCH {password?, username?}`. */
+  myCredentials: "/operator/me/credentials/",
   /** Mahsulotlar katalogi (filtr uchun) — do'kon ro'yxati, sahifalangan. */
   shopMedicines: "/shop/medicines/",
 } as const;

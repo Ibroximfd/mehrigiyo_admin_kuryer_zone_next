@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, LoaderCircle, Pencil, Plus, SearchX, ShieldCheck, Star, UsersRound } from "lucide-react";
+import { Ban, KeyRound, LoaderCircle, Pencil, Plus, SearchX, ShieldCheck, Star, UsersRound } from "lucide-react";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createChiefCourier, fetchChiefCouriers, fetchChiefZones, updateChiefCourier } from "@/features/chief/api";
 import type { ChiefCourierPatch } from "@/features/chief/api";
+import { CourierCredentialsDialog } from "@/features/chief/components/courier-credentials-dialog";
 import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe } from "@/features/chief/types";
 import { PasswordRevealDialog } from "@/features/couriers/components/courier-account";
@@ -60,6 +61,8 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
   const query = filter.q ?? "";
   const [editing, setEditing] = useState<Courier | "new" | null>(null);
   const [blocking, setBlocking] = useState<Courier | null>(null);
+  /** «Login va parol» oynasi ochiq kuryer — ro'yxatdan olinadi, qurilma holati yangilanib tursin. */
+  const [credentialsFor, setCredentialsFor] = useState<number | null>(null);
   const [revealed, setRevealed] = useState<{ courier: Courier; password: string } | null>(null);
 
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
@@ -174,6 +177,7 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
               busy={update.isPending && update.variables?.courier.id === courier.id}
               onMove={(zoneId) => moveTo(courier, zoneId)}
               onEdit={() => setEditing(courier)}
+              onCredentials={() => setCredentialsFor(courier.id)}
               onBlock={() => setBlocking(courier)}
               onUnblock={() =>
                 update.mutate({ courier, patch: { isActive: true }, done: `${courier.fullName} blokdan chiqarildi` })
@@ -218,6 +222,10 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
             });
         }}
       />
+      <CourierCredentialsDialog
+        courier={list.find((courier) => courier.id === credentialsFor) ?? null}
+        onClose={() => setCredentialsFor(null)}
+      />
       <PasswordRevealDialog courier={revealed?.courier ?? null} password={revealed?.password ?? null} onClose={() => setRevealed(null)} />
     </div>
   );
@@ -231,6 +239,7 @@ function CourierRow({
   busy,
   onMove,
   onEdit,
+  onCredentials,
   onBlock,
   onUnblock,
 }: {
@@ -242,6 +251,7 @@ function CourierRow({
   busy: boolean;
   onMove: (zoneId: string) => void;
   onEdit: () => void;
+  onCredentials: () => void;
   onBlock: () => void;
   onUnblock: () => void;
 }) {
@@ -305,6 +315,15 @@ function CourierRow({
           {busy ? <LoaderCircle className="text-ink-faint size-4 animate-spin" aria-label="Saqlanmoqda" /> : null}
           <Button size="icon-sm" variant="ghost" aria-label={`${courier.fullName}: tahrirlash`} onClick={onEdit}>
             <Pencil />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`${courier.fullName}: login va parol`}
+            title="Login va parol"
+            onClick={onCredentials}
+          >
+            <KeyRound />
           </Button>
           {courier.isActive ? (
             <Button size="sm" variant="ghost" onClick={onBlock} disabled={busy}>

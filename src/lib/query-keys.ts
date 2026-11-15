@@ -33,6 +33,10 @@ export const queryKeys = {
   chiefCourierHandovers: (filters: Record<string, unknown>) => ["chief", "cod-handovers", filters] as const,
   chiefCandidates: (orderId: string) => ["chief", "candidates", orderId] as const,
   chiefCouriers: ["chief", "couriers"] as const,
+  /** Kuryer login/paroli — keshda saqlanmaydi (`gcTime: 0`). */
+  chiefCourierCredentials: (courierId: number) => ["chief", "courier-credentials", courierId] as const,
+  /** O'z login/paroli. */
+  myCredentials: ["me", "credentials"] as const,
   chiefZones: ["chief", "zones"] as const,
   /** Sklad: o'z skladi va kuryerlari ombori (`sklad_changed` da butunlay tashlanadi). */
   chiefSklad: ["chief", "sklad"] as const,

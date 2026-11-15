@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, KeyRound, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { ThemeToggle } from "@/components/kit/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -12,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MyCredentialsDialog } from "@/features/account/components/my-credentials-dialog";
 import { useChiefMe } from "@/features/chief/use-chief-me";
 import { regionLabel } from "@/features/orders/regions";
 import { credentials } from "@/lib/credentials";
@@ -26,6 +28,7 @@ export function UserMenu({ variant = "full" }: { variant?: "full" | "compact" })
   const logout = useAuthStore((state) => state.logout);
   const { me } = useChiefMe();
   const router = useRouter();
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
 
   const name = me?.seat.fullName || user?.name || "Bosh kuryer";
   const regions = me?.regions.map(regionLabel).join(", ") ?? "";
@@ -38,51 +41,58 @@ export function UserMenu({ variant = "full" }: { variant?: "full" | "compact" })
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Profil menyusi"
-        className={cn(
-          "hover:bg-rail-hover flex items-center gap-2.5 rounded-lg transition-colors",
-          "focus-visible:ring-accent/50 focus-visible:ring-2 focus-visible:outline-none",
-          variant === "full" ? "w-full p-2" : "p-1.5",
-        )}
-      >
-        <Avatar name={name} />
-        {variant === "full" ? (
-          <>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="text-rail-ink block truncate text-dense font-medium" data-no-translit>{name}</span>
-              <span className="text-rail-ink-muted block truncate text-fine">Bosh kuryer</span>
-            </span>
-            <ChevronsUpDown className="text-rail-ink-muted size-3.5 shrink-0" />
-          </>
-        ) : null}
-      </DropdownMenuTrigger>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Profil menyusi"
+          className={cn(
+            "hover:bg-rail-hover flex items-center gap-2.5 rounded-lg transition-colors",
+            "focus-visible:ring-accent/50 focus-visible:ring-2 focus-visible:outline-none",
+            variant === "full" ? "w-full p-2" : "p-1.5",
+          )}
+        >
+          <Avatar name={name} />
+          {variant === "full" ? (
+            <>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="text-rail-ink block truncate text-dense font-medium" data-no-translit>{name}</span>
+                <span className="text-rail-ink-muted block truncate text-fine">Bosh kuryer</span>
+              </span>
+              <ChevronsUpDown className="text-rail-ink-muted size-3.5 shrink-0" />
+            </>
+          ) : null}
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" side={variant === "full" ? "top" : "bottom"} className="w-72">
-        <div className="flex items-center gap-3 p-2">
-          <Avatar name={name} light />
-          <div className="min-w-0">
-            <p className="text-ink truncate text-body font-semibold" data-no-translit>{name}</p>
-            <p className="text-ink-muted truncate text-meta">{regions || "Bosh kuryer"}</p>
+        <DropdownMenuContent align="end" side={variant === "full" ? "top" : "bottom"} className="w-72">
+          <div className="flex items-center gap-3 p-2">
+            <Avatar name={name} light />
+            <div className="min-w-0">
+              <p className="text-ink truncate text-body font-semibold" data-no-translit>{name}</p>
+              <p className="text-ink-muted truncate text-meta">{regions || "Bosh kuryer"}</p>
+            </div>
           </div>
-        </div>
-        <DropdownMenuSeparator />
-        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-          <span className="text-ink-muted text-dense">Mavzu</span>
-          <ThemeToggle />
-        </div>
-        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-          <span className="text-ink-muted text-dense">Til</span>
-          <LocaleSwitcher />
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
-          <LogOut />
-          Tizimdan chiqish
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+            <span className="text-ink-muted text-dense">Mavzu</span>
+            <ThemeToggle />
+          </div>
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+            <span className="text-ink-muted text-dense">Til</span>
+            <LocaleSwitcher />
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setCredentialsOpen(true)}>
+            <KeyRound />
+            Login va parol
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+            <LogOut />
+            Tizimdan chiqish
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <MyCredentialsDialog open={credentialsOpen} onOpenChange={setCredentialsOpen} />
+    </>
   );
 }
 

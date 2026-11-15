@@ -34,6 +34,8 @@ import type {
   ChiefZones,
   ReturnReason,
 } from "./types";
+import { mapCourierCredentials, mapSetPasswordResult } from "./credentials";
+import type { CourierCredentials } from "./credentials";
 import type { DistrictFilter } from "./order-sort";
 
 /**
@@ -400,6 +402,36 @@ export function updateChiefCourier(id: number, patch: ChiefCourierPatch): Promis
   if (patch.zoneIds !== undefined) json.zone_ids = patch.zoneIds;
   return call(async () =>
     mapCourier(await api.patch<unknown>(ENDPOINTS.chiefCourier(id), { json, fallbackError: "Kuryerni saqlashda xatolik" })),
+  );
+}
+
+// ── Kuryer login/paroli (hujjat 67) ──────────────────────────────────────
+
+export function fetchCourierCredentials(id: number, signal?: AbortSignal): Promise<CourierCredentials> {
+  return call(async () => mapCourierCredentials(await api.get<unknown>(ENDPOINTS.chiefCourierCredentials(id), { signal })));
+}
+
+/**
+ * Parol qo'yadi/almashtiradi; akkaunti yo'q kuryerga akkaunt ham ochadi.
+ * `password` bo'sh — server o'zi 8 belgili parol yasaydi. Kuryer qurilmalardan chiqariladi.
+ */
+export function setCourierPassword(previous: CourierCredentials, password: string): Promise<CourierCredentials> {
+  const json = password.trim() ? { password: password.trim() } : {};
+  return call(async () =>
+    mapSetPasswordResult(
+      await api.post<unknown>(ENDPOINTS.chiefCourierSetPassword(previous.id), {
+        json,
+        fallbackError: "Parol qo'yishda xatolik",
+      }),
+      previous,
+    ),
+  );
+}
+
+/** Kuryerni qurilmadan chiqaradi — parol o'zgarmaydi. */
+export async function logoutCourierDevice(id: number): Promise<void> {
+  await call(() =>
+    api.post<unknown>(ENDPOINTS.chiefCourierLogoutDevice(id), { json: {}, fallbackError: "Qurilmadan chiqarishda xatolik" }),
   );
 }
 

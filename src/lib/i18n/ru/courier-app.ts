@@ -37,8 +37,8 @@ export const COURIER_APP: Dictionary = {
     "— все устройства курьера будут отключены.",
   "Yangi parol": "Новый пароль",
   "Kuryerga ayting": "Сообщите курьеру",
-  "Parol faqat hozir ko'rinadi — keyin uni qayta ko'rib bo'lmaydi.":
-    "Пароль виден только сейчас — потом его не посмотреть.",
+  "Parolni keyin ham kuryer qatoridagi «Login va parol» tugmasi bilan ko'rish mumkin.":
+    "Пароль можно посмотреть и позже — кнопкой «Логин и пароль» в строке курьера.",
   "Parolni nusxalash": "Скопировать пароль",
   "Parol nusxalandi": "Пароль скопирован",
   Aytdim: "Сообщил",

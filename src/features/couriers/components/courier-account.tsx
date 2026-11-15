@@ -12,8 +12,8 @@ import type { Courier } from "@/features/couriers/types";
 import { formatPhone } from "@/lib/format";
 
 /**
- * Parol faqat shu oynada, bir marta ko'rinadi — keyin uni hech qayerdan
- * o'qib bo'lmaydi. Bosh kuryer uni kuryerga aytadi.
+ * Yangi kuryer yaratilgandagi parol. Bosh kuryer uni kuryerga aytadi;
+ * keyin «Login va parol» oynasida ham ko'rinadi (hujjat 67).
  */
 export function PasswordRevealDialog({
   courier,
@@ -34,8 +34,8 @@ export function PasswordRevealDialog({
       <DialogContent className="w-[24rem] max-w-[calc(100vw-2rem)]">
         <DialogTitle>Kuryerga ayting</DialogTitle>
         <DialogDescription>
-          Parol faqat hozir ko&apos;rinadi — keyin uni qayta ko&apos;rib
-          bo&apos;lmaydi.
+          Parolni keyin ham kuryer qatoridagi «Login va parol» tugmasi bilan
+          ko&apos;rish mumkin.
         </DialogDescription>
 
         <dl className="bg-subtle mt-3 grid gap-2 rounded-xl p-4">
