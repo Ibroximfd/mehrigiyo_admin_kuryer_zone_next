@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Store, Truck, Undo2, Wand2 } from "lucide-react";
+import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Send, Store, Truck, Undo2, Wand2 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { assignChiefOrder, fetchChiefOrders } from "@/features/chief/api";
 import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe, ChiefOrderScope } from "@/features/chief/types";
+import { dispatchFilters } from "@/features/chief/order-params";
 import { ORDER_SORT_LABELS } from "@/features/chief/order-sort";
 import { useOrderFilters } from "@/features/chief/use-order-filters";
 import { formatDeliveryAddress } from "@/features/orders/address";
@@ -29,6 +30,7 @@ import { districtBadge } from "../district-view";
 import { fieldErrors } from "../order-action-rules";
 import { addressChangedBy, isOpenOrder, orderProductsLine, shortOrderNumber } from "../order-view";
 import { AutoAssignPreview } from "./auto-assign-preview";
+import { BulkAssignDialog } from "./bulk-assign-dialog";
 import { ChiefAssignDialog } from "./chief-assign-dialog";
 import { OrderDetailSheet } from "./order-detail-sheet";
 import { OrderFilters } from "./order-filters";
@@ -45,6 +47,7 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
   const [openId, setOpenId] = useQueryState("order", parseAsString);
   const [assigning, setAssigning] = useState<LogistOrder | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const canDispatch = chiefCan(me, "orders.dispatch");
 
   // Filtr va tartib — faqat serverda (60-javob); sayt o'zi saralamaydi.
@@ -59,6 +62,11 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
   // Summa son bo'lmasa server `400 fields.amount_min/max` qaytaradi — maydon ostida ko'rsatiladi.
   const amountError = orders.isError ? amountFieldError(orders.error) : null;
   const filtered = controls.activeCount > 0 || controls.hasQuery;
+  // Taqsimlash ekrandagi filtrni `filters` qilib yuboradi — ko'ringan va beriladigan zakazlar bir xil (hujjat 68).
+  const toDispatch = dispatchFilters(filters);
+  const showDispatch = canDispatch && scope === "incoming";
+  // Son — ro'yxatdagi `count`; yuklanayotganda tugma o'chiq turadi.
+  const dispatchCount = orders.isSuccess ? total : 0;
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
@@ -89,11 +97,17 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
           onChange={(next) => controls.set({ scope: next === "incoming" ? null : next })}
           className="min-w-0 flex-1"
         />
-        {canDispatch && scope === "incoming" ? (
-          <Button className="w-full sm:w-auto" disabled={me.summary.incoming === 0} onClick={() => setPlanning(true)}>
-            <Wand2 />
-            Avto taqsimlash
-          </Button>
+        {showDispatch ? (
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+            <Button variant="outline" disabled={dispatchCount === 0} onClick={() => setBulkOpen(true)}>
+              <Send />
+              <span className="truncate">{`Kuryerga berish (${dispatchCount})`}</span>
+            </Button>
+            <Button disabled={dispatchCount === 0} onClick={() => setPlanning(true)}>
+              <Wand2 />
+              <span className="truncate">{`Avto taqsimlash (${dispatchCount})`}</span>
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -165,7 +179,14 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
         onAssign={setAssigning}
       />
       <ChiefAssignDialog order={assigning} onClose={() => setAssigning(null)} />
-      {planning ? <AutoAssignPreview onClose={() => setPlanning(false)} /> : null}
+      {planning ? <AutoAssignPreview filters={toDispatch} filtered={filtered} onClose={() => setPlanning(false)} /> : null}
+      <BulkAssignDialog
+        open={bulkOpen}
+        count={dispatchCount}
+        filters={toDispatch}
+        filtered={filtered}
+        onClose={() => setBulkOpen(false)}
+      />
     </div>
   );
 }

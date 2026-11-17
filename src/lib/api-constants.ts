@@ -59,6 +59,8 @@ export const ENDPOINTS = {
   /** Avto-taqsimlash: reja va tasdiqlangan rejani yuborish (V5). */
   chiefAutoAssignPreview: "/operator/chief/orders/auto-assign/preview/",
   chiefAutoAssignApply: "/operator/chief/orders/auto-assign/apply/",
+  /** Filtrdagi hamma kuryersiz zakazni bitta kuryerga (hujjat 68 §2.1). */
+  chiefBulkAssign: "/operator/chief/orders/bulk-assign/",
   /** Filiallar ro'yxati (V14). */
   chiefFilials: "/operator/chief/filials/",
   /** Kuryerning naqd hisobi — e'lon qilinmagan kunlar ham (V11). */
@@ -71,6 +73,8 @@ export const ENDPOINTS = {
   chiefCourierLogoutDevice: (id: number) => `/operator/chief/couriers/${id}/logout-device/`,
   chiefZones: "/operator/chief/zones/",
   chiefZone: (id: number) => `/operator/chief/zones/${id}/`,
+  /** Zona va tuman bo'yicha zakaz soni, sana oralig'i bilan (hujjat 69 §3). */
+  chiefZoneStats: "/operator/chief/zones/stats/",
   /** Filial kesimidagi moliya (`TUZILMA_V2` §5.1). */
   chiefFinance: "/operator/chief/finance/",
   /** Kassa 2-pog'ona: holat va filialga topshirish (§5.2–5.3). */

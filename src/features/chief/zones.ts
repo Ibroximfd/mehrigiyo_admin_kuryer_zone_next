@@ -1,3 +1,4 @@
+import { regionOfDistrict } from "@/features/zones/types";
 import type { Zone } from "@/features/zones/types";
 
 /**
@@ -17,12 +18,35 @@ export function districtMoves(
 }
 
 /**
- * Zonalar viloyat bo'yicha: bosh kuryerga biriktirilgan **har** viloyat chiqadi —
- * zonasi yo'q bo'lsa ham (bo'sh ro'yxat bilan), o'sha tartibda. Biriktirilmagan
- * viloyatdagi zona (masalan, `scope=all`) oxirida keladi.
+ * Zona tumanlari viloyat bo'yicha (hujjat 69 §1: zona bir nechta viloyatdan).
+ * Viloyatlar `order` tartibida (bosh kuryerning o'z viloyatlari avval), qolgani oxirida.
  */
-export function zonesByRegion(zones: readonly Zone[], assigned: readonly string[]): Array<[string, Zone[]]> {
-  const groups = new Map<string, Zone[]>(assigned.map((region) => [region, []]));
-  for (const zone of zones) groups.set(zone.region, [...(groups.get(zone.region) ?? []), zone]);
-  return [...groups.entries()];
+export function codesByRegion(codes: readonly string[], order: readonly string[]): Array<[string, string[]]> {
+  const groups = new Map<string, string[]>();
+  for (const code of codes) {
+    const region = regionOfDistrict(code);
+    groups.set(region, [...(groups.get(region) ?? []), code]);
+  }
+  const rank = (region: string) => {
+    const index = order.indexOf(region);
+    return index === -1 ? order.length : index;
+  };
+  return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b));
+}
+
+/** Zonalar tartibi: ishlayotganlari avval, keyin nom bo'yicha. */
+export function sortZones(zones: readonly Zone[]): Zone[] {
+  return [...zones].sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name));
+}
+
+/**
+ * Zona tuzishda viloyatlar: o'zinikilar avval, keyin boshqa viloyatlar —
+ * zonaga begona viloyat tumani ham qo'shiladi (hujjat 69 §1).
+ */
+export function splitRegions<T extends { region: string }>(all: readonly T[], own: readonly string[]): { own: T[]; other: T[] } {
+  if (own.length === 0) return { own: [...all], other: [] };
+  return {
+    own: own.map((region) => all.find((item) => item.region === region)).filter((item): item is T => item !== undefined),
+    other: all.filter((item) => !own.includes(item.region)),
+  };
 }

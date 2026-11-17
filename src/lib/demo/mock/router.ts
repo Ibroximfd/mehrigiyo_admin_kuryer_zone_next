@@ -141,7 +141,15 @@ function courierJson(courier: DemoCourierRow) {
 }
 
 function zoneJson(zone: DemoZoneRow) {
-  return { id: zone.id, region: zone.region, name: zone.name, is_active: zone.isActive, district_codes: zone.districtCodes };
+  const regions = [...new Set(zone.districtCodes.map((code) => code.split("/")[0]).filter(Boolean))];
+  return {
+    id: zone.id,
+    region: zone.region,
+    regions: regions.length ? regions : [zone.region],
+    name: zone.name,
+    is_active: zone.isActive,
+    district_codes: zone.districtCodes,
+  };
 }
 
 function isIncoming(order: DemoOrderRow) {
@@ -505,6 +513,75 @@ function updateZone(id: number, request: DemoRequest): DemoResponse {
   if (typeof json.is_active === "boolean") zone.isActive = json.is_active;
   if (json.district_codes !== undefined) zone.districtCodes = codesOf(json.district_codes);
   return ok(zoneJson(zone));
+}
+
+/** Hujjat 69 §2: faol zakaz bo'lsa o'chirilmaydi; kuryerlar zonasiz qoladi. */
+function deleteZone(id: number): DemoResponse {
+  const zone = demoDb.zones.find((item) => item.id === id);
+  if (!zone) return fail(404, "zone_not_found");
+  const open = demoDb.orders.filter((order) => order.status === "shipping" && !order.returned && zone.districtCodes.includes(order.district));
+  if (open.length > 0) {
+    return {
+      status: 409,
+      data: {
+        code: "zone_has_orders",
+        detail: `Zonada ${open.length} ta faol zakaz bor`,
+        orders_count: open.length,
+        order_numbers: open.slice(0, 10).map((order) => order.number),
+      },
+    };
+  }
+  demoDb.zones = demoDb.zones.filter((item) => item.id !== id);
+  for (const courier of demoDb.couriers) if (courier.zoneId === id) courier.zoneId = null;
+  return { status: 204, data: undefined };
+}
+
+/** Hujjat 69 §3: zona/tuman bo'yicha zakaz soni (demo — sana `createdAt` bo'yicha). */
+function zoneStats(request: DemoRequest): DemoResponse {
+  const from = param(request, "date_from") || today();
+  const to = param(request, "date_to") || from;
+  const inRange = demoDb.orders.filter((order) => {
+    const day = toIsoDay(order.createdAt);
+    return !order.returned && day >= from && day <= to;
+  });
+  const counts = (orders: typeof inRange) => ({
+    orders: orders.length,
+    incoming: orders.filter(isIncoming).length,
+    with_courier: orders.filter(isActiveOrder).length,
+    delivered: orders.filter((order) => order.status === "delivered").length,
+  });
+  const area = (codes: string[]) => {
+    const own = inRange.filter((order) => codes.includes(order.district));
+    return { ...counts(own), districts: codes.map((code) => ({ code, ...counts(own.filter((order) => order.district === code)) })) };
+  };
+  const zoned = new Set(demoDb.zones.flatMap((zone) => zone.districtCodes));
+  const unzonedCodes = [...new Set(inRange.map((order) => order.district).filter((code) => code && !zoned.has(code)))];
+  return ok({
+    date_from: from,
+    date_to: to,
+    total: counts(inRange),
+    zones: demoDb.zones.map((zone) => ({ id: zone.id, ...area(zone.districtCodes) })),
+    unzoned: area(unzonedCodes),
+    no_district: { orders: inRange.filter((order) => !order.district).length },
+  });
+}
+
+/** Hujjat 68 §2.1: filtrdagi hamma kuryersiz zakaz bitta kuryerga. */
+function bulkAssign(request: DemoRequest): DemoResponse {
+  const json = body(request);
+  const courier = demoDb.couriers.find((item) => item.id === Number(json.courier_id));
+  if (!courier) return fail(404, "courier_not_found");
+  if (!courier.isActive) return fail(400, "courier_inactive");
+  const filters = json.filters && typeof json.filters === "object" ? (json.filters as DemoRequest["searchParams"]) : undefined;
+  if (!filters && !Array.isArray(json.order_ids)) return fail(400, "validation_error");
+  const matched = demoDb.orders.filter((order) =>
+    matchesFilters(order, { method: "get", path: "", searchParams: { ...filters, scope: "incoming" } }),
+  );
+  for (const order of matched) {
+    order.courierId = courier.id;
+    pushHistory(order, "courier_assigned", courier.fullName);
+  }
+  return ok({ matched: matched.length, assigned: matched.map((order) => ({ id: order.id, courier_id: courier.id })), failed: [] });
 }
 
 function regionsDictionary(): DemoResponse {
@@ -1135,6 +1212,9 @@ const ROUTES: Route[] = [
   ["get", /^\/operator\/chief\/zones\/$/, zonesList],
   ["post", /^\/operator\/chief\/zones\/$/, createZone],
   ["patch", /^\/operator\/chief\/zones\/(\d+)\/$/, (request, match) => updateZone(Number(match[1]), request)],
+  ["delete", /^\/operator\/chief\/zones\/(\d+)\/$/, (_, match) => deleteZone(Number(match[1]))],
+  ["get", /^\/operator\/chief\/zones\/stats\/$/, zoneStats],
+  ["post", /^\/operator\/chief\/orders\/bulk-assign\/$/, bulkAssign],
   ["get", /^\/operator\/chief\/filials\/$/, () => ok(DEMO_FILIALS.map((filial) => ({ id: filial.id, name: filial.name, is_main: filial.isMain })))],
   ["post", /^\/operator\/chief\/places\/$/, createPlace],
   ["patch", /^\/operator\/chief\/places\/(.+)\/$/, (request, match) => updatePlace(decodeURIComponent(match[1]!), request)],

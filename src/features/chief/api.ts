@@ -12,7 +12,7 @@ import type { QueryValue } from "@/lib/api-client";
 import { isEndpointMissing } from "@/lib/api-availability";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
-import { asInt, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
+import { asInt, asOptionalInt, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
 import {
   mapChiefCouriers,
@@ -30,13 +30,15 @@ import type {
   ChiefFilial,
   ChiefMe,
   ChiefOrderDetail,
-  ChiefOrderScope,
   ChiefZones,
   ReturnReason,
 } from "./types";
 import { mapCourierCredentials, mapSetPasswordResult } from "./credentials";
 import type { CourierCredentials } from "./credentials";
-import type { DistrictFilter } from "./order-sort";
+import { orderFilterParams } from "./order-params";
+import { mapZoneStats } from "./zone-stats";
+import type { ZoneStats } from "./zone-stats";
+import type { ChiefOrdersQuery, DispatchFilters } from "./order-params";
 
 /**
  * Bosh kuryer tarmoq qatlami (backend K1, 2026-10-30 §C). Endpoint hali
@@ -62,59 +64,7 @@ export function fetchChiefMe(signal?: AbortSignal): Promise<ChiefMe> {
   return call(async () => mapChiefMe(await api.get<unknown>(ENDPOINTS.chiefMe, { signal })));
 }
 
-/** Zakazlar filtri — URLdagi qiymatlar. */
-export type ChiefOrderFilters = {
-  q?: string | null;
-  from?: string | null;
-  to?: string | null;
-  zoneId?: number | null;
-  courierId?: number | null;
-  filialId?: number | null;
-  region?: string | null;
-  district?: string | null;
-  productIds?: readonly number[];
-  productMatch?: "any" | "all";
-  amountMin?: number | null;
-  amountMax?: number | null;
-  ordering?: string | null;
-  districtFilter?: DistrictFilter | null;
-};
-
-export type ChiefOrdersQuery = ChiefOrderFilters & {
-  scope: ChiefOrderScope;
-  page?: number;
-};
-
-/**
- * Server filtrlari (K1 §2.2 + V3): `scope`, `status`, `courier_id`, sana,
- * `q` (raqam, mijoz, telefon, manzil, mahsulot), `zone_id`, `filial_id`,
- * `region`, `district`, `page`. «Yetkazilgan» — `scope=all&status=delivered`.
- * 60-javob (prod, 6/6): mahsulot, summa, `ordering`, `date_field`, `has_zone`,
- * `district_state` — hammasi serverda; sayt o'zi saralamaydi.
- * Sana: «Yetkazilgan» da yetkazilgan kuni, boshqalarida bosh kuryerga kelgan kuni.
- */
-function orderFilterParams(query: ChiefOrdersQuery): Record<string, QueryValue> {
-  return {
-    scope: query.scope === "delivered" ? "all" : query.scope,
-    status: query.scope === "delivered" ? "delivered" : null,
-    q: query.q?.trim() || null,
-    courier_id: query.courierId ?? null,
-    zone_id: query.zoneId ?? null,
-    filial_id: query.filialId ?? null,
-    region: query.region ?? null,
-    district: query.district ?? null,
-    date_from: query.from ?? null,
-    date_to: query.to ?? null,
-    date_field: query.from || query.to ? (query.scope === "delivered" ? "delivered" : "arrived") : null,
-    product_ids: query.productIds?.length ? query.productIds.join(",") : null,
-    product_match: query.productIds?.length && query.productMatch === "all" ? "all" : null,
-    amount_min: query.amountMin ?? null,
-    amount_max: query.amountMax ?? null,
-    ordering: query.ordering ?? null,
-    has_zone: query.districtFilter === "no_zone" ? "false" : null,
-    district_state: query.districtFilter && query.districtFilter !== "no_zone" ? query.districtFilter : null,
-  };
-}
+export type { ChiefOrderFilters, ChiefOrdersQuery, DispatchFilters } from "./order-params";
 
 /** Ro'yxat sahifasi — server `page_size` ni 200 gacha qabul qiladi. */
 const LIST_PAGE_SIZE = 50;
@@ -265,10 +215,13 @@ function uniqueOrders(pages: unknown[][]): LogistOrder[] {
 
 /** Kelgan zakazlar — HAMMASI (avto taqsimlash rejasi uchun). */
 export function fetchIncomingOrders(
+  filters: DispatchFilters,
   signal?: AbortSignal,
   onProgress?: (progress: IncomingProgress) => void,
 ): Promise<LogistOrder[]> {
-  return call(async () => (await fetchAllOrderPages({ scope: "incoming" }, INCOMING_MAX_PAGES, signal, onProgress)).orders);
+  return call(
+    async () => (await fetchAllOrderPages({ scope: "incoming", ...filters }, INCOMING_MAX_PAGES, signal, onProgress)).orders,
+  );
 }
 
 /**
@@ -291,12 +244,37 @@ export async function fetchChiefOrderDetail(id: string, signal?: AbortSignal): P
  * Avto-taqsimlash rejasi (V5) — server qoidasi bilan; hech narsa yozilmaydi.
  * `include_order` — har qatorga zakaz kartasi (51-javob): reja bitta so'rovda keladi.
  */
-export function previewAutoAssign(signal?: AbortSignal): Promise<AutoAssignPreviewRow[]> {
+export function previewAutoAssign(filters: DispatchFilters, signal?: AbortSignal): Promise<AutoAssignPreviewRow[]> {
+  // `filters` doim yuboriladi: yo'q bo'lsa server ESKI zakazlarni ham rejaga oladi (hujjat 68 §2.2).
   return call(async () =>
     mapAutoAssignPreview(
-      await api.post<unknown>(ENDPOINTS.chiefAutoAssignPreview, { json: { include_order: true }, signal, fallbackError: "Rejani tuzishda xatolik" }),
+      await api.post<unknown>(ENDPOINTS.chiefAutoAssignPreview, {
+        json: { include_order: true, filters },
+        signal,
+        fallbackError: "Rejani tuzishda xatolik",
+      }),
     ),
   );
+}
+
+/** Ommaviy amallar serverda 120 soniyagacha ishlaydi (hujjat 68 §3). */
+const BULK_TIMEOUT_MS = 120_000;
+
+export type BulkAssignResult = AutoAssignResult & { matched: number | null };
+
+/**
+ * Filtrdagi hamma kuryersiz zakazni bitta kuryerga beradi (hujjat 68 §2.1).
+ * Faqat shu bosh kuryerning kuryersiz zakazlari; qayta bosish xavfsiz.
+ */
+export function bulkAssignToCourier(courierId: number, filters: DispatchFilters): Promise<BulkAssignResult> {
+  return call(async () => {
+    const raw = await api.post<unknown>(ENDPOINTS.chiefBulkAssign, {
+      json: { courier_id: courierId, filters },
+      timeout: BULK_TIMEOUT_MS,
+      fallbackError: "Kuryerga berishda xatolik",
+    });
+    return { ...mapAutoAssignResult(raw), matched: asOptionalInt(asRecord(raw).matched) };
+  });
 }
 
 /** Tasdiqlangan rejani yuborish (V5): `assigned` va `failed[{id, code}]`. */
@@ -311,6 +289,7 @@ export function applyAutoAssign(
           assignments: assignments.map((row) => ({ order_id: row.orderId, courier_id: row.courierId })),
           client_action_id: clientActionId,
         },
+        timeout: BULK_TIMEOUT_MS,
         fallbackError: "Avto taqsimlashda xatolik",
       }),
     ),
@@ -458,6 +437,24 @@ function zoneJson(input: ChiefZoneInput): Record<string, unknown> {
 export function createChiefZone(input: ChiefZoneInput): Promise<Zone | null> {
   return call(async () =>
     mapZone(await api.post<unknown>(ENDPOINTS.chiefZones, { json: zoneJson(input), fallbackError: "Zona yaratishda xatolik" })),
+  );
+}
+
+/** Zonani o'chirish (hujjat 69 §2). Faol zakaz bo'lsa `409 zone_has_orders`. */
+export async function deleteChiefZone(id: number): Promise<void> {
+  await call(() => api.delete<unknown>(ENDPOINTS.chiefZone(id), { fallbackError: "Zonani o'chirishda xatolik" }));
+}
+
+/** Zona va tuman bo'yicha zakaz soni (hujjat 69 §3); sana — tizimga tushgan kun. */
+export function fetchChiefZoneStats(from: string, to: string, signal?: AbortSignal): Promise<ZoneStats> {
+  return call(async () =>
+    mapZoneStats(
+      await api.get<unknown>(ENDPOINTS.chiefZoneStats, {
+        searchParams: { date_from: from, date_to: to },
+        signal,
+        fallbackError: "Zakaz sonlarini yuklashda xatolik",
+      }),
+    ),
   );
 }
 

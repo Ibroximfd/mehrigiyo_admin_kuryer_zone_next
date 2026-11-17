@@ -75,6 +75,8 @@ export type Courier = {
   region: string | null;
   /** Barcha filiallar bo'yicha ochiq buyurtmalar; server bermasa `null`. */
   load: number | null;
+  /** Qo'lidagi zakazlar summasi (`load_amount`, hujjat 69 §4); eski server — `null`. */
+  loadAmount: number | null;
   today: {
     assigned: number;
     delivered: number;
@@ -82,6 +84,8 @@ export type Courier = {
     /** Bugungi to'xtashlar va kuryer haqi (`LOGIST_03` §2); eski deploy — `null`. */
     stops: number | null;
     pay: number | null;
+    /** Bugun qaytarilgan / yetkazilmagan (hujjat 69 §4); eski server — `null`. */
+    returned: number | null;
   };
   /** Ilova akkaunti bormi (parol bilan kira oladimi). */
   hasAccount: boolean;
@@ -110,12 +114,14 @@ export function mapCourier(raw: unknown): Courier {
       .filter((zone): zone is ZoneRef => zone !== null),
     region: asOptionalString(json.region),
     load: asOptionalInt(json.load),
+    loadAmount: asOptionalNumber(json.load_amount),
     today: {
       assigned: asInt(today.assigned),
       delivered: asInt(today.delivered),
       codTotal: asNumber(today.cod_total),
       stops: asOptionalInt(today.stops),
       pay: asOptionalNumber(today.pay),
+      returned: asOptionalInt(today.returned),
     },
     hasAccount: asBool(json.has_account),
     device: mapDevice(json.device),

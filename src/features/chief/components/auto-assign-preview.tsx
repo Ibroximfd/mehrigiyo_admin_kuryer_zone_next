@@ -22,6 +22,7 @@ import type { LogistOrder } from "@/features/orders/types";
 import type { Zone } from "@/features/zones/types";
 import { ApiError, errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
+import type { DispatchFilters } from "@/features/chief/order-params";
 import { cn } from "@/lib/utils";
 
 import { courierOptions, pickCourier, planFromPreview, previewHasOrders, readyRows } from "../auto-plan";
@@ -34,23 +35,33 @@ import { orderProductsLine } from "../order-view";
  * Bosh kuryer zonani yoki kuryerni almashtiradi, zakazni chiqaradi;
  * «Taqsimlash» bosilgandagina `auto-assign/apply/` bilan yuboriladi.
  */
-export function AutoAssignPreview({ onClose }: { onClose: () => void }) {
+export function AutoAssignPreview({
+  filters,
+  filtered,
+  onClose,
+}: {
+  /** Ekrandagi filtr — rejaga faqat shu zakazlar kiradi (hujjat 68 §2.2). */
+  filters: DispatchFilters;
+  /** Filtr yoqilganmi — bo'sh holat matni uchun. */
+  filtered: boolean;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   // Reja har ochilishda yangidan — eski reja yuborilmasin.
   const preview = useQuery({
-    queryKey: queryKeys.chiefAutoAssignPreview,
-    queryFn: ({ signal }) => previewAutoAssign(signal),
+    queryKey: queryKeys.chiefAutoAssignPreview(filters),
+    queryFn: ({ signal }) => previewAutoAssign(filters, signal),
     staleTime: 0,
     gcTime: 0,
   });
   // Server rejani zakaz kartalari bilan bersa (51-javob, `include_order`) — zakazlar alohida so'ralmaydi.
   // Bermasa (eski server) — reja bilan parallel yuklanadi, kutish uzaymasin.
   const ordersInPlan = preview.data !== undefined && previewHasOrders(preview.data);
-  const ordersKey = queryKeys.chiefOrders({ scope: "incoming", plan: true });
+  const ordersKey = queryKeys.chiefOrders({ scope: "incoming", plan: true, ...filters });
   const [progress, setProgress] = useState<IncomingProgress | null>(null);
   const orders = useQuery({
     queryKey: ordersKey,
-    queryFn: ({ signal }) => fetchIncomingOrders(signal, setProgress),
+    queryFn: ({ signal }) => fetchIncomingOrders(filters, signal, setProgress),
     staleTime: 0,
     enabled: !ordersInPlan,
   });
@@ -88,6 +99,7 @@ export function AutoAssignPreview({ onClose }: { onClose: () => void }) {
             orders={planOrders}
             zones={zones.data.zones.filter((zone) => zone.isActive)}
             couriers={couriers.data.filter((courier) => courier.isActive)}
+            filtered={filtered}
             onClose={onClose}
           />
         ) : (
@@ -168,8 +180,10 @@ function PlanEditor({
   orders,
   zones,
   couriers,
+  filtered,
   onClose,
 }: {
+  filtered: boolean;
   preview: AutoAssignPreviewRow[];
   orders: LogistOrder[];
   zones: Zone[];
@@ -239,7 +253,11 @@ function PlanEditor({
 
   if (rows.length === 0) {
     return (
-      <EmptyView Icon={CircleOff} title="Taqsimlanadigan zakaz yo'q" description="Kelgan zakazlar hammasi kuryerlarda." />
+      <EmptyView
+        Icon={CircleOff}
+        title="Taqsimlanadigan zakaz yo'q"
+        description={filtered ? "Filtrga mos kuryersiz zakaz yo'q — filtrni o'zgartiring." : "Kelgan zakazlar hammasi kuryerlarda."}
+      />
     );
   }
 

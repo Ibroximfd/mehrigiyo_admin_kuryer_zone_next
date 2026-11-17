@@ -23,7 +23,7 @@ export const queryKeys = {
   productOptions: ["catalog", "products"] as const,
   chiefOrderDetail: (orderId: string) => ["chief", "order", orderId] as const,
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */
-  chiefAutoAssignPreview: ["chief", "auto-assign-preview"] as const,
+  chiefAutoAssignPreview: (filters: Record<string, unknown>) => ["chief", "auto-assign-preview", filters] as const,
   chiefFilials: ["chief", "filials"] as const,
   /** Kuryerning qabul qilinmagan HAMMA kunlari (`cod/?open=1`). */
   chiefCourierOpenCod: (courierId: number) => ["chief", "courier-cod", courierId, "open"] as const,
@@ -38,6 +38,8 @@ export const queryKeys = {
   /** O'z login/paroli. */
   myCredentials: ["me", "credentials"] as const,
   chiefZones: ["chief", "zones"] as const,
+  /** Zona/tuman zakaz sonlari — sana oralig'i bo'yicha. */
+  chiefZoneStats: (from: string, to: string) => ["chief", "zone-stats", from, to] as const,
   /** Sklad: o'z skladi va kuryerlari ombori (`sklad_changed` da butunlay tashlanadi). */
   chiefSklad: ["chief", "sklad"] as const,
   chiefLoadRequests: (status: string) => ["chief", "sklad", "load-requests", status] as const,

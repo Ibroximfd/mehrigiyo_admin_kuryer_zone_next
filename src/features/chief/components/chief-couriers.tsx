@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { Ban, KeyRound, LoaderCircle, Pencil, Plus, SearchX, ShieldCheck, Star, UsersRound } from "lucide-react";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/kit/confirm-dialog";
 import { Field, inputClass } from "@/components/kit/field";
+import { KeyFigures } from "@/components/kit/key-figures";
 import { FilterChips } from "@/components/kit/filter-chips";
 import { SearchInput } from "@/components/kit/search-input";
 import { EmptyView, ErrorView, TableSkeleton } from "@/components/kit/state-views";
@@ -29,8 +31,9 @@ import type { CourierRating } from "@/features/ratings/types";
 import { NO_RATING_FILTERS, useChiefRatings } from "@/features/ratings/use-ratings";
 import type { Zone } from "@/features/zones/types";
 import { errorMessage } from "@/lib/api-client";
-import { formatPhone } from "@/lib/format";
+import { formatPhone, formatSom, groupThousands } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { ROUTES } from "@/lib/routes";
 import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
@@ -129,6 +132,8 @@ export function ChiefCouriers({ me }: { me: ChiefMe }) {
           </Button>
         ) : null}
       </div>
+
+      {list.length > 0 ? <TeamFigures couriers={list} /> : null}
 
       {couriers.isPending ? (
         <TableSkeleton rows={5} className="border-line overflow-hidden rounded-2xl border" />
@@ -286,9 +291,10 @@ function CourierRow({
           ) : (
             "telefon yo'q"
           )}
-          {courier.isActive ? ` · bugun ${courier.today.delivered}/${courier.today.assigned}` : ""}
         </span>
       </span>
+
+      {courier.isActive ? <CourierLoad courier={courier} /> : null}
 
       {courier.isActive && canManage ? (
         <Select value={zoneId !== undefined ? String(zoneId) : NO_ZONE} onValueChange={onMove} disabled={busy}>
@@ -461,5 +467,67 @@ function CourierForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** Jamoa bo'yicha: qo'lidagi zakazlar, bugun berilgan va yetkazilgan, smenadagilar. */
+function TeamFigures({ couriers }: { couriers: Courier[] }) {
+  const active = couriers.filter((courier) => courier.isActive);
+  const sum = (pick: (courier: Courier) => number | null) => active.reduce((total, courier) => total + (pick(courier) ?? 0), 0);
+  const amount = sum((courier) => courier.loadAmount);
+  const returned = sum((courier) => courier.today.returned);
+  return (
+    <KeyFigures
+      items={[
+        {
+          label: "Qo'lida zakaz",
+          value: groupThousands(sum((courier) => courier.load)),
+          hint: amount > 0 ? formatSom(amount) : undefined,
+        },
+        { label: "Bugun berildi", value: groupThousands(sum((courier) => courier.today.assigned)) },
+        {
+          label: "Bugun yetkazildi",
+          value: groupThousands(sum((courier) => courier.today.delivered)),
+          tone: "ok",
+          hint: returned > 0 ? `${returned} ta qaytdi` : undefined,
+        },
+        {
+          label: "Smenada",
+          value: `${active.filter((courier) => courier.live.onShift).length} / ${active.length}`,
+        },
+      ]}
+    />
+  );
+}
+
+/**
+ * Kuryer yuklamasi — ko'zga tashlanadigan: hozir qo'lida nechta zakaz (bosilsa —
+ * shu kuryerning zakazlari), bugun nechta berildi va yetkazildi.
+ */
+function CourierLoad({ courier }: { courier: Courier }) {
+  const load = courier.load ?? 0;
+  const { assigned, delivered, returned } = courier.today;
+  return (
+    <span className="flex w-full items-center gap-3 sm:w-auto">
+      <Link
+        href={`${ROUTES.orders}?scope=active&courier=${courier.id}`}
+        aria-label={`${courier.fullName}: qo'lidagi ${load} ta zakaz`}
+        className={cn(
+          "flex min-w-20 flex-col items-center rounded-xl px-3 py-1.5 transition-colors",
+          "focus-visible:ring-brand/40 focus-visible:ring-2 focus-visible:outline-none",
+          load > 0 ? "bg-brand-soft text-brand hover:bg-brand/15" : "bg-subtle text-ink-faint hover:bg-line",
+        )}
+      >
+        <span className="tabular text-title leading-none">{groupThousands(load)}</span>
+        <span className="mt-1 text-fine">qo&apos;lida</span>
+      </Link>
+      <span className="min-w-0 flex-1 sm:w-36 sm:flex-none">
+        <span className="text-ink tabular block text-dense">{`${delivered} / ${assigned} yetkazildi`}</span>
+        <span className="text-ink-faint block truncate text-meta">
+          {courier.loadAmount ? formatSom(courier.loadAmount) : "bugun"}
+          {returned ? ` · ${returned} qaytdi` : ""}
+        </span>
+      </span>
+    </span>
   );
 }

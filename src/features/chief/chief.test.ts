@@ -8,7 +8,7 @@ import { mapLogistOrder } from "@/features/orders/types";
 
 import { pickCourier, planFromPreview, previewHasOrders, readyRows } from "./auto-plan";
 import { chiefCan, mapAutoAssignPreview, mapAutoAssignResult, mapChiefMe, mapChiefOrderDetail } from "./types";
-import { districtMoves, zonesByRegion } from "./zones";
+import { codesByRegion, districtMoves, splitRegions } from "./zones";
 import { addressChangedBy } from "./order-view";
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format";
 
@@ -47,17 +47,21 @@ describe("zonalar: tuman boshqa zonaga o'tadi (§5b)", () => {
     expect(districtMoves(zones, null, ["x"])).toEqual([]);
   });
 
-  it("zonesByRegion: zonasiz biriktirilgan viloyat ham chiqadi, tartib saqlanadi", () => {
-    const zones = [zone(1, ["a"]), { ...zone(2, ["b"]), region: "andijon" }, { ...zone(3, ["c"]), region: "toshkent" }];
-    const groups = zonesByRegion(zones, ["andijon", "fargona", "namangan"]);
-    expect(groups.map(([region, items]) => [region, items.map((item) => item.id)])).toEqual([
-      ["andijon", [2]],
-      ["fargona", [1]],
-      ["namangan", []],
-      ["toshkent", [3]],
+  it("codesByRegion: o'z viloyatlari avval, begona viloyat oxirida", () => {
+    expect(codesByRegion(["toshkent_v/zangiota", "fargona/qoqon_sh", "toshkent_v/qibray", "namangan/chust"], ["fargona", "namangan"])).toEqual([
+      ["fargona", ["fargona/qoqon_sh"]],
+      ["namangan", ["namangan/chust"]],
+      ["toshkent_v", ["toshkent_v/zangiota", "toshkent_v/qibray"]],
     ]);
-    // `scope=all` — biriktirilgan ro'yxat bo'sh, faqat zonalar viloyatlari.
-    expect(zonesByRegion([], [])).toEqual([]);
+  });
+
+  it("splitRegions: o'zinikilar tartib bilan, qolgani «boshqa»; scope=all — hammasi o'ziniki", () => {
+    const all = [{ region: "andijon" }, { region: "fargona" }, { region: "toshkent_sh" }];
+    expect(splitRegions(all, ["fargona", "andijon"])).toEqual({
+      own: [{ region: "fargona" }, { region: "andijon" }],
+      other: [{ region: "toshkent_sh" }],
+    });
+    expect(splitRegions(all, []).other).toEqual([]);
   });
 });
 

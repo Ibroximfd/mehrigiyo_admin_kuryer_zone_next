@@ -256,6 +256,11 @@ type RequestOptions = {
   body?: FormData;
   signal?: AbortSignal;
   fallbackError?: string;
+  /**
+   * So'rov uchun alohida kutish chegarasi (ms). Ommaviy taqsimlash serverda
+   * 120 soniyagacha ishlaydi (hujjat 68 §3) — sukutdagi 30 soniya yetmaydi.
+   */
+  timeout?: number;
 };
 
 async function request<T>(
@@ -268,6 +273,7 @@ async function request<T>(
     json,
     body,
     signal,
+    timeout,
     fallbackError = "Server xatosi yuz berdi",
   } = options;
 
@@ -280,6 +286,7 @@ async function request<T>(
       ...(json === undefined ? {} : { json }),
       ...(body === undefined ? {} : { body }),
       ...(signal ? { signal } : {}),
+      ...(timeout ? { timeout } : {}),
     });
 
     const text = await response.text();

@@ -1,57 +1,67 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Hexagon, ListTree, LoaderCircle, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Hexagon, ListTree, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { ADAPTIVE_DIALOG } from "@/components/kit/adaptive-dialog";
-import { Field, inputClass } from "@/components/kit/field";
-import { Section } from "@/components/kit/key-figures";
-import { SearchInput } from "@/components/kit/search-input";
+import { KeyFigures } from "@/components/kit/key-figures";
+import { PeriodPicker } from "@/components/kit/period-picker";
 import { EmptyView, ErrorView } from "@/components/kit/state-views";
-import { StatusPill } from "@/components/kit/status-pill";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { createChiefPlace, createChiefZone, fetchChiefCouriers, fetchChiefZones, updateChiefZone } from "@/features/chief/api";
+import { fetchChiefCouriers, fetchChiefZones, fetchChiefZoneStats } from "@/features/chief/api";
 import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe } from "@/features/chief/types";
-import { regionLabel } from "@/features/orders/regions";
 import { districtName } from "@/features/zones/types";
-import type { RegionDistricts, Zone } from "@/features/zones/types";
+import type { Zone } from "@/features/zones/types";
 import { useRegionsDictionary } from "@/features/zones/use-zones";
-import { errorCode, errorMessage } from "@/lib/api-client";
+import { useDayRange } from "@/hooks/use-day-range";
+import { errorMessage } from "@/lib/api-client";
+import { groupThousands } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
-import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
-import { districtMoves, zonesByRegion } from "../zones";
+import { isNotReady } from "../zone-stats";
+import type { ZoneStats } from "../zone-stats";
+import { sortZones } from "../zones";
 import { DistrictsManager } from "./chief-districts";
+import { ZoneCard } from "./zone-card";
+import type { CountsState } from "./zone-card";
+import { ZoneDeleteDialog } from "./zone-delete-dialog";
+import { ZoneForm } from "./zone-form";
 
 /**
- * Zonalar (§5b): bosh kuryer faqat o'z viloyatlari ichida zona yaratadi va
- * unga tuman/shaharlarni xohlagancha biriktiradi, olib tashlaydi yoki
- * boshqa zonaga o'tkazadi. Avto-taqsimlash zakazni zona kuryeriga beradi.
+ * Zonalar (§5b, hujjat 69): zona bir nechta viloyat tumanlaridan, begona
+ * viloyatdan ham. Tepada davr — har tuman va zona yonida shu davrda tushgan
+ * zakazlar soni. Zonani tahrirlash va o'chirish (faol zakaz bo'lsa — yo'q).
  */
 export function ChiefZones({ me }: { me: ChiefMe }) {
   const locale = useLocaleStore((state) => state.locale);
   const canManage = chiefCan(me, "zones.manage");
-  /** Tahrir: mavjud zona yoki yangi zona (`region` — oldindan tanlangan viloyat). */
-  const [editing, setEditing] = useState<{ zone: Zone | null; region?: string } | null>(null);
+  const period = useDayRange();
+  const [editing, setEditing] = useState<{ zone: Zone | null } | null>(null);
+  const [deleting, setDeleting] = useState<Zone | null>(null);
   const [districtsOpen, setDistrictsOpen] = useState(false);
   const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
+  const stats = useQuery({
+    queryKey: queryKeys.chiefZoneStats(period.from, period.to),
+    queryFn: ({ signal }) => fetchChiefZoneStats(period.from, period.to, signal),
+    // Davr almashganda eski raqamlar o'rnida turadi — karta sakramaydi.
+    placeholderData: (previous) => previous,
+    retry: (count, error) => !isNotReady(error) && count < 1,
+  });
   const dictionary = useRegionsDictionary();
-  // `scope=all` bosh kuryerda `regions` bo'sh — hamma viloyat ochiq (51-javob Q13).
-  const regions =
-    me.regions.length > 0 ? (dictionary.data ?? []).filter((item) => me.regions.includes(item.region)) : (dictionary.data ?? []);
+  const all = dictionary.data ?? [];
+  // `scope=all` bosh kuryerda `regions` bo'sh — hamma viloyat o'ziniki (51-javob Q13).
+  const ownDictionary = me.regions.length > 0 ? all.filter((item) => me.regions.includes(item.region)) : all;
 
+  // Nom — butun lug'atdan: zonada begona viloyat tumani ham bo'ladi.
   const nameOf = (code: string) => {
-    for (const region of regions) {
+    for (const region of all) {
       const found = region.districts.find((district) => district.code === code);
       if (found) return districtName(found, locale);
     }
@@ -60,17 +70,24 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   const couriersIn = (zoneId: number) =>
     (couriers.data ?? []).filter((courier) => courier.isActive && courier.zoneIds.includes(zoneId)).length;
 
-  const list = zones.data?.zones ?? [];
+  const list = sortZones(zones.data?.zones ?? []);
   const unzoned = zones.data?.unzonedDistricts ?? [];
-  // Biriktirilgan har viloyat — zonasi yo'q bo'lsa ham (Namangan kabi) o'z bo'limi bilan.
-  const sections = zonesByRegion(list, me.regions);
+  const countsOf = (zoneId: number): CountsState =>
+    stats.isError
+      ? { kind: "hidden" }
+      : stats.data
+        ? { kind: "ready", stats: stats.data.zones.get(zoneId) ?? null }
+        : { kind: "loading" };
 
   if (zones.isPending) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Yuklanmoqda">
-        {[0, 1, 2].map((index) => (
-          <Skeleton key={index} className="h-36 rounded-2xl" />
-        ))}
+      <div className="flex flex-col gap-4" aria-label="Yuklanmoqda">
+        <Skeleton className="h-10 w-72 rounded-full" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((index) => (
+            <Skeleton key={index} className="h-64 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -84,93 +101,84 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
     );
   }
 
-  // Tumanlar — har bosh kuryerga o'z viloyatida (51-javob Q13, `zones.manage` talab qilinmaydi);
-  // zona qo'shish esa avvalgidek dopusk bilan.
-  const addButton = (
-    <div className="flex w-full gap-2 sm:w-auto">
-      <Button variant="outline" onClick={() => setDistrictsOpen(true)} className="flex-1 sm:flex-none">
-        <ListTree />
-        Tumanlar
-      </Button>
-      {canManage ? (
-        <Button onClick={() => setEditing({ zone: null })} className="flex-1 sm:flex-none">
-          <Plus />
-          Zona qo&apos;shish
-        </Button>
-      ) : null}
-    </div>
-  );
-
   return (
-    <div className="flex flex-col gap-6">
-      {unzoned.length > 0 ? (
-        <p role="status" className="bg-warn-soft text-warn flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-meta leading-relaxed">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>
-            {`Hech qaysi zonada emas · ${unzoned.length}: `}
-            <span data-no-translit>{unzoned.map(nameOf).join(", ")}</span>
-          </span>
-        </p>
-      ) : null}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <PeriodPicker period={period} className="min-w-0 flex-1" />
+        {/* Tumanlar — har bosh kuryerga o'z viloyatida (51-javob Q13); zona qo'shish — dopusk bilan. */}
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Button variant="outline" onClick={() => setDistrictsOpen(true)}>
+            <ListTree />
+            Tumanlar
+          </Button>
+          {canManage ? (
+            <Button onClick={() => setEditing({ zone: null })}>
+              <Plus />
+              Zona qo&apos;shish
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
-      {sections.length === 0 ? (
+      {stats.isError ? (
+        // Backend sonlarni hali bermasa — jim; boshqa xato — qayta urinish bilan.
+        isNotReady(stats.error) ? null : (
+          <p role="alert" className="text-danger flex flex-wrap items-center gap-2 text-meta">
+            {errorMessage(stats.error, "Zakaz sonlarini yuklashda xatolik")}
+            <Button size="sm" variant="ghost" onClick={() => void stats.refetch()}>
+              <RefreshCw />
+              Qayta urinish
+            </Button>
+          </p>
+        )
+      ) : (
+        <StatsFigures stats={stats.data ?? null} />
+      )}
+
+      {unzoned.length > 0 ? <UnzonedBanner codes={unzoned} nameOf={nameOf} stats={stats.data ?? null} /> : null}
+
+      {list.length === 0 ? (
         <EmptyView
           Icon={Hexagon}
           title="Hali zona yo'q"
-          description="Viloyatingiz tuman va shaharlarini zonalarga bo'ling — zakaz manzili qaysi zonada bo'lsa, o'sha zona kuryeriga tushadi."
-          action={addButton}
+          description="Tuman va shaharlarni zonalarga bo'ling — zakaz manzili qaysi zonada bo'lsa, o'sha zona kuryeriga tushadi. Bir zonaga bir nechta viloyat tumanlari ham sig'adi."
+          action={
+            canManage ? (
+              <Button onClick={() => setEditing({ zone: null })}>
+                <Plus />
+                Zona qo&apos;shish
+              </Button>
+            ) : undefined
+          }
           className="border-line bg-surface rounded-2xl border"
         />
       ) : (
-        sections.map(([region, items], index) => (
-          <Section
-            key={region}
-            title={regionLabel(region)}
-            description={`${items.length} ta zona`}
-            action={index === 0 ? addButton : null}
-          >
-            {items.length === 0 ? (
-              <EmptyView
-                Icon={Hexagon}
-                title="Zona yo'q"
-                description="Bu viloyat tuman va shaharlari hali zonaga bo'linmagan — zakaz zona kuryeriga tushmaydi."
-                action={
-                  canManage ? (
-                    <Button onClick={() => setEditing({ zone: null, region })}>
-                      <Plus />
-                      Zona qo&apos;shish
-                    </Button>
-                  ) : null
-                }
-                className="border-line bg-surface rounded-2xl border py-8"
-              />
-            ) : (
-              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((zone) => (
-                  <ZoneCard
-                    key={zone.id}
-                    zone={zone}
-                    districts={zone.districtCodes.map(nameOf)}
-                    couriers={couriersIn(zone.id)}
-                    canManage={canManage}
-                    onEdit={() => setEditing({ zone })}
-                  />
-                ))}
-              </ul>
-            )}
-          </Section>
-        ))
+        <ul className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((zone) => (
+            <ZoneCard
+              key={zone.id}
+              zone={zone}
+              counts={countsOf(zone.id)}
+              couriers={couriersIn(zone.id)}
+              ownRegions={me.regions}
+              districtLabel={nameOf}
+              canManage={canManage}
+              onEdit={() => setEditing({ zone })}
+              onDelete={() => setDeleting(zone)}
+            />
+          ))}
+        </ul>
       )}
 
       <Dialog open={editing !== null} onOpenChange={(next) => !next && setEditing(null)}>
-        <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-3xl")}>
+        <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-4xl")}>
           {editing !== null ? (
             <ZoneForm
-              key={editing.zone?.id ?? `new-${editing.region ?? ""}`}
+              key={editing.zone?.id ?? "new"}
               zone={editing.zone}
-              initialRegion={editing.region}
-              zones={list}
-              regions={regions}
+              zones={zones.data?.zones ?? []}
+              dictionary={all}
+              ownRegions={me.regions}
               districtLabel={nameOf}
               onClose={() => setEditing(null)}
             />
@@ -178,14 +186,12 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
         </DialogContent>
       </Dialog>
 
+      <ZoneDeleteDialog zone={deleting} couriers={deleting ? couriersIn(deleting.id) : 0} onClose={() => setDeleting(null)} />
+
       <Dialog open={districtsOpen} onOpenChange={setDistrictsOpen}>
         <DialogContent className={cn(ADAPTIVE_DIALOG, "sm:max-w-3xl")}>
           {districtsOpen ? (
-            <DistrictsManager
-              regions={regions}
-              zones={list}
-              onClose={() => setDistrictsOpen(false)}
-            />
+            <DistrictsManager regions={ownDictionary} zones={zones.data?.zones ?? []} onClose={() => setDistrictsOpen(false)} />
           ) : null}
         </DialogContent>
       </Dialog>
@@ -193,298 +199,45 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   );
 }
 
-function ZoneCard({
-  zone,
-  districts,
-  couriers,
-  canManage,
-  onEdit,
-}: {
-  zone: Zone;
-  districts: string[];
-  couriers: number;
-  canManage: boolean;
-  onEdit: () => void;
-}) {
+/** Davr bo'yicha jami: zakaz · kuryersiz · kuryerda · yetkazildi. */
+function StatsFigures({ stats }: { stats: ZoneStats | null }) {
+  if (!stats) return <Skeleton className="h-20 rounded-2xl" />;
+  const { total } = stats;
   return (
-    <li className={cn("border-line bg-surface flex flex-col gap-3 rounded-2xl border p-4", !zone.isActive && "opacity-70")}>
-      <div className="flex items-start gap-2">
-        <span className="min-w-0 flex-1">
-          <span className="text-ink block truncate text-body font-semibold" data-no-translit>{zone.name}</span>
-          <span className="text-ink-faint text-meta">
-            {`${districts.length} tuman · ${couriers} kuryer`}
-          </span>
-        </span>
-        {zone.isActive ? null : <StatusPill label="o'chirilgan" color="var(--ink-faint)" size="sm" />}
-        {canManage ? (
-          <Button size="icon-sm" variant="ghost" aria-label={`${zone.name}: tahrirlash`} onClick={onEdit}>
-            <Pencil />
-          </Button>
-        ) : null}
-      </div>
-      {districts.length > 0 ? (
-        <span className="flex flex-wrap gap-1.5">
-          {districts.map((name) => (
-            <span key={name} className="bg-subtle text-ink-muted rounded-md px-2 py-0.5 text-meta" data-no-translit>
-              {name}
-            </span>
-          ))}
-        </span>
-      ) : (
-        <span className="text-warn text-meta">Tuman biriktirilmagan</span>
-      )}
-    </li>
+    <KeyFigures
+      items={[
+        { label: "Jami zakaz", value: groupThousands(total.orders) },
+        {
+          label: "Kuryersiz",
+          value: groupThousands(total.incoming),
+          tone: total.incoming > 0 ? "warn" : "default",
+          hint: total.incoming > 0 ? "Kuryerga berilmagan" : undefined,
+        },
+        { label: "Kuryerda", value: groupThousands(total.withCourier) },
+        { label: "Yetkazildi", value: groupThousands(total.delivered), tone: total.delivered > 0 ? "ok" : "default" },
+      ]}
+    />
   );
 }
 
-function ZoneForm({
-  zone,
-  initialRegion,
-  zones,
-  regions,
-  districtLabel,
-  onClose,
-}: {
-  zone: Zone | null;
-  /** Yangi zona uchun oldindan tanlangan viloyat (viloyat bo'limidagi «Zona qo'shish»). */
-  initialRegion?: string;
-  zones: Zone[];
-  regions: RegionDistricts[];
-  districtLabel: (code: string) => string;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [name, setName] = useState(zone?.name ?? "");
-  const [region, setRegion] = useState(zone?.region ?? initialRegion ?? regions[0]?.region ?? "");
-  const [codes, setCodes] = useState<string[]>(zone?.districtCodes ?? []);
-  const [isActive, setIsActive] = useState(zone?.isActive ?? true);
-  const [touched, setTouched] = useState(false);
-  const [query, setQuery] = useState("");
-  /** Qo'lda qo'shilgan joylar — lug'at yangilanguncha nomi shu yerda. */
-  const [added, setAdded] = useState<Array<{ code: string; name: string }>>([]);
-
-  const known = regions.find((item) => item.region === region)?.districts.filter((district) => district.isActive) ?? [];
-  const districts = [
-    ...known.map((district) => district.code),
-    ...added.map((place) => place.code).filter((code) => !known.some((district) => district.code === code)),
-  ];
-  const label = (code: string) => added.find((place) => place.code === code)?.name ?? districtLabel(code);
-  const visible = districts.filter((code) => matchesSearch(label(code), query));
-  const owner = (code: string) => zones.find((item) => item.id !== zone?.id && item.districtCodes.includes(code)) ?? null;
-  const moving = codes.filter((code) => owner(code) !== null).length;
-
-  const save = useMutation({
-    mutationFn: async () => {
-      // Boshqa zonadan olingan tumanlar avval o'sha zonadan chiqariladi — bitta tuman bitta zonada.
-      for (const move of districtMoves(zones, zone?.id ?? null, codes)) {
-        await updateChiefZone(move.zoneId, { districtCodes: move.districtCodes });
-      }
-      return zone
-        ? updateChiefZone(zone.id, { name: name.trim(), districtCodes: codes, isActive })
-        : createChiefZone({ region, name: name.trim(), districtCodes: codes });
-    },
-    onSuccess: () => {
-      toast.success(zone ? "Zona saqlandi" : "Zona qo'shildi");
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
-      onClose();
-    },
-    onError: (error) => {
-      // O'tkazish yarim qolgan bo'lishi mumkin — ro'yxat serverdan qayta olinadi.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chiefZones });
-      toast.error(errorMessage(error, "Zonani saqlashda xatolik"));
-    },
-  });
-
-  const toggle = (code: string) =>
-    setCodes((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
-
+function UnzonedBanner({ codes, nameOf, stats }: { codes: string[]; nameOf: (code: string) => string; stats: ZoneStats | null }) {
+  const orders = stats?.unzoned.orders ?? 0;
   return (
-    <form
-      noValidate
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setTouched(true);
-        if (name.trim().length >= 2 && region && !save.isPending) save.mutate();
-      }}
-    >
-      <div className="border-line border-b px-5 pt-5 pb-4">
-        <DialogTitle className="text-ink text-title">{zone ? "Zonani tahrirlash" : "Yangi zona"}</DialogTitle>
-        <DialogDescription className="text-ink-muted mt-1 text-meta">
-          Tuman va shaharlarni belgilang. Boshqa zonadagisini belgilasangiz — shu zonaga o&apos;tadi.
-        </DialogDescription>
-      </div>
-
-      <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-5 py-4 md:grid-cols-5 md:overflow-hidden">
-        <div className="flex flex-col gap-3.5 md:col-span-2">
-          <Field
-            label="Nomi"
-            htmlFor="zone-name"
-            error={touched && name.trim().length < 2 ? "Zona nomi kamida 2 harf bo'lsin" : undefined}
-          >
-            <input
-              id="zone-name"
-              autoFocus
-              required
-              aria-invalid={touched && name.trim().length < 2}
-              value={name}
-              maxLength={120}
-              onChange={(event) => setName(event.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          {!zone && regions.length > 1 ? (
-            <Field label="Viloyat" htmlFor="zone-region">
-              <select
-                id="zone-region"
-                value={region}
-                onChange={(event) => {
-                  setRegion(event.target.value);
-                  setCodes([]);
-                }}
-                className={inputClass}
-              >
-                {regions.map((item) => (
-                  <option key={item.region} value={item.region}>
-                    {regionLabel(item.region)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ) : null}
-          <CustomPlace
-            region={region}
-            onAdded={(place) => {
-              setAdded((current) => [...current, place]);
-              setCodes((current) => (current.includes(place.code) ? current : [...current, place.code]));
-            }}
-          />
-          {zone ? (
-            <div className="flex items-center gap-2.5">
-              <Checkbox id="chief-zone-active" checked={isActive} onCheckedChange={(value) => setIsActive(value === true)} />
-              <Label htmlFor="chief-zone-active" className="text-ink text-dense">
-                Zona ishlayapti
-              </Label>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex min-h-64 flex-col md:col-span-3 md:min-h-0">
-          <div className="mb-2 flex items-center gap-2">
-            <p className="text-ink flex-1 text-dense font-medium">
-              {`Tumanlar · ${codes.length}`}
-              {moving > 0 ? <span className="text-warn font-normal">{` · ${moving} tasi o'tadi`}</span> : null}
-            </p>
-            {districts.length > 8 ? (
-              <SearchInput value={query} onChange={setQuery} placeholder="Tuman qidirish" autoFocusShortcut={false} className="w-44" />
-            ) : null}
-          </div>
-          <div className="scrollbar-thin border-line min-h-0 flex-1 overflow-y-auto rounded-xl border p-1.5">
-            {districts.length === 0 ? (
-              <p className="text-ink-faint px-2 py-6 text-center text-meta">Viloyat tumanlari yuklanmoqda yoki topilmadi</p>
-            ) : visible.length === 0 ? (
-              <p className="text-ink-faint px-2 py-6 text-center text-meta">Bunday tuman yo&apos;q</p>
-            ) : (
-              <div className="grid gap-0.5 sm:grid-cols-2">
-                {visible.map((code) => {
-                  const other = owner(code);
-                  const checked = codes.includes(code);
-                  return (
-                    <label key={code} className="hover:bg-subtle flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-dense">
-                      <Checkbox checked={checked} onCheckedChange={() => toggle(code)} />
-                      <span className="min-w-0 flex-1 truncate" data-no-translit>{label(code)}</span>
-                      {other ? (
-                        <span className={cn("shrink-0 truncate text-fine", checked ? "text-warn" : "text-ink-faint")} data-no-translit>
-                          {other.name}
-                        </span>
-                      ) : null}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-line flex justify-end gap-2 border-t px-5 py-3.5">
-        <Button type="button" variant="ghost" onClick={onClose}>
-          Bekor qilish
-        </Button>
-        <Button type="submit" disabled={!region || save.isPending}>
-          {save.isPending ? <LoaderCircle className="animate-spin" /> : null}
-          Saqlash
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/** «Boshqa — o'zim yozaman»: ro'yxatda yo'q tuman, shahar yoki qishloq lug'atga qo'shiladi. */
-function CustomPlace({ region, onAdded }: { region: string; onAdded: (place: { code: string; name: string }) => void }) {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [tried, setTried] = useState(false);
-  const add = useMutation({
-    mutationFn: () => createChiefPlace({ region, name: name.trim() }),
-    onSuccess: (place) => {
-      toast.success(`${place.name} qo'shildi`);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.metaRegions });
-      onAdded(place);
-      setName("");
-      setTried(false);
-      setOpen(false);
-    },
-    onError: (error) =>
-      toast.error(
-        errorCode(error) === "zone_other_region"
-          ? "Bu viloyat sizga biriktirilmagan — joyni faqat o'z viloyatingizga qo'sha olasiz"
-          : errorMessage(error, "Joyni qo'shishda xatolik"),
-      ),
-  });
-
-  if (!open) {
-    return (
-      <Button type="button" variant="outline" className="self-start" onClick={() => setOpen(true)} disabled={!region}>
-        <Plus />
-        Boshqa — o&apos;zim yozaman
-      </Button>
-    );
-  }
-  const submit = () => {
-    setTried(true);
-    if (name.trim().length >= 2 && !add.isPending) add.mutate();
-  };
-  return (
-    <Field
-      label="Ro'yxatda yo'q joy"
-      htmlFor="place-name"
-      hint="Tuman, shahar yoki qishloq nomi — saqlangach ro'yxatda turadi."
-      error={tried && name.trim().length < 2 ? "Joy nomi kamida 2 harf bo'lsin" : undefined}
-    >
-      <div className="flex gap-2">
-        <input
-          id="place-name"
-          autoFocus
-          aria-invalid={tried && name.trim().length < 2}
-          value={name}
-          maxLength={80}
-          placeholder="Masalan, Yangiqo'rg'on qishlog'i"
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            // Asosiy forma yuborilmasin — Enter faqat joyni qo'shadi.
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            submit();
-          }}
-          className={inputClass}
-        />
-        <Button type="button" onClick={submit} disabled={add.isPending}>
-          {add.isPending ? <LoaderCircle className="animate-spin" /> : <Plus />}
-          Qo&apos;shish
-        </Button>
-      </div>
-    </Field>
+    <div role="status" className="bg-warn-soft text-warn flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-meta leading-relaxed">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>
+        {`Hech qaysi zonada emas · ${codes.length} tuman`}
+        {orders > 0 ? <span className="font-semibold">{` · ${orders} zakaz`}</span> : null}
+        {": "}
+        <span data-no-translit>
+          {codes
+            .map((code) => {
+              const count = stats?.unzoned.districts.get(code)?.orders ?? 0;
+              return count > 0 ? `${nameOf(code)} (${count})` : nameOf(code);
+            })
+            .join(", ")}
+        </span>
+      </span>
+    </div>
   );
 }

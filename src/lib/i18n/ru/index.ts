@@ -6,6 +6,7 @@ import { COURIERS } from "./couriers";
 import { ORDERS } from "./orders";
 import { PANEL } from "./panel";
 import { CHIEF } from "./chief";
+import { DISPATCH } from "./dispatch";
 import { ZONES } from "./zones";
 
 /**
@@ -20,4 +21,5 @@ export const RU_DICTIONARY: Dictionary = {
   ...COURIER_APP,
   ...ZONES,
   ...CHIEF,
+  ...DISPATCH,
 };

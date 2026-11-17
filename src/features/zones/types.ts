@@ -131,7 +131,10 @@ export function mapCashPoint(raw: unknown): CashPoint | null {
 
 export type Zone = {
   id: number;
+  /** Eski maydon — birinchi viloyat. Zona endi bir nechta viloyatdan (hujjat 69 §1): `regions`. */
   region: string;
+  /** Zona tumanlari viloyatlari (server `regions` yoki tuman kodlaridan). */
+  regions: string[];
   name: string;
   isActive: boolean;
   districtCodes: string[];
@@ -153,6 +156,7 @@ export function mapZone(raw: unknown): Zone | null {
   return {
     id,
     region: asString(raw.region),
+    regions: zoneRegions(asArray(raw.regions).map((item) => asString(item)), asString(raw.region), asArray(raw.district_codes)),
     name: asOptionalString(raw.name) ?? `#${id}`,
     isActive: asBool(raw.is_active, true),
     districtCodes: asArray(raw.district_codes)
@@ -161,6 +165,20 @@ export function mapZone(raw: unknown): Zone | null {
     cashPoint: mapCashPoint(raw.cash_point),
     neighborZoneIds: asIdList(raw.neighbor_zone_ids),
   };
+}
+
+/** Tuman kodi viloyat bilan boshlanadi: `fargona/qoqon_sh` → `fargona`. */
+export function regionOfDistrict(code: string): string {
+  const slash = code.indexOf("/");
+  return slash > 0 ? code.slice(0, slash) : "";
+}
+
+/** Server `regions` bermasa — tuman kodlaridan, ular ham bo'lmasa eski `region`. */
+function zoneRegions(fromServer: string[], region: string, codes: unknown[]): string[] {
+  const list = fromServer.filter(Boolean);
+  if (list.length) return [...new Set(list)];
+  const derived = [...new Set(codes.map((code) => regionOfDistrict(asString(code))).filter(Boolean))];
+  return derived.length ? derived : region ? [region] : [];
 }
 
 /** `{id, name}` — kuryer va buyurtmadagi qisqa zona havolasi. */

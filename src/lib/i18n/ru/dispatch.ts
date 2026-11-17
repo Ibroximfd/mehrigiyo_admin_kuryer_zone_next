@@ -1,0 +1,82 @@
+import type { Dictionary } from "../matcher";
+
+/** Filtr bo'yicha taqsimlash (hujjat 68) va zonalar statistikasi (hujjat 69). */
+export const DISPATCH: Dictionary = {
+  "Zakaz endi kuryersiz emas yoki sizda emas": "Заказ уже не без курьера или не у вас",
+  "Kuryer nofaol": "Курьер неактивен",
+  "Kuryer jamoangizda emas": "Курьер не в вашей команде",
+  "Filtrga mos kuryersiz zakaz yo'q — filtrni o'zgartiring.": "Нет заказов без курьера по фильтру — измените фильтр.",
+  "Kuryer nofaol — boshqasini tanlang": "Курьер неактивен — выберите другого",
+  "Kuryerga berishda xatolik": "Ошибка передачи курьеру",
+  "Ekrandagi filtrga mos kuryersiz zakazlarning hammasi tanlangan kuryerga beriladi.":
+    "Все заказы без курьера по текущему фильтру будут переданы выбранному курьеру.",
+  "Filtr yoqilmagan — barcha kelgan zakazlar, eskilari ham beriladi.":
+    "Фильтр не задан — будут переданы все поступившие заказы, включая старые.",
+  "Kuryer qidirish": "Поиск курьера",
+  "Avval «Kuryerlar» bo'limida kuryer qo'shing.": "Сначала добавьте курьера в разделе «Курьеры».",
+  "Berilmoqda… {x} ta — bir oz kuting": "Передаём… {x} шт. — немного подождите",
+  "Kuryerni tanlang": "Выберите курьера",
+  "{x} ta zakazni berish": "Передать заказы: {x}",
+  "qo'lida": "на руках",
+  "Filtrga mos kuryersiz zakaz yo'q": "Нет заказов без курьера по фильтру",
+  "{x} ta zakaz berildi": "Передано заказов: {x}",
+  "{x} tadan {x} tasi berildi": "Передано {x} из {x}",
+  "· hech narsa o'zgarmadi": "· ничего не изменилось",
+  "· kuryerga push bir necha soniyada boradi": "· курьер получит уведомление через несколько секунд",
+  "{x} tasi berilmadi": "Не передано: {x}",
+  "Kuryerga berish ({x})": "Передать курьеру ({x})",
+  "Avto taqsimlash ({x})": "Автораспределение ({x})",
+  "Kuryerga berish · {x} ta zakaz": "Передать курьеру · заказов: {x}",
+  "Javob kelmadi — ro'yxat yangilandi, kerak bo'lsa qayta bosing": "Ответ не получен — список обновлён, при необходимости нажмите снова",
+  Tayyor: "Готово",
+  // ── Zonalar (hujjat 69) ──
+  "Zakaz sonlarini yuklashda xatolik": "Ошибка загрузки количества заказов",
+  "Tuman va shaharlarni zonalarga bo'ling — zakaz manzili qaysi zonada bo'lsa, o'sha zona kuryeriga tushadi. Bir zonaga bir nechta viloyat tumanlari ham sig'adi.":
+    "Разделите районы и города на зоны — заказ попадает курьеру той зоны, где его адрес. В одну зону можно включить районы нескольких областей.",
+  "Jami zakaz": "Всего заказов",
+  "Hech qaysi zonada emas · {x} tuman": "Не в зоне · районов: {x}",
+  Viloyatsiz: "Без области",
+  "{x} kuryer": "курьеров: {x}",
+  "{x} o'chirildi": "{x} удалена",
+  "Zonani o'chirishda xatolik": "Ошибка удаления зоны",
+  "«{x}» o'chirilsinmi?": "Удалить «{x}»?",
+  "{x} ta tuman zonasiz qoladi": "Районов останется без зоны: {x}",
+  "· {x} kuryer zonasiz qoladi": "· курьеров останется без зоны: {x}",
+  "Zonada {x} ta faol zakaz bor": "В зоне активных заказов: {x}",
+  "Avval ularni bo'shating — yetkazing yoki boshqa zonaga o'tkazing, keyin o'chiring.":
+    "Сначала освободите их — доставьте или перенесите в другую зону, затем удалите.",
+  "Zonada faol zakaz bo'lsa o'chirilmaydi. Yakunlangan zakazlar va hisobotlarga tegilmaydi.":
+    "Зону с активными заказами удалить нельзя. Завершённые заказы и отчёты не затрагиваются.",
+  "Zonani o'chirish serverda hali yo'q — tez orada qo'shiladi": "Удаление зоны на сервере пока недоступно — скоро добавим",
+  "Bir nechta viloyat tumanlarini birga tanlash mumkin. Boshqa zonangizdagisini belgilasangiz — shu zonaga o'tadi.":
+    "Можно выбрать районы нескольких областей. Район из другой вашей зоны перейдёт в эту.",
+  "Sizning viloyatlaringiz": "Ваши области",
+  "Boshqa viloyatlar": "Другие области",
+  "Hamma viloyatdan qidirish": "Поиск по всем областям",
+  "Bu viloyat sizga biriktirilmagan — tanlangan tumandagi zakazlar sizga tushadi.":
+    "Эта область не закреплена за вами — заказы выбранных районов будут приходить вам.",
+  "Birinchi {x} ta natija — qidiruvni aniqlashtiring": "Первые {x} результатов — уточните поиск",
+  "· {x} tasi boshqa zonadan o'tadi": "· {x} перейдут из другой зоны",
+  "Hali tuman tanlanmagan — o'ngdagi ro'yxatdan belgilang.": "Районы не выбраны — отметьте в списке справа.",
+  "Ro'yxatda yo'q joy qo'shish": "Добавить место не из списка",
+  "{x}: ro'yxatda yo'q joy": "{x}: место не из списка",
+  "Boshqa bosh kuryer zonasida: {x}": "В зоне другого старшего курьера: {x}",
+  "Server hali faqat o'z viloyatingiz tumanlarini qabul qiladi — begona viloyat tumani backend yangilangach qo'shiladi":
+    "Сервер пока принимает только районы ваших областей — районы других областей можно будет добавить после обновления",
+  "{x} ta tuman": "Районов: {x}",
+  Tanlangan: "Выбрано",
+  zakaz: "заказов",
+  kuryersiz: "без курьера",
+  kuryerda: "у курьера",
+  yetkazildi: "доставлено",
+  "Kuryerga berilmagan": "Не передано курьеру",
+  "{x}: o'chirish": "{x}: удалить",
+  // ── Kuryerlar yuklamasi ──
+  "Qo'lida zakaz": "Заказов на руках",
+  "Bugun berildi": "Выдано сегодня",
+  "Bugun yetkazildi": "Доставлено сегодня",
+  "{x} ta qaytdi": "возвратов: {x}",
+  "{x}: qo'lidagi {x} ta zakaz": "{x}: заказов на руках — {x}",
+  "{x} / {x} yetkazildi": "доставлено {x} / {x}",
+  "· {x} qaytdi": "· возвратов: {x}",
+};
