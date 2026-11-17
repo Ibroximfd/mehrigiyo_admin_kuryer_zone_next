@@ -618,6 +618,8 @@ export const CHIEF: Dictionary = {
   "{x}: dona": "{x}: штуки",
   "{x} kar.": "{x} кор.",
   "{x} kar. {x} dona": "{x} кор. {x} шт.",
+  // Hujjat 72: dona nomi serverdan («flakon», «quti»…).
+  "{n} kar. {n2} {x}": "{n} кор. {n2} {x}",
   "· 1 kar. = {x} dona": "· 1 кор. = {x} шт.",
   "So'ralgandan ko'p — ko'pi bilan {x} {x}": "Больше запрошенного — не более {x} {x}",
   "Belgilangan qatorlardagi sonni tuzating": "Исправьте количество в отмеченных строках",

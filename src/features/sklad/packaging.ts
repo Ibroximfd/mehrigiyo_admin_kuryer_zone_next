@@ -27,13 +27,13 @@ export function splitPieces(total: number, packageSize: number): { boxes: number
   return { boxes: Math.floor(qty / size(packageSize)), pieces: qty % size(packageSize) };
 }
 
-/** `19` dona, karobkada 9 → `2 kar. 1 dona`; bo'linishsiz → `19 dona` yoki `10 karobka` (birlik nomi). */
+/** `19` dona, karobkada 9 → `2 kar. 1 dona` (dona nomi — serverning `unit_label` i, hujjat 72); bo'linishsiz → `19 dona` yoki `10 karobka`. */
 export function describePieces(total: number, packageSize: number, unitLabel: string = PIECE_UNIT): string {
   if (!hasPackage(packageSize)) return `${total} ${unitLabel}`;
   const { boxes, pieces } = splitPieces(total, packageSize);
-  if (boxes === 0) return `${pieces} dona`;
+  if (boxes === 0) return `${pieces} ${unitLabel}`;
   if (pieces === 0) return `${boxes} kar.`;
-  return `${boxes} kar. ${pieces} dona`;
+  return `${boxes} kar. ${pieces} ${unitLabel}`;
 }
 
 /**
