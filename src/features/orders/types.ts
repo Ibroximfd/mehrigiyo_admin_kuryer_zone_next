@@ -26,6 +26,8 @@ import { asGiftSource } from "./gift-source";
 import type { GiftSource } from "./gift-source";
 import { asItemOffer, asPercent } from "./item-pricing";
 import type { ItemOffer } from "./item-pricing";
+import { asItemUnit } from "./item-unit";
+import type { ItemUnit } from "./item-unit";
 import { regionLabel } from "./regions";
 import { asAddressChangedBy } from "./address";
 import type { AddressChangedBy } from "./address";
@@ -370,7 +372,14 @@ export type OrderItem = {
   giftSource: GiftSource | null;
   name: string;
   imageUrl: string | null;
+  /** Qatorning o'z birligida (`unit`) — karobkali qatorda karobka soni. */
   quantity: number;
+  /** Qator birligi (`unit`, hujjat 77 §2); eski javobda `null`. */
+  unit: ItemUnit | null;
+  /** Birlik nomi (`unit_label`: «karobka», «flakon», «dona»); yo'q — `null`. */
+  unitLabel: string | null;
+  /** Sklad birligida jami (`pieces` = karobka × ichidagi dona); yo'q — `null`. */
+  pieces: number | null;
   /**
    * Qator jami (`total`) — chegirma/aksiya qo'llangan, mijoz shu qator uchun
    * to'laydigani. Uchala ko'rinishning asosiy summasi shu.
@@ -619,6 +628,9 @@ function mapOrderItem(raw: unknown): OrderItem {
       asString(json.product_name),
     imageUrl: image ? resolveMediaUrl(image) : null,
     quantity: asInt(json.quantity, 1),
+    unit: asItemUnit(json.unit),
+    unitLabel: asOptionalString(json.unit_label),
+    pieces: asOptionalInt(json.pieces),
     price: total,
     serverUnitPrice: asOptionalNumber(json.unit_price),
     originalPrice: asOptionalNumber(json.original_price),

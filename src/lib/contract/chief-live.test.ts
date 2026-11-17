@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { courierHandoverView, handoverTiming, mapChiefCash, mapCourierCod, mapCourierHandover } from "@/features/cash/types";
 import { courierOptions, planFromPreview, readyRows } from "@/features/chief/auto-plan";
-import { isOpenOrder, orderProductsLine } from "@/features/chief/order-view";
+import { isOpenOrder, productsPreview } from "@/features/chief/order-view";
 import { formatDeliveryAddress } from "@/features/orders/address";
+import { formatItemQuantity } from "@/features/orders/item-unit";
 import { mapLogistOrder } from "@/features/orders/types";
 import { mapLoginResponse } from "@/features/auth/types";
 import { mapAutoAssignPreview, mapChiefCouriers, mapChiefFilials, mapChiefMe, mapChiefOrderDetail, mapChiefZones } from "@/features/chief/types";
@@ -484,7 +485,9 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     const order = mapLogistOrder(VODIY.incomingOrder);
     expect(order.items[0]).toMatchObject({ name: "Hapwell-3 (Majun Al-shifo)", quantity: 1, price: 125000, serverUnitPrice: 125000 });
     expect(order.payableAmount).toBe(125000);
-    expect(orderProductsLine(order)).toBe("Hapwell-3 (Majun Al-shifo) × 1");
+    expect(productsPreview(order).shown.map((item) => item.name)).toEqual(["Hapwell-3 (Majun Al-shifo)"]);
+    // `unit_label` yo'q (77 dan oldingi javob) — faqat son, avvalgidek.
+    expect(formatItemQuantity(order.items[0]!)).toBe("1");
     expect(isOpenOrder(order)).toBe(true);
     expect(order.paymentMethod).toBe("cash");
     expect(order.filial).toBeNull();

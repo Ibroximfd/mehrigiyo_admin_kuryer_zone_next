@@ -28,12 +28,13 @@ import { queryKeys } from "@/lib/query-keys";
 
 import { districtBadge } from "../district-view";
 import { fieldErrors } from "../order-action-rules";
-import { addressChangedBy, isOpenOrder, orderProductsLine, shortOrderNumber } from "../order-view";
+import { addressChangedBy, isOpenOrder, productsPreview, shortOrderNumber } from "../order-view";
 import { AutoAssignPreview } from "./auto-assign-preview";
 import { BulkAssignDialog } from "./bulk-assign-dialog";
 import { ChiefAssignDialog } from "./chief-assign-dialog";
 import { OrderDetailSheet } from "./order-detail-sheet";
 import { OrderFilters } from "./order-filters";
+import { OrderProductsLine } from "./order-products-line";
 
 /**
  * Bosh kuryer zakazlari (§5a, 2-bosqich): holat chiplari, qidiruv va
@@ -208,7 +209,7 @@ function ChiefOrderRow({
 }) {
   const status = orderStatusInfo(order.status);
   const address = formatDeliveryAddress(order);
-  const products = orderProductsLine(order);
+  const products = productsPreview(order);
   const changedBy = addressChangedBy(order);
   const landmark = order.deliveryInfo?.landmark ?? null;
   const district = districtBadge(order.zoning);
@@ -266,10 +267,10 @@ function ChiefOrderRow({
         <span className="text-ink mt-1 block truncate text-dense sm:hidden" data-no-translit>
           {order.client.fullName || order.client.phone}
         </span>
-        {products ? (
+        {products.shown.length > 0 ? (
           <span className="mt-1.5 flex min-w-0 items-center gap-2">
             <ProductThumbs items={order.items} />
-            <span className="text-ink-muted truncate text-meta" data-no-translit>{products}</span>
+            <OrderProductsLine preview={products} className="text-ink-muted text-meta" />
           </span>
         ) : null}
         <span className="text-ink-faint mt-1 flex min-w-0 items-center gap-1 text-meta">

@@ -621,6 +621,9 @@ export const CHIEF: Dictionary = {
   // Hujjat 72: dona nomi serverdan («flakon», «quti»…).
   "{n} kar. {n2} {x}": "{n} кор. {n2} {x}",
   "· 1 kar. = {x} dona": "· 1 кор. = {x} шт.",
+  // Hujjat 77: zakaz qatori birligi — «1 karobka (3 dona)», sovg'ada «1 dona».
+  "{n} {x} ({n2} dona)": "{n} {x} ({n2} шт.)",
+  "{n} flakon": "{n} {n|флакон|флакона|флаконов}",
   "So'ralgandan ko'p — ko'pi bilan {x} {x}": "Больше запрошенного — не более {x} {x}",
   "Belgilangan qatorlardagi sonni tuzating": "Исправьте количество в отмеченных строках",
   "Bu so'rov bo'yicha qaror allaqachon qabul qilingan": "По этому запросу решение уже принято",

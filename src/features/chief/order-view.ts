@@ -1,17 +1,20 @@
 import { isInReview } from "@/features/orders/review";
-import type { LogistOrder } from "@/features/orders/types";
+import type { LogistOrder, OrderItem } from "@/features/orders/types";
 
 
 /** Kartada nechta mahsulot nomi ko'rinadi; qolgani «+N». */
 const VISIBLE_PRODUCTS = 2;
 
-/** «Gepatofit × 2, Kardiomed × 1 +2» — kartadagi qisqa mahsulotlar qatori. */
-export function orderProductsLine(order: Pick<LogistOrder, "items">): string {
+export type ProductsPreview = { shown: OrderItem[]; rest: number };
+
+/**
+ * Kartadagi qisqa mahsulotlar: nomli qatorlardan ikkitasi, qolgani «+N».
+ * Chizish — `OrderProductsLine` (nom tarjima qilinmaydi, birlik qilinadi).
+ */
+export function productsPreview(order: Pick<LogistOrder, "items">): ProductsPreview {
   const items = order.items.filter((item) => item.name);
-  if (items.length === 0) return "";
-  const shown = items.slice(0, VISIBLE_PRODUCTS).map((item) => `${item.name} × ${item.quantity}`);
-  const rest = items.length - shown.length;
-  return rest > 0 ? `${shown.join(", ")} +${rest}` : shown.join(", ");
+  const shown = items.slice(0, VISIBLE_PRODUCTS);
+  return { shown, rest: items.length - shown.length };
 }
 
 /** Zakaz qayta taqsimlanadimi: yo'lda va kuryer hali yakunlamagan. */

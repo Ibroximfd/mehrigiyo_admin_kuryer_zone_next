@@ -19,6 +19,8 @@ import { fetchChiefOrderDetail } from "@/features/chief/api";
 import { HISTORY_LABELS } from "@/features/chief/types";
 import type { OrderHistoryEntry } from "@/features/chief/types";
 import { formatDeliveryAddress } from "@/features/orders/address";
+import { GIFT_MARK } from "@/features/orders/gift-source";
+import { formatItemQuantity } from "@/features/orders/item-unit";
 import { orderStatusInfo } from "@/features/orders/types";
 import type { LogistOrder } from "@/features/orders/types";
 import { errorCode, errorMessage } from "@/lib/api-client";
@@ -239,16 +241,22 @@ function DetailBody({
                   className="text-ink min-w-0 text-dense sm:flex-1 sm:truncate"
                   data-no-translit
                 >
+                  {item.isGift ? `${GIFT_MARK} ` : null}
                   {item.name || "—"}
                 </span>
                 <span className="text-ink-muted tabular text-meta">
+                  {/* Son o'z bo'lagida: «1 karobka (3 dona)» tarjimonga butun yetsin. */}
                   {item.serverUnitPrice !== null ? (
                     <>
-                      {`${item.quantity} × `}
+                      <span>{formatItemQuantity(item)}</span>
+                      {" × "}
                       <span>{formatSom(item.serverUnitPrice)}</span>
                     </>
                   ) : (
-                    `× ${item.quantity}`
+                    <>
+                      {"× "}
+                      <span>{formatItemQuantity(item)}</span>
+                    </>
                   )}
                 </span>
                 </span>

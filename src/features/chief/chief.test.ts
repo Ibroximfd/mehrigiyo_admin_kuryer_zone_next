@@ -124,7 +124,7 @@ describe("avto-taqsimlash rejasi — server preview (V5)", () => {
 
 describe("zakaz kartasi: mahsulotlar qatori", () => {
   it("ikkitasi nomi bilan, qolgani «+N»", async () => {
-    const { orderProductsLine } = await import("./order-view");
+    const { productsPreview } = await import("./order-view");
     const order = mapLogistOrder({
       id: "x",
       items: [
@@ -134,8 +134,10 @@ describe("zakaz kartasi: mahsulotlar qatori", () => {
         { product_name: "D", quantity: 3 },
       ],
     });
-    expect(orderProductsLine(order)).toBe("A × 2, B × 1 +2");
-    expect(orderProductsLine(mapLogistOrder({ id: "y", items: [] }))).toBe("");
+    const preview = productsPreview(order);
+    expect(preview.shown.map((item) => [item.name, item.quantity])).toEqual([["A", 2], ["B", 1]]);
+    expect(preview.rest).toBe(2);
+    expect(productsPreview(mapLogistOrder({ id: "y", items: [] }))).toEqual({ shown: [], rest: 0 });
   });
 });
 

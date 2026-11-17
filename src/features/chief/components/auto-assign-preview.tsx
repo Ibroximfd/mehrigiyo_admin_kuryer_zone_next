@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils";
 
 import { courierOptions, pickCourier, planFromPreview, previewHasOrders, readyRows } from "../auto-plan";
 import type { PlanRow } from "../auto-plan";
-import { orderProductsLine } from "../order-view";
+import { productsPreview } from "../order-view";
+import { OrderProductsLine } from "./order-products-line";
 
 /**
  * Avto-taqsimlash — avval reja (`auto-assign/preview/`): har zakaz qaysi
@@ -332,7 +333,7 @@ function PlanList({
               </p>
               <p className="mt-1 flex min-w-0 items-center gap-2">
                 <ProductThumbs items={row.order.items} />
-                <span className="text-ink-muted truncate text-meta" data-no-translit>{orderProductsLine(row.order)}</span>
+                <OrderProductsLine preview={productsPreview(row.order)} className="text-ink-muted text-meta" />
               </p>
               {row.courierId === null && AUTO_ASSIGN_REASONS[row.reason] ? (
                 <p className="text-warn text-meta">{AUTO_ASSIGN_REASONS[row.reason]}</p>

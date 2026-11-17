@@ -14,6 +14,9 @@
  * buzilmaydi.
  */
 
+/** Sovg'a qatori nomi oldidagi belgi (hujjat 77 §2: «🎁 Kremi × 1 dona»). */
+export const GIFT_MARK = "🎁";
+
 export const GIFT_SOURCES = ["promotion", "loyalty", "operator"] as const;
 
 export type GiftSource = (typeof GIFT_SOURCES)[number];
