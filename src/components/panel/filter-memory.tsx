@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   filterQuery,
   hasTransientParams,
+  isOneOffLink,
   readSavedFilters,
   restoreQuery,
   writeSavedFilters,
@@ -71,6 +72,11 @@ export function FilterMemory() {
 
   useEffect(() => {
     if (!userId || !settled) return;
+    // Bir martalik havola — xotiraga tegilmaydi; undan chiqqach qaror qaytadan qabul qilinadi.
+    if (isOneOffLink(search)) {
+      decidedFor.current = null;
+      return;
+    }
     const current = filterQuery(search);
     if (decidedFor.current !== pathname) {
       decidedFor.current = pathname;

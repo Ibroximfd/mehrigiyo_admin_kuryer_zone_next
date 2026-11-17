@@ -81,6 +81,7 @@ export const DISPATCH: Dictionary = {
   "Bugun yetkazildi": "Доставлено сегодня",
   "{x} ta qaytdi": "возвратов: {x}",
   "{x}: qo'lidagi {x} ta zakaz": "{x}: заказов на руках — {x}",
-  "{x} / {x} yetkazildi": "доставлено {x} / {x}",
+  "{n} ta yetkazildi": "доставлено: {n}",
+  "{x}: bugun yetkazgan {n} ta zakaz": "{x}: доставлено сегодня — {n}",
   "· {x} qaytdi": "· возвратов: {x}",
 };

@@ -22,7 +22,27 @@ const STORAGE_KEY = "mehrigiyo-chief-filters.v1";
  * Saqlanmaydi va qaytarilmaydi: aks holda sahifaga kirganda eski karta
  * ochilib yoki ro'yxat bitta mijozga qisilib qolardi.
  */
-const TRANSIENT_PARAMS = new Set(["order"]);
+const TRANSIENT_PARAMS = new Set(["order", "once"]);
+
+/**
+ * Bir martalik havola belgisi (`?once=1`): boshqa sahifadagi kartadan
+ * ochilgan tor ro'yxat — masalan, bitta kuryerning zakazlari. Bunday kirishda
+ * xotira na tiklanadi, na yoziladi: aks holda keyingi safar «Zakazlar» ham
+ * o'sha kuryerga qisilib ochilardi (logist sayti bilan bir xil qoida).
+ */
+export const ONE_OFF_PARAM = "once";
+
+export function isOneOffLink(search: string): boolean {
+  return new URLSearchParams(search).get(ONE_OFF_PARAM) === "1";
+}
+
+/** `oneOffHref("/", { courier: 7 })` → `/?courier=7&once=1`. */
+export function oneOffHref(pathname: string, params: Record<string, string | number>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) query.set(key, String(value));
+  query.set(ONE_OFF_PARAM, "1");
+  return `${pathname}?${query.toString()}`;
+}
 
 type Store = Record<string, Record<string, string>>;
 

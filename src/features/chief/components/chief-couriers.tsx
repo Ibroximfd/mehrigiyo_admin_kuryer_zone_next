@@ -31,7 +31,8 @@ import type { CourierRating } from "@/features/ratings/types";
 import { NO_RATING_FILTERS, useChiefRatings } from "@/features/ratings/use-ratings";
 import type { Zone } from "@/features/zones/types";
 import { errorMessage } from "@/lib/api-client";
-import { formatPhone, formatSom, groupThousands } from "@/lib/format";
+import { oneOffHref } from "@/lib/filter-memory";
+import { formatPhone, formatSom, groupThousands, todayIso } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { ROUTES } from "@/lib/routes";
 import { matchesSearch } from "@/lib/search";
@@ -501,16 +502,21 @@ function TeamFigures({ couriers }: { couriers: Courier[] }) {
 }
 
 /**
- * Kuryer yuklamasi — ko'zga tashlanadigan: hozir qo'lida nechta zakaz (bosilsa —
- * shu kuryerning zakazlari), bugun nechta berildi va yetkazildi.
+ * Kuryer yuklamasi — ko'zga tashlanadigan: hozir qo'lida nechta zakaz va bugun
+ * nechtasini yetkazdi; ikkalasi bosiladi — zakazlar server filtri bilan
+ * (`courier_id`, yetkazilganda `status=delivered` + yetkazilgan kuni) ochiladi.
+ * `today.assigned` (bugun berilgani) ko'rsatilmaydi: u qo'lidagi zakazlar emas
+ * va «0 / 22» kabi chalg'ituvchi nisbat berardi. Havolalar bir martalik —
+ * filtr xotirasiga yozilmaydi.
  */
 function CourierLoad({ courier }: { courier: Courier }) {
   const load = courier.load ?? 0;
-  const { assigned, delivered, returned } = courier.today;
+  const { delivered, returned } = courier.today;
+  const today = todayIso();
   return (
     <span className="flex w-full items-center gap-3 sm:w-auto">
       <Link
-        href={`${ROUTES.orders}?scope=active&courier=${courier.id}`}
+        href={oneOffHref(ROUTES.orders, { scope: "active", courier: courier.id })}
         aria-label={`${courier.fullName}: qo'lidagi ${load} ta zakaz`}
         className={cn(
           "flex min-w-20 flex-col items-center rounded-xl px-3 py-1.5 transition-colors",
@@ -522,7 +528,13 @@ function CourierLoad({ courier }: { courier: Courier }) {
         <span className="mt-1 text-fine">qo&apos;lida</span>
       </Link>
       <span className="min-w-0 flex-1 sm:w-36 sm:flex-none">
-        <span className="text-ink tabular block text-dense">{`${delivered} / ${assigned} yetkazildi`}</span>
+        <Link
+          href={oneOffHref(ROUTES.orders, { scope: "delivered", courier: courier.id, from: today, to: today })}
+          aria-label={`${courier.fullName}: bugun yetkazgan ${delivered} ta zakaz`}
+          className="text-ink tabular block text-dense hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          {`${groupThousands(delivered)} ta yetkazildi`}
+        </Link>
         <span className="text-ink-faint block truncate text-meta">
           {courier.loadAmount ? formatSom(courier.loadAmount) : "bugun"}
           {returned ? ` · ${returned} qaytdi` : ""}

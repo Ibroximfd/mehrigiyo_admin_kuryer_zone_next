@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { filterQuery, hasTransientParams, readSavedFilters, restoreQuery, writeSavedFilters } from "./filter-memory";
+import {
+  filterQuery,
+  hasTransientParams,
+  isOneOffLink,
+  oneOffHref,
+  readSavedFilters,
+  restoreQuery,
+  writeSavedFilters,
+} from "./filter-memory";
 
 function memoryStorage(): Storage {
   const data = new Map<string, string>();
@@ -42,5 +50,17 @@ describe("filter-memory", () => {
     expect(restoreQuery("order=ab-12", "lsrc=app")).toBeNull();
     expect(restoreQuery("", "")).toBeNull();
     expect(restoreQuery("", undefined)).toBeNull();
+  });
+});
+
+describe("bir martalik havola (`once=1`)", () => {
+  it("kuryer kartasidan — belgi bilan, filtr qismiga kirmaydi", () => {
+    const href = oneOffHref("/", { scope: "delivered", courier: 20, from: "2026-11-17", to: "2026-11-17" });
+    expect(href).toBe("/?scope=delivered&courier=20&from=2026-11-17&to=2026-11-17&once=1");
+    const search = href.slice(2);
+    expect(isOneOffLink(search)).toBe(true);
+    expect(filterQuery(search)).toBe("scope=delivered&courier=20&from=2026-11-17&to=2026-11-17");
+    expect(isOneOffLink("courier=20")).toBe(false);
+    expect(isOneOffLink("once=0")).toBe(false);
   });
 });
