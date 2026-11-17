@@ -22,7 +22,7 @@ describe("manzil tuzatish / qaytarish: server xato kodlari (TZ 25)", () => {
   it("403 zone_other_region → begona viloyat", () => {
     const failure = chiefActionFailure(apiError(403, { code: "zone_other_region" }, "zone_other_region"), ADDRESS_FIX_FIELDS, "f");
     expect(failure.kind).toBe("foreign_region");
-    expect(failure.message).toBe("Tuman o'z viloyatlaringizdan bo'lishi kerak");
+    expect(failure.message).toBe("Bu tuman sizning hududingizda emas — logistga qaytaring");
   });
 
   it("409 order_closed → yopilgan zakaz", () => {

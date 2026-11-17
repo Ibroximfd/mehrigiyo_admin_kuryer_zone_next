@@ -3,20 +3,21 @@ import { describe, expect, it } from "vitest";
 import { mapZone } from "@/features/zones/types";
 import { ApiError } from "@/lib/api-client";
 
-import { mapZoneStats, shareOf, takenDistrictsOf, zoneBusyOf } from "./zone-stats";
+import { isZoneGone, mapZoneStats, shareOf, takenDistrictsOf, zoneBusyOf } from "./zone-stats";
 
 describe("mapZoneStats", () => {
   it("zona, tuman va zonasizlarni o'qiydi", () => {
     const stats = mapZoneStats({
       total: { orders: 10, incoming: 3, with_courier: 5, delivered: 2 },
       zones: [{ id: 3, orders: 7, incoming: 2, with_courier: 4, delivered: 1, districts: [{ code: "fargona/qoqon_sh", orders: 7 }] }],
-      unzoned: { orders: 2, districts: [{ code: "fargona/furqat", orders: 2 }] },
-      no_district: { orders: 1 },
+      unzoned: { orders: 2, incoming: 2, districts: [{ code: "fargona/furqat", orders: 2, incoming: 2 }] },
+      no_district: { orders: 1, incoming: 1, with_courier: 0, delivered: 0 },
     });
     expect(stats.total).toEqual({ orders: 10, incoming: 3, withCourier: 5, delivered: 2 });
     expect(stats.zones.get(3)?.districts.get("fargona/qoqon_sh")?.orders).toBe(7);
     expect(stats.unzoned.districts.get("fargona/furqat")?.orders).toBe(2);
-    expect(stats.noDistrict).toBe(1);
+    expect(stats.unzoned.incoming).toBe(2);
+    expect(stats.noDistrict).toEqual({ orders: 1, incoming: 1, withCourier: 0, delivered: 0 });
   });
 
   it("bo'sh javob yiqitmaydi", () => {
@@ -54,6 +55,16 @@ describe("xatolar", () => {
       "district_taken",
     );
     expect(takenDistrictsOf(error)).toEqual([{ district: "toshkent_v/zangiota", zoneName: "G'arb", chiefName: "Aziz" }]);
+  });
+
+  it("district_taken — egasiz zonada bosh kuryer `null`", () => {
+    const error = new ApiError("x", 409, { taken: [{ district: "a/b", zone_name: "Z", chief_name: null }] }, "district_taken");
+    expect(takenDistrictsOf(error)[0]?.chiefName).toBeNull();
+  });
+
+  it("zone_not_found — allaqachon o'chgan", () => {
+    expect(isZoneGone(new ApiError("x", 404, {}, "zone_not_found"))).toBe(true);
+    expect(isZoneGone(new ApiError("x", 404, {}, "endpoint_missing"))).toBe(false);
   });
 
   it("shareOf chegaralanadi", () => {

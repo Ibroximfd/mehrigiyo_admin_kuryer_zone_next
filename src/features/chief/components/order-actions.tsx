@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle, MapPinned, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { Field, inputClass } from "@/components/kit/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fixChiefOrderAddress, returnChiefOrder } from "@/features/chief/api";
+import { fetchChiefZones, fixChiefOrderAddress, returnChiefOrder } from "@/features/chief/api";
 import { dropOrder, storeOrderDetail } from "@/features/chief/order-cache";
 import {
   ADDRESS_FIX_FIELDS,
@@ -28,6 +28,7 @@ import {
   RETURN_REASON_LABELS,
 } from "@/features/chief/types";
 import type { AddressFixReason, ReturnReason } from "@/features/chief/types";
+import { addressScope } from "@/features/chief/zones";
 import { regionLabel } from "@/features/orders/regions";
 import type { LogistOrder } from "@/features/orders/types";
 import { districtName } from "@/features/zones/types";
@@ -37,9 +38,10 @@ import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
 /**
- * «Manzilni tuzatish» (`25_MANZIL_OZGARISHI` §1, §3): faqat o'z viloyatlari
- * ichida — tuman (u viloyatni belgilaydi), ko'cha, mo'ljal va sabab. Boshqa
- * viloyat bo'lsa — logistga qaytariladi (viloyatni zakaz egasi hal qiladi).
+ * «Manzilni tuzatish» (`25_MANZIL_OZGARISHI` §1, §3; 71-javob §1): o'z
+ * viloyatlari va o'z zonalaridagi begona viloyat tumanlari ichida — tuman
+ * (u viloyatni belgilaydi), ko'cha, mo'ljal va sabab. Boshqa joy bo'lsa —
+ * logistga qaytariladi (zakaz egasi hal qiladi).
  */
 export function AddressFixDialog({
   order,
@@ -54,9 +56,13 @@ export function AddressFixDialog({
   const queryClient = useQueryClient();
   const locale = useLocaleStore((state) => state.locale);
   const dictionary = useRegionsDictionary();
-  const regionOptions = regions.length > 0 ? regions : (dictionary.data ?? []).map((item) => item.region);
+  // Zonalar ro'yxati sahifada allaqachon keshda — qo'shimcha so'rov odatda yo'q.
+  const zones = useQuery({ queryKey: queryKeys.chiefZones, queryFn: ({ signal }) => fetchChiefZones(signal) });
+  const scope = addressScope(regions, zones.data?.zones ?? []);
+  const allRegions = regions.length === 0;
+  const regionOptions = allRegions ? (dictionary.data ?? []).map((item) => item.region) : scope.regions;
   const orderRegion = order.deliveryInfo?.region ?? "";
-  const initialRegion = regions.length === 0 || regions.includes(orderRegion) ? orderRegion : (regions[0] ?? "");
+  const initialRegion = allRegions || regionOptions.includes(orderRegion) ? orderRegion : (regions[0] ?? "");
   const [region, setRegion] = useState(initialRegion);
   const [district, setDistrict] = useState(initialRegion === orderRegion ? (order.zoning.district ?? "") : "");
   const [addressText, setAddressText] = useState(order.deliveryInfo?.address ?? "");
@@ -66,7 +72,12 @@ export function AddressFixDialog({
   const [touched, setTouched] = useState(false);
   const [serverErrors, setServerErrors] = useState<FieldErrors<AddressFixField>>({});
 
-  const districts = (dictionary.data ?? []).find((item) => item.region === region)?.districts.filter((item) => item.isActive) ?? [];
+  // Begona viloyatda faqat o'z zonasidagi tumanlar.
+  const ownRegion = allRegions || regions.includes(region);
+  const districts =
+    (dictionary.data ?? [])
+      .find((item) => item.region === region)
+      ?.districts.filter((item) => item.isActive && (ownRegion || scope.zoneDistricts.has(item.code))) ?? [];
   const formErrors = addressFixErrors(
     { district, reason, note },
     districts.map((item) => item.code),
@@ -118,7 +129,7 @@ export function AddressFixDialog({
           </DialogTitle>
           <DialogDescription>
             <span data-no-translit>{order.orderNumber}</span>
-            {" · faqat o'z viloyatlaringiz ichida. Boshqa viloyat bo'lsa — logistga qaytaring."}
+            {" · o'z viloyatlaringiz va zonalaringiz ichida. Boshqa joy bo'lsa — logistga qaytaring."}
           </DialogDescription>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">

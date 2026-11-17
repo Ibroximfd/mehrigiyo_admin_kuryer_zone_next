@@ -8,7 +8,7 @@ import { mapLogistOrder } from "@/features/orders/types";
 
 import { pickCourier, planFromPreview, previewHasOrders, readyRows } from "./auto-plan";
 import { chiefCan, mapAutoAssignPreview, mapAutoAssignResult, mapChiefMe, mapChiefOrderDetail } from "./types";
-import { codesByRegion, districtMoves, splitRegions } from "./zones";
+import { addressScope, codesByRegion, districtMoves, splitRegions } from "./zones";
 import { addressChangedBy } from "./order-view";
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format";
 
@@ -185,5 +185,21 @@ describe("chief/me dopusklari — saqlangan to'plam (DOPUSK_D_M D-1, D-2a)", () 
     const me = mapChiefMe({ seat: { id: 5 } });
     expect(chiefCan(me, "view.analytics")).toBe(true);
     expect(chiefCan(me, "zones.manage")).toBe(false);
+  });
+});
+
+describe("addressScope", () => {
+  it("o'z viloyatlari + zonadagi begona viloyat tumanlari", () => {
+    const scope = addressScope(
+      ["xorazm"],
+      [{ districtCodes: ["xorazm/urganch", "qoraqalpogiston/beruniy"] }, { districtCodes: ["andijon/asaka"] }],
+    );
+    expect(scope.regions).toEqual(["xorazm", "andijon", "qoraqalpogiston"]);
+    expect(scope.zoneDistricts.has("qoraqalpogiston/beruniy")).toBe(true);
+    expect(scope.zoneDistricts.has("qoraqalpogiston/nukus")).toBe(false);
+  });
+
+  it("zona yo'q — faqat o'z viloyatlari", () => {
+    expect(addressScope(["fargona"], []).regions).toEqual(["fargona"]);
   });
 });

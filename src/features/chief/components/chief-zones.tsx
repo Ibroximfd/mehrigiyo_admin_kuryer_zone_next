@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Hexagon, ListTree, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { Hexagon, ListTree, MapPinOff, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { ADAPTIVE_DIALOG } from "@/components/kit/adaptive-dialog";
@@ -24,7 +24,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
-import { isNotReady } from "../zone-stats";
 import type { ZoneStats } from "../zone-stats";
 import { sortZones } from "../zones";
 import { DistrictsManager } from "./chief-districts";
@@ -52,7 +51,6 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
     queryFn: ({ signal }) => fetchChiefZoneStats(period.from, period.to, signal),
     // Davr almashganda eski raqamlar o'rnida turadi — karta sakramaydi.
     placeholderData: (previous) => previous,
-    retry: (count, error) => !isNotReady(error) && count < 1,
   });
   const dictionary = useRegionsDictionary();
   const all = dictionary.data ?? [];
@@ -121,21 +119,19 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
       </div>
 
       {stats.isError ? (
-        // Backend sonlarni hali bermasa — jim; boshqa xato — qayta urinish bilan.
-        isNotReady(stats.error) ? null : (
-          <p role="alert" className="text-danger flex flex-wrap items-center gap-2 text-meta">
-            {errorMessage(stats.error, "Zakaz sonlarini yuklashda xatolik")}
-            <Button size="sm" variant="ghost" onClick={() => void stats.refetch()}>
-              <RefreshCw />
-              Qayta urinish
-            </Button>
-          </p>
-        )
+        // Sonlar yuklanmasa ham zonalar ishlaydi — faqat qayta urinish taklif qilinadi.
+        <p role="alert" className="text-danger flex flex-wrap items-center gap-2 text-meta">
+          {errorMessage(stats.error, "Zakaz sonlarini yuklashda xatolik")}
+          <Button size="sm" variant="ghost" onClick={() => void stats.refetch()}>
+            <RefreshCw />
+            Qayta urinish
+          </Button>
+        </p>
       ) : (
         <StatsFigures stats={stats.data ?? null} />
       )}
 
-      {unzoned.length > 0 ? <UnzonedBanner codes={unzoned} nameOf={nameOf} stats={stats.data ?? null} /> : null}
+      <UnzonedBanner codes={unzoned} nameOf={nameOf} stats={stats.data ?? null} />
 
       {list.length === 0 ? (
         <EmptyView
@@ -220,24 +216,43 @@ function StatsFigures({ stats }: { stats: ZoneStats | null }) {
   );
 }
 
+/**
+ * Zonasiz joylar: o'z viloyatlaridagi zonaga kirmagan tumanlar (ro'yxatdan) va
+ * server `unzoned` da sanagan, zakazi bor tumanlar — ular orasida begona zonadagi
+ * tumandan qolgan eski zakaz ham bo'ladi (71-javob §3). Zakazlisi oldinda.
+ */
 function UnzonedBanner({ codes, nameOf, stats }: { codes: string[]; nameOf: (code: string) => string; stats: ZoneStats | null }) {
+  const countOf = (code: string) => stats?.unzoned.districts.get(code)?.orders ?? 0;
+  const withOrders = [...(stats?.unzoned.districts.keys() ?? [])].filter((code) => countOf(code) > 0);
+  const all = [...new Set([...codes, ...withOrders])].sort((a, b) => countOf(b) - countOf(a));
   const orders = stats?.unzoned.orders ?? 0;
+  const noDistrict = stats?.noDistrict.orders ?? 0;
+  if (all.length === 0 && noDistrict === 0) return null;
+
   return (
-    <div role="status" className="bg-warn-soft text-warn flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-meta leading-relaxed">
-      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      <span>
-        {`Hech qaysi zonada emas · ${codes.length} tuman`}
-        {orders > 0 ? <span className="font-semibold">{` · ${orders} zakaz`}</span> : null}
-        {": "}
-        <span data-no-translit>
-          {codes
-            .map((code) => {
-              const count = stats?.unzoned.districts.get(code)?.orders ?? 0;
-              return count > 0 ? `${nameOf(code)} (${count})` : nameOf(code);
-            })
-            .join(", ")}
-        </span>
-      </span>
+    <div role="status" className="bg-warn-soft text-warn flex flex-col gap-1 rounded-xl px-3.5 py-2.5 text-meta leading-relaxed">
+      {all.length > 0 ? (
+        <p className="flex items-start gap-2">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>
+            {`Hech qaysi zonada emas · ${all.length} tuman`}
+            {orders > 0 ? <span className="font-semibold">{` · ${orders} zakaz`}</span> : null}
+            {": "}
+            <span data-no-translit>
+              {all.map((code) => (countOf(code) > 0 ? `${nameOf(code)} (${countOf(code)})` : nameOf(code))).join(", ")}
+            </span>
+          </span>
+        </p>
+      ) : null}
+      {noDistrict > 0 ? (
+        <p className="flex items-start gap-2">
+          <MapPinOff className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>
+            <span className="font-semibold">{`Tumani aniqlanmagan · ${noDistrict} zakaz`}</span>
+            {" — zakaz kartasida tumanini tanlang"}
+          </span>
+        </p>
+      ) : null}
     </div>
   );
 }

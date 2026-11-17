@@ -210,8 +210,8 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
         </p>
         <span className="text-ink-muted text-meta">
           {request.status === "approved"
-            ? `Berildi ${groupThousands(request.approvedQty)} / ${groupThousands(request.totalQty)} dona`
-            : `${groupThousands(request.totalQty)} dona so'ralgan`}
+            ? `Berildi ${groupThousands(request.approvedQty)} / ${groupThousands(request.totalQty)}`
+            : `${request.lines.length} mahsulot so'ralgan`}
         </span>
       </div>
       {request.note ? <p className="text-ink-muted mt-1 text-meta" data-no-translit>{`«${request.note}»`}</p> : null}
@@ -219,7 +219,8 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
       <ul className="divide-line mt-2 divide-y">
         {lines.map(({ line, draft, amount, over }) => {
           const boxed = hasPackage(line.packageSize);
-          const rowError = over ? `So'ralgandan ko'p — ko'pi bilan ${line.quantity} dona` : rowErrors[line.item.id];
+          const unit = line.item.unitLabel;
+          const rowError = over ? `So'ralgandan ko'p — ko'pi bilan ${line.quantity} ${unit}` : rowErrors[line.item.id];
           return (
             <li key={line.item.id} className="py-2">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -230,7 +231,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
                   </p>
                   <p className="text-ink-faint text-fine">
                     <span>so&apos;raldi</span>{" "}
-                    <span className="text-ink-muted font-medium">{describePieces(line.quantity, line.packageSize)}</span>
+                    <span className="text-ink-muted font-medium">{describePieces(line.quantity, line.packageSize, unit)}</span>
                     {boxed ? <span className="ml-1.5">{`· 1 kar. = ${line.packageSize} dona`}</span> : null}
                   </p>
                 </div>
@@ -247,8 +248,8 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
                     ) : null}
                     <QtyInput
                       value={draft.pieces}
-                      suffix="dona"
-                      label={`${line.item.name}: dona`}
+                      suffix={unit}
+                      label={`${line.item.name}: ${unit}`}
                       invalid={Boolean(rowError)}
                       onChange={(pieces) => setDraft(line.item.id, { pieces })}
                     />
@@ -258,7 +259,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
                   </div>
                 ) : (
                   <span className="text-ink tabular text-right text-dense font-semibold">
-                    {line.approvedQuantity === null ? "—" : describePieces(line.approvedQuantity, line.packageSize)}
+                    {line.approvedQuantity === null ? "—" : describePieces(line.approvedQuantity, line.packageSize, unit)}
                   </span>
                 )}
               </div>

@@ -1,8 +1,7 @@
-import { isEndpointMissing } from "@/lib/api-availability";
 import { ApiError } from "@/lib/api-client";
 import { asArray, asInt, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
-/** Zakazlar soni (hujjat 69 §3): `orders` = kuryersiz + kuryerda + yetkazilgan. */
+/** Zakazlar soni (71-javob §3): `orders` = kuryersiz + kuryerda + yetkazilgan; bekor qilinganlar sanalmaydi. */
 export type OrderCounts = {
   orders: number;
   incoming: number;
@@ -15,8 +14,10 @@ export type AreaStats = OrderCounts & { districts: Map<string, OrderCounts> };
 export type ZoneStats = {
   total: OrderCounts;
   zones: Map<number, AreaStats>;
+  /** O'z viloyatlaridagi zonasiz tumanlar + begona zonadagi tumandan qolgan zakazlar. */
   unzoned: AreaStats;
-  noDistrict: number;
+  /** Tumani aniqlanmagan zakazlar. Σ zonalar + `unzoned` + `noDistrict` = `total`. */
+  noDistrict: OrderCounts;
 };
 
 export const EMPTY_COUNTS: OrderCounts = { orders: 0, incoming: 0, withCourier: 0, delivered: 0 };
@@ -51,7 +52,7 @@ export function mapZoneStats(raw: unknown): ZoneStats {
     total: mapCounts(json.total),
     zones,
     unzoned: mapArea(json.unzoned),
-    noDistrict: asInt(asRecord(json.no_district).orders),
+    noDistrict: mapCounts(json.no_district),
   };
 }
 
@@ -60,7 +61,7 @@ export function shareOf(part: number, whole: number): number {
   return whole > 0 ? Math.min(1, Math.max(0, part / whole)) : 0;
 }
 
-/** `409 zone_has_orders` — zonada faol zakaz bor (hujjat 69 §2). */
+/** `409 zone_has_orders` — zonada faol zakaz bor (71-javob §2); raqamlar to'liq, eng eskisidan, ≤ 10 ta. */
 export type ZoneBusy = { count: number; numbers: string[] };
 
 export function zoneBusyOf(error: unknown): ZoneBusy | null {
@@ -75,26 +76,22 @@ export function zoneBusyOf(error: unknown): ZoneBusy | null {
   };
 }
 
-/** `409 district_taken` — tuman boshqa bosh kuryer zonasida (hujjat 69 §1). */
-export function takenDistrictsOf(error: unknown): Array<{ district: string; zoneName: string; chiefName: string }> {
+/** `409 district_taken` — tuman boshqa bosh kuryer zonasida (71-javob §1); `taken[]` da hammasi. */
+export type TakenDistrict = { district: string; zoneName: string; chiefName: string | null };
+
+export function takenDistrictsOf(error: unknown): TakenDistrict[] {
   if (!(error instanceof ApiError) || error.code !== "district_taken") return [];
   return asArray(asRecord(error.data).taken)
     .filter(isRecord)
     .map((row) => ({
       district: asString(row.district),
       zoneName: asString(row.zone_name),
-      chiefName: asString(row.chief_name),
-    }));
+      chiefName: asOptionalString(row.chief_name),
+    }))
+    .filter((row) => row.district !== "");
 }
 
-/**
- * Backend bu imkoniyatni hali chiqarmagan: marshrut yo'q (`404` kodsiz →
- * `endpoint_missing`) yoki metod yo'q (`405`, masalan `DELETE`). UI bo'limni
- * yiqitmaydi — chizmaydi yoki «tez orada» deydi.
- */
-export function isNotReady(error: unknown): boolean {
-  return (
-    isEndpointMissing(error) ||
-    (error instanceof ApiError && (error.code === "endpoint_missing" || error.status === 405))
-  );
+/** `404 zone_not_found` — zona allaqachon o'chirilgan (ikkinchi bosish yoki boshqa oynadan). */
+export function isZoneGone(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404 && error.code === "zone_not_found";
 }

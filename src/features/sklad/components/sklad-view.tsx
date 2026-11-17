@@ -17,6 +17,7 @@ import { regionLabel } from "@/features/orders/regions";
 import { errorMessage } from "@/lib/api-client";
 import { isAccessDenied } from "@/lib/api-availability";
 import { groupThousands } from "@/lib/format";
+import { PIECE_UNIT } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { matchesSearch } from "@/lib/search";
 import { isUzRegionCode } from "@/lib/uz-map";
@@ -27,10 +28,6 @@ import type { CourierStock, SkladChief, SkladStockRow } from "../types";
 import { CourierDocumentDialog, type CourierDocumentMode } from "./courier-document-dialog";
 import { LoadRequestsPanel } from "./load-requests-panel";
 import { useSkladChanged } from "../use-sklad-changed";
-
-function units(value: number): string {
-  return `${groupThousands(value)} dona`;
-}
 
 /**
  * Sklad (§5; TZ 32 S-7): bosh kuryer faqat o'ziga biriktirilgan skladni va o'z
@@ -121,8 +118,9 @@ export function SkladView({ me }: { me: ChiefMe }) {
       <Section title="Qoldiq">
         <KeyFigures
           items={[
-            { label: "Skladda", value: units(data.stock.reduce((sum, row) => sum + row.inSklad, 0)) },
-            { label: "Kuryerlarda", value: units(withCouriers) },
+            // Yig'indida birliklar aralash (dona va karobka, hujjat 70 §2) — birlik nomi yozilmaydi.
+            { label: "Skladda", value: groupThousands(data.stock.reduce((sum, row) => sum + row.inSklad, 0)) },
+            { label: "Kuryerlarda", value: groupThousands(withCouriers) },
             { label: "Mahsulot turi", value: groupThousands(data.stock.length) },
             { label: "Kam qolgan", value: groupThousands(low), tone: low > 0 ? "warn" : "default" },
           ]}
@@ -208,6 +206,7 @@ function StockTable({ rows }: { rows: SkladStockRow[] }) {
                 </td>
                 <td className="tabular px-3 py-2.5 text-right">
                   <span className={cn("font-semibold", row.isLow ? "text-warn" : "text-ink")}>{groupThousands(row.inSklad)}</span>
+                  {row.item.unitLabel !== PIECE_UNIT ? <span className="text-ink-faint ml-1 text-fine">{row.item.unitLabel}</span> : null}
                   {row.isLow ? <span className="text-warn block text-fine">kam qoldi</span> : null}
                 </td>
                 <td className="text-ink-muted tabular px-4 py-2.5 text-right">{groupThousands(row.withCouriers)}</td>
@@ -244,7 +243,7 @@ function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: C
           <li key={stock.courier.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
             <span className="min-w-0 sm:w-48 sm:shrink-0">
               <span className="text-ink block truncate text-dense font-semibold" data-no-translit>{stock.courier.fullName}</span>
-              <span className="text-ink-faint text-meta">{units(total)}</span>
+              <span className="text-ink-faint text-meta">{`${stock.items.length} xil mahsulot`}</span>
             </span>
             {stock.items.length === 0 ? (
               <span className="text-ink-faint text-meta">Qo&apos;lida mol yo&apos;q</span>
@@ -255,6 +254,7 @@ function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: C
                     <ProductThumb src={entry.item.image} name={entry.item.name} size="sm" className="size-6" />
                     <span data-no-translit>{entry.item.name}</span>
                     <span className={cn("tabular font-semibold", entry.quantity < 0 && "text-danger")}>{entry.quantity}</span>
+                    {entry.item.unitLabel !== PIECE_UNIT ? <span className="text-ink-faint">{entry.item.unitLabel}</span> : null}
                   </span>
                 ))}
               </span>

@@ -466,7 +466,7 @@ export const CHIEF: Dictionary = {
   "Pul qabul qilish va topshirish dopuski yo'q — kassani faqat ko'rasiz. Dopuskni bosh logist beradi.":
     "Нет доступа к приёму и сдаче денег — кассу вы только просматриваете. Доступ выдаёт старший логист.",
   "Bu amal backendda hali yo'q — backend kutilmoqda": "Этого действия на бэкенде пока нет — ждём бэкенд",
-  "Tuman o'z viloyatlaringizdan bo'lishi kerak": "Район должен быть из ваших областей",
+  "Bu tuman sizning hududingizda emas — logistga qaytaring": "Этот район вне вашей зоны ответственности — верните логисту",
   "Manzilni tuzatish": "Исправить адрес",
   "Logistga qaytarish": "Вернуть логисту",
   "Manzil o'zgardi": "Адрес изменён",
@@ -476,8 +476,8 @@ export const CHIEF: Dictionary = {
   "{x} — logistga qaytarildi": "{x} — возвращён логисту",
   "Manzilni saqlashda xatolik": "Ошибка сохранения адреса",
   "Logistga qaytarishda xatolik": "Ошибка возврата логисту",
-  "· faqat o'z viloyatlaringiz ichida. Boshqa viloyat bo'lsa — logistga qaytaring.":
-    "· только в пределах ваших областей. Если область другая — верните логисту.",
+  "· o'z viloyatlaringiz va zonalaringiz ichida. Boshqa joy bo'lsa — logistga qaytaring.":
+    "· в пределах ваших областей и зон. Если место другое — верните логисту.",
   "· zakaz sizdan va kuryerdan olinadi, logist qayta taqsimlaydi.":
     "· заказ снимается с вас и курьера, логист распределит заново.",
   "Tuman yoki shahar": "Район или город",
@@ -572,7 +572,7 @@ export const CHIEF: Dictionary = {
   "Skladni ko'rish dopuskini asosiy filialning bosh logisti beradi.":
     "Доступ к просмотру склада выдаёт главный логист основного филиала.",
   "Beriladi": "Выдаётся",
-  "Berildi {x} / {x} dona": "Выдано {x} / {x} шт.",
+  "Berildi {x} / {x}": "Выдано {x} / {x}",
   "Berish": "Выдать",
   "Bu amalga ruxsat yo'q — faqat o'z skladingiz va kuryerlaringiz": "Нет доступа — только ваш склад и ваши курьеры",
   "Hammasi 0 — rad eting.": "Всё 0 — лучше отклоните.",
@@ -608,7 +608,10 @@ export const CHIEF: Dictionary = {
   "Son mavjud qoldiqdan oshmasin.": "Количество не должно превышать остаток.",
   "Tuzatish": "Корректировка",
   "so'raldi": "запрошено",
-  "{x} dona so'ralgan": "запрошено {x} шт.",
+  "{x} mahsulot so'ralgan": "запрошено товаров: {x}",
+  "{x} xil mahsulot": "товаров: {x}",
+  "{x} karobka": "{x} кор.",
+  karobka: "кор.",
   "{x} saqlandi": "{x}: сохранено",
   // Karobka/dona (hujjat 44)
   "{x}: karobka": "{x}: коробки",
@@ -616,7 +619,7 @@ export const CHIEF: Dictionary = {
   "{x} kar.": "{x} кор.",
   "{x} kar. {x} dona": "{x} кор. {x} шт.",
   "· 1 kar. = {x} dona": "· 1 кор. = {x} шт.",
-  "So'ralgandan ko'p — ko'pi bilan {x} dona": "Больше запрошенного — не более {x} шт.",
+  "So'ralgandan ko'p — ko'pi bilan {x} {x}": "Больше запрошенного — не более {x} {x}",
   "Belgilangan qatorlardagi sonni tuzating": "Исправьте количество в отмеченных строках",
   "Bu so'rov bo'yicha qaror allaqachon qabul qilingan": "По этому запросу решение уже принято",
   "Kuryerda: {x}": "У курьера: {x}",

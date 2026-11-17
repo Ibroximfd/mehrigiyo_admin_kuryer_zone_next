@@ -47,7 +47,7 @@ export const DISPATCH: Dictionary = {
     "Сначала освободите их — доставьте или перенесите в другую зону, затем удалите.",
   "Zonada faol zakaz bo'lsa o'chirilmaydi. Yakunlangan zakazlar va hisobotlarga tegilmaydi.":
     "Зону с активными заказами удалить нельзя. Завершённые заказы и отчёты не затрагиваются.",
-  "Zonani o'chirish serverda hali yo'q — tez orada qo'shiladi": "Удаление зоны на сервере пока недоступно — скоро добавим",
+  "{x} allaqachon o'chirilgan": "{x} уже удалена",
   "Bir nechta viloyat tumanlarini birga tanlash mumkin. Boshqa zonangizdagisini belgilasangiz — shu zonaga o'tadi.":
     "Можно выбрать районы нескольких областей. Район из другой вашей зоны перейдёт в эту.",
   "Sizning viloyatlaringiz": "Ваши области",
@@ -60,9 +60,13 @@ export const DISPATCH: Dictionary = {
   "Hali tuman tanlanmagan — o'ngdagi ro'yxatdan belgilang.": "Районы не выбраны — отметьте в списке справа.",
   "Ro'yxatda yo'q joy qo'shish": "Добавить место не из списка",
   "{x}: ro'yxatda yo'q joy": "{x}: место не из списка",
-  "Boshqa bosh kuryer zonasida: {x}": "В зоне другого старшего курьера: {x}",
-  "Server hali faqat o'z viloyatingiz tumanlarini qabul qiladi — begona viloyat tumani backend yangilangach qo'shiladi":
-    "Сервер пока принимает только районы ваших областей — районы других областей можно будет добавить после обновления",
+  "{x} ta tuman boshqa bosh kuryer zonasida": "Районов в зоне другого старшего курьера: {x}",
+  "Boshqa bosh kuryer zonasida": "В зоне другого старшего курьера",
+  "Ularni olib tashlash": "Убрать их",
+  "Tumansiz zona faqat o'z viloyatingizda bo'ladi — kamida bitta tuman tanlang":
+    "Зона без районов возможна только в вашей области — выберите хотя бы один район",
+  "Tumani aniqlanmagan · {x} zakaz": "Район не определён · заказов: {x}",
+  "— zakaz kartasida tumanini tanlang": "— выберите район в карточке заказа",
   "{x} ta tuman": "Районов: {x}",
   Tanlangan: "Выбрано",
   zakaz: "заказов",

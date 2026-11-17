@@ -15,11 +15,12 @@ describe("karobka ↔ dona (hujjat 44, Alatoo — package_size 9)", () => {
     expect(describePieces(19, 9)).toBe("2 kar. 1 dona");
     expect(describePieces(18, 9)).toBe("2 kar.");
     expect(describePieces(7, 1)).toBe("7 dona");
+    expect(describePieces(10, 1, "karobka")).toBe("10 karobka");
   });
 
-  it("serverga quantity hech qachon ketmaydi", () => {
+  it("bo'linishi bor — boxes/units; bo'linishsiz (karobkada yuritiladigan ham) — quantity", () => {
     expect(packedQuantity(2, 1, 9)).toEqual({ boxes: 2, units: 1 });
-    expect(packedQuantity(5, 7, 1)).toEqual({ units: 7 });
+    expect(packedQuantity(5, 7, 1)).toEqual({ quantity: 7 });
   });
 
   it("fields.lines — indeks bo'yicha qator xatosi", () => {

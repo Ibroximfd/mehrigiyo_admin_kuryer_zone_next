@@ -560,9 +560,9 @@ function zoneStats(request: DemoRequest): DemoResponse {
     date_from: from,
     date_to: to,
     total: counts(inRange),
-    zones: demoDb.zones.map((zone) => ({ id: zone.id, ...area(zone.districtCodes) })),
+    zones: demoDb.zones.map((zone) => ({ id: zone.id, name: zone.name, ...area(zone.districtCodes) })),
     unzoned: area(unzonedCodes),
-    no_district: { orders: inRange.filter((order) => !order.district).length },
+    no_district: counts(inRange.filter((order) => !order.district)),
   });
 }
 

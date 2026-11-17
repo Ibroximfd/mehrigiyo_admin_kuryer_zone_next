@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, parseSkladChanged, skladStockRows, skladStore, type StockCell } from "./types";
 
-const item = { id: 14, name: "Alatoo bals", image: null };
+const item = { id: 14, name: "Alatoo bals", image: null, unitLabel: "dona" };
 
 const cell = (onHand: number, isLow: boolean, locationId = 1): StockCell => ({
   kind: "region",
@@ -29,12 +29,20 @@ describe("skladStockRows", () => {
   });
 });
 
+describe("sklad item.unit_label (hujjat 70 §2)", () => {
+  it("server birligi o'qiladi, bermasa — dona", () => {
+    expect(mapStockCell({ item: { id: 3, name: "Elixir", unit_label: "karobka" } }).item.unitLabel).toBe("karobka");
+    expect(mapStockCell({ item: { id: 3, name: "Gummy" } }).item.unitLabel).toBe("dona");
+  });
+});
+
 describe("sklad item.image", () => {
   it("to'liq URL saqlanadi, bo'sh yoki yo'q — null", () => {
     expect(mapCourierStock({ id: 1, items: [{ item: { id: 2, name: "G", image: "https://x.uz/m/g.png" }, quantity: 1 }] }).items[0]?.item).toEqual({
       id: 2,
       name: "G",
       image: "https://x.uz/m/g.png",
+      unitLabel: "dona",
     });
     expect(mapStockCell({ item: { id: 2, name: "G", image: null } }).item.image).toBeNull();
     expect(mapStockCell({ item: { id: 2, name: "G" } }).item.image).toBeNull();

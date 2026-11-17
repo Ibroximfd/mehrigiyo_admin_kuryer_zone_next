@@ -50,3 +50,21 @@ export function splitRegions<T extends { region: string }>(all: readonly T[], ow
     other: all.filter((item) => !own.includes(item.region)),
   };
 }
+
+/**
+ * Manzil tuzatishda tanlanadigan hudud (71-javob §1): o'z viloyatlari va
+ * o'z zonalaridagi begona viloyat tumanlari. Begona viloyatdan faqat zonadagi
+ * tumanlar tanlanadi — boshqasini server `403 zone_other_region` bilan rad etadi.
+ */
+export function addressScope(
+  ownRegions: readonly string[],
+  zones: readonly Pick<Zone, "districtCodes">[],
+): { regions: string[]; zoneDistricts: ReadonlySet<string> } {
+  const zoneDistricts = new Set(zones.flatMap((zone) => zone.districtCodes));
+  const foreign = new Set<string>();
+  for (const code of zoneDistricts) {
+    const region = regionOfDistrict(code);
+    if (region && !ownRegions.includes(region)) foreign.add(region);
+  }
+  return { regions: [...ownRegions, ...[...foreign].sort()], zoneDistricts };
+}

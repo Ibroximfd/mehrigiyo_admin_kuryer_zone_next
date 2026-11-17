@@ -15,7 +15,8 @@ export type FieldErrors<F extends string> = Partial<Record<F, string>>;
 
 /**
  * Server xatosi turi:
- *   • `foreign_region` — `403 zone_other_region` (tuman o'z viloyatlaridan emas);
+ *   • `foreign_region` — `403 zone_other_region` (tuman boshqa bosh kuryer zonasida
+ *     yoki o'z viloyati va zonasidan tashqarida, 71-javob §1);
  *   • `closed` — `409 order_closed` (yetkazilgan yoki bekor qilingan);
  *   • `gone` — zakaz endi bosh kuryerda emas (`404`, masalan logistga qaytarilgan);
  *   • `validation` — `400 validation_error`, maydonlar `fields` da;
@@ -30,7 +31,7 @@ export type ChiefActionFailure<F extends string> = {
 };
 
 const MESSAGES: Record<Exclude<ChiefActionFailureKind, "other" | "validation">, string> = {
-  foreign_region: "Tuman o'z viloyatlaringizdan bo'lishi kerak",
+  foreign_region: "Bu tuman sizning hududingizda emas — logistga qaytaring",
   closed: "Zakaz yopilgan (yetkazilgan yoki bekor qilingan) — o'zgartirib bo'lmaydi",
   gone: "Zakaz endi sizda emas — ro'yxat yangilandi",
   missing: "Bu amal backendda hali yo'q — backend kutilmoqda",

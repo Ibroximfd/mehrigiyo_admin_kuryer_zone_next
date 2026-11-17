@@ -11,11 +11,13 @@ import type { Zone } from "@/features/zones/types";
 import { errorMessage } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
-import { isNotReady, zoneBusyOf } from "../zone-stats";
+import { shortOrderNumber } from "../order-view";
+import { isZoneGone, zoneBusyOf } from "../zone-stats";
 
 /**
- * Zonani o'chirish (hujjat 69 §2). Zonada faol zakaz bo'lsa server rad etadi —
- * oyna yopilmaydi, nima qilish kerakligini shu yerda aytadi.
+ * Zonani o'chirish (71-javob §2). Zonada faol zakaz bo'lsa server rad etadi —
+ * oyna yopilmaydi, nima qilish kerakligini shu yerda aytadi. Zona yumshoq
+ * o'chadi: tumanlari zonasiz bo'ladi, eski zakaz va hisobotlar nomini saqlaydi.
  */
 export function ZoneDeleteDialog({
   zone,
@@ -38,20 +40,25 @@ export function ZoneDeleteDialog({
 
 function Body({ zone, couriers, onClose }: { zone: Zone; couriers: number; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const done = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
+    onClose();
+  };
   const remove = useMutation({
     mutationFn: () => deleteChiefZone(zone.id),
     onSuccess: () => {
       toast.success(`${zone.name} o'chirildi`);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chief });
-      onClose();
+      done();
     },
     onError: (error) => {
       if (zoneBusyOf(error)) return;
-      toast.error(
-        isNotReady(error)
-          ? "Zonani o'chirish serverda hali yo'q — tez orada qo'shiladi"
-          : errorMessage(error, "Zonani o'chirishda xatolik"),
-      );
+      if (isZoneGone(error)) {
+        // Ikkinchi bosish yoki boshqa oynada o'chirilgan — natija bir xil.
+        toast.info(`${zone.name} allaqachon o'chirilgan`);
+        done();
+        return;
+      }
+      toast.error(errorMessage(error, "Zonani o'chirishda xatolik"));
     },
   });
   const busy = zoneBusyOf(remove.error);
@@ -82,7 +89,7 @@ function Body({ zone, couriers, onClose }: { zone: Zone; couriers: number; onClo
           </p>
           {busy.numbers.length > 0 ? (
             <p className="text-ink tabular mt-2 text-meta" data-no-translit>
-              {busy.numbers.join(", ")}
+              {busy.numbers.map((number) => `#${shortOrderNumber(number)}`).join(", ")}
               {busy.count > busy.numbers.length ? " …" : ""}
             </p>
           ) : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle, Plus, X } from "lucide-react";
+import { LoaderCircle, Plus, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,15 +21,18 @@ import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 import { takenDistrictsOf } from "../zone-stats";
+import type { TakenDistrict } from "../zone-stats";
 import { codesByRegion, districtMoves, splitRegions } from "../zones";
 
 /** Qidiruvda ko'pi bilan shuncha natija — uzun ro'yxat sekinlashmasin. */
 const SEARCH_LIMIT = 80;
 
 /**
- * Zona: nomi va tumanlari (hujjat 69 §1). Tumanlar istalgan viloyatdan —
+ * Zona: nomi va tumanlari (71-javob §1). Tumanlar istalgan viloyatdan —
  * o'z viloyatlari avval, keyin boshqalari; qidiruv hamma viloyat bo'ylab.
- * Boshqa o'z zonasidagi tuman belgilansa — shu zonaga o'tadi.
+ * Boshqa o'z zonasidagi tuman belgilansa — shu zonaga o'tadi. Boshqa bosh
+ * kuryer zonasidagi tumanni server `409 district_taken` bilan qaytaradi —
+ * ular formada ko'rsatiladi va bir bosishda olib tashlanadi.
  */
 export function ZoneForm({
   zone,
@@ -60,6 +63,7 @@ export function ZoneForm({
   const [query, setQuery] = useState("");
   /** Qo'lda qo'shilgan joylar — lug'at yangilanguncha nomi shu yerda. */
   const [added, setAdded] = useState<Array<{ code: string; name: string }>>([]);
+  const [taken, setTaken] = useState<TakenDistrict[]>([]);
 
   const label = (code: string) => added.find((place) => place.code === code)?.name ?? districtLabel(code);
   const owner = (code: string) => zones.find((item) => item.id !== zone?.id && item.districtCodes.includes(code)) ?? null;
@@ -87,11 +91,10 @@ export function ZoneForm({
       for (const move of districtMoves(zones, zone?.id ?? null, codes)) {
         await updateChiefZone(move.zoneId, { districtCodes: move.districtCodes });
       }
-      // `region` — eski server uchun (u majburiy edi); yangisi tumanlardan o'zi hosil qiladi.
-      const region = codes[0] ? regionOfDistrict(codes[0]) : view;
+      // Viloyatni server tumanlardan o'zi oladi; `region` faqat tumansiz zona uchun (o'z viloyati).
       return zone
         ? updateChiefZone(zone.id, { name: name.trim(), districtCodes: codes, isActive })
-        : createChiefZone({ region, name: name.trim(), districtCodes: codes });
+        : createChiefZone({ region: codes.length === 0 ? view : undefined, name: name.trim(), districtCodes: codes });
     },
     onSuccess: () => {
       toast.success(zone ? "Zona saqlandi" : "Zona qo'shildi");
@@ -101,23 +104,29 @@ export function ZoneForm({
     onError: (error) => {
       // O'tkazish yarim qolgan bo'lishi mumkin — ro'yxat serverdan qayta olinadi.
       void queryClient.invalidateQueries({ queryKey: queryKeys.chiefZones });
-      const taken = takenDistrictsOf(error);
-      if (taken.length > 0) {
-        toast.error(
-          `Boshqa bosh kuryer zonasida: ${taken.map((row) => `${label(row.district)} (${row.chiefName} · ${row.zoneName})`).join(", ")}`,
-        );
+      const rows = takenDistrictsOf(error);
+      if (rows.length > 0) {
+        setTaken(rows);
+        toast.error(`${rows.length} ta tuman boshqa bosh kuryer zonasida`);
         return;
       }
       toast.error(
         errorCode(error) === "zone_other_region"
-          ? "Server hali faqat o'z viloyatingiz tumanlarini qabul qiladi — begona viloyat tumani backend yangilangach qo'shiladi"
+          ? "Tumansiz zona faqat o'z viloyatingizda bo'ladi — kamida bitta tuman tanlang"
           : errorMessage(error, "Zonani saqlashda xatolik"),
       );
     },
   });
 
-  const toggle = (code: string) =>
+  const toggle = (code: string) => {
     setCodes((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
+    setTaken((current) => current.filter((row) => row.district !== code));
+  };
+  const dropTaken = () => {
+    const blocked = new Set(taken.map((row) => row.district));
+    setCodes((current) => current.filter((code) => !blocked.has(code)));
+    setTaken([]);
+  };
   const nameError = touched && name.trim().length < 2 ? "Zona nomi kamida 2 harf bo'lsin" : undefined;
 
   return (
@@ -159,6 +168,7 @@ export function ZoneForm({
               </Label>
             </div>
           ) : null}
+          {taken.length > 0 ? <TakenNotice rows={taken} label={label} onDrop={dropTaken} /> : null}
           <SelectedSummary
             groups={codesByRegion(codes, ownRegions)}
             label={label}
@@ -268,6 +278,34 @@ export function ZoneForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** `409 district_taken`: qaysi tuman kimning zonasida — olib tashlamaguncha saqlanmaydi. */
+function TakenNotice({ rows, label, onDrop }: { rows: TakenDistrict[]; label: (code: string) => string; onDrop: () => void }) {
+  return (
+    <div role="alert" className="bg-warn-soft flex flex-col gap-2 rounded-xl p-3">
+      <p className="text-warn flex items-center gap-2 text-dense font-semibold">
+        <TriangleAlert className="size-4 shrink-0" aria-hidden />
+        Boshqa bosh kuryer zonasida
+      </p>
+      <ul className="text-ink flex flex-col gap-1 text-meta">
+        {rows.map((row) => (
+          <li key={row.district}>
+            <span className="font-medium" data-no-translit>
+              {label(row.district)}
+            </span>
+            <span className="text-ink-muted" data-no-translit>
+              {` — ${row.zoneName}${row.chiefName ? ` · ${row.chiefName}` : ""}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Button type="button" size="sm" variant="outline" className="self-start" onClick={onDrop}>
+        <X />
+        Ularni olib tashlash
+      </Button>
+    </div>
   );
 }
 
