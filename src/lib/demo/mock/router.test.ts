@@ -63,6 +63,15 @@ describe("demo rejim: backend v2 shakllari", () => {
     expect(after).toBeGreaterThan(before);
   });
 
+  it("kassa: `delivered_by_method` (hujjat 79 §6) yig'indisi — davrda yetkazilganlar summasi", async () => {
+    const split = mapChiefCash((await get("/operator/chief/cash/", { date_from: "2000-01-01", date_to: "2999-12-31" })).data).deliveredByMethod;
+    const delivered = demoDb.orders.filter((order) => order.deliveredAt).reduce((sum, order) => sum + order.total, 0);
+    expect(split).not.toBeNull();
+    expect(split!.cash + split!.card + split!.online).toBe(delivered);
+    expect(split!.card).toBeGreaterThan(0);
+    expect(split!.online).toBeGreaterThan(0);
+  });
+
   it("2-pog'ona: bir nechta filialda pul — `filial_required`, `filial_id` bilan — 201 va idempotent", async () => {
     const required = await post("/operator/chief/cash/handover/", { amount: 1000, client_action_id: "a1" });
     expect(required).toMatchObject({ status: 400, data: { code: "filial_required" } });

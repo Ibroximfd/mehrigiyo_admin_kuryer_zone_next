@@ -67,10 +67,28 @@ export function mapChiefHandover(raw: unknown): ChiefHandover | null {
   };
 }
 
+/** Davrda yetkazilgan zakazlar puli to'lov turi bo'yicha (hujjat 79 §6); uchalasi yig'indisi — `delivered_amount`. */
+export type DeliveredByMethod = {
+  /** Eshikda naqd. */
+  cash: number;
+  /** Eshikda kartaga o'tkazma. */
+  card: number;
+  /** Click/Payme — eshikda havola yoki mijoz oldindan to'lagan. */
+  online: number;
+};
+
+/** Blok yo'q yoki obyekt emas — `null` (eski server). */
+function mapDeliveredByMethod(raw: unknown): DeliveredByMethod | null {
+  if (!isRecord(raw)) return null;
+  return { cash: asNumber(raw.cash), card: asNumber(raw.card), online: asNumber(raw.online) };
+}
+
 export type ChiefCash = {
   dateFrom: string;
   dateTo: string;
   collectedFromCouriers: number;
+  /** To'lov turi bo'yicha yetkazilgan pul (hujjat 79 §6); eski serverda `null`. */
+  deliveredByMethod: DeliveredByMethod | null;
   /** Topshirilmagan jami. */
   outstanding: number;
   /** Topshirilmagan kunlar, eski birinchi. */
@@ -94,6 +112,7 @@ export function mapChiefCash(raw: unknown, courierMoney: ServerCourierMoney | nu
     dateFrom: asString(json.date_from),
     dateTo: asString(json.date_to),
     collectedFromCouriers: asNumber(json.collected_from_couriers),
+    deliveredByMethod: mapDeliveredByMethod(json.delivered_by_method),
     outstanding: asNumber(json.outstanding),
     outstandingDays: asArray(json.outstanding_days).map((day) => asString(day)).filter(Boolean).sort(),
     byFilial: [...rows.filter((row) => row.filial), ...rows.filter((row) => !row.filial)],

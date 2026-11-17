@@ -703,6 +703,8 @@ export const CHIEF: Dictionary = {
   "Oxirgi 31 kun": "Последние 31 день",
   "Bu davrda topshiriq yo'q": "За этот период сдач нет",
   "Boshqa sanani tanlang.": "Выберите другую дату.",
+  // Kassa: yetkazilgan pul to'lov turi bo'yicha (hujjat 79 §6); «Naqd», «Karta» — orders.ts da.
+  "Yetkazilgan zakazlar puli": "Деньги за доставленные заказы",
   "Mahsulot qidirish": "Поиск товара",
   "Mahsulotlarni yuklab bo'lmadi": "Не удалось загрузить товары",
   "Mahsulotlarni yuklashda xatolik": "Ошибка загрузки товаров",

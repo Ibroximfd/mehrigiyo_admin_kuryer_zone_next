@@ -204,6 +204,8 @@ describe("haqiqiy javoblar (test server, 2026-10-31)", () => {
     const cash = mapChiefCash(LIVE.cash);
     expect(cash).toMatchObject({ outstanding: 0, outstandingDays: [], byFilial: [], handovers: [] });
     expect(handoverTiming(cash.outstandingDays, new Date()).timing).toBe("settled");
+    // `delivered_by_method` (hujjat 79 §6) hali yo'q — ajratma chizilmaydi.
+    expect(cash.deliveredByMethod).toBeNull();
   });
 
   it("chief/filials (V14) va auto-assign/preview — bo'sh reja (V5)", () => {

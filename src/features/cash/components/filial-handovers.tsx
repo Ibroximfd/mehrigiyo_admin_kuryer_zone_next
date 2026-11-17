@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { fetchChiefCash, submitChiefHandover } from "../api";
 import { MAX_HANDOVER_DELAY_DAYS, awaitingFilial, handoverTiming } from "../types";
 import type { CourierMoneyTotals } from "../courier-debts";
-import type { ChiefCash, ChiefHandover, FilialChoice, HandoverStatus, HandoverTiming } from "../types";
+import type { ChiefCash, ChiefHandover, DeliveredByMethod, FilialChoice, HandoverStatus, HandoverTiming } from "../types";
 
 function day(iso: string): string {
   return iso ? formatUzDate(parseISO(iso)) : "—";
@@ -193,6 +193,7 @@ function HandoverHistory({ fallback }: { fallback: ChiefCash }) {
           onClear={preset === "custom" ? period.clear : undefined}
         />
       </div>
+      {data?.deliveredByMethod ? <DeliveredSplit split={data.deliveredByMethod} /> : null}
       {period.range !== null && ranged.isPending ? (
         <Skeleton className="h-32 rounded-2xl" />
       ) : period.range !== null && ranged.isError ? (
@@ -205,6 +206,31 @@ function HandoverHistory({ fallback }: { fallback: ChiefCash }) {
         <History handovers={handovers} filtered={period.range !== null} onClear={period.clear} />
       )}
     </Section>
+  );
+}
+
+const DELIVERED_METHODS: ReadonlyArray<{ key: keyof DeliveredByMethod; label: string }> = [
+  { key: "cash", label: "Naqd" },
+  { key: "card", label: "Karta" },
+  { key: "online", label: "Click/Payme" },
+];
+
+/** Davrda yetkazilgan zakazlar puli to'lov turi bo'yicha (hujjat 79 §6) — faqat ko'rsatish. */
+function DeliveredSplit({ split }: { split: DeliveredByMethod }) {
+  const total = split.cash + split.card + split.online;
+  return (
+    <dl className="border-line bg-surface flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-2xl border px-4 py-2.5 text-dense">
+      <div className="flex w-full items-baseline justify-between gap-3 sm:w-auto sm:justify-start">
+        <dt className="text-ink-muted">Yetkazilgan zakazlar puli</dt>
+        <dd className="text-ink tabular font-semibold">{formatSom(total)}</dd>
+      </div>
+      {DELIVERED_METHODS.map(({ key, label }) => (
+        <div key={key} className="flex items-baseline gap-1.5">
+          <dt className="text-ink-faint">{label}</dt>
+          <dd className="text-ink tabular">{formatSom(split[key])}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

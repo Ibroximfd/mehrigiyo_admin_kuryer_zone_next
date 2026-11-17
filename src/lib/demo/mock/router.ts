@@ -916,6 +916,21 @@ function handoverJson(item: DemoFilialHandover) {
   };
 }
 
+/**
+ * Hujjat 79 §6: davrda yetkazilganlar puli to'lov turi bo'yicha; yig'indisi — yetkazilganlar summasi.
+ * Demo zakaz JSONida to'lov hammasi `cash` — ajratma ko'rinsin deb bu yerda tartib raqami bo'yicha:
+ * har 7-zakaz Click/Payme, har 5-si karta, qolgani naqd.
+ */
+function deliveredByMethod(from: string, to: string) {
+  const split = { cash: 0, card: 0, online: 0 };
+  for (const order of deliveredIn(from, to)) {
+    const index = demoDb.orders.indexOf(order);
+    const method = index % 7 === 3 ? "online" : index % 5 === 1 ? "card" : "cash";
+    split[method] += order.total;
+  }
+  return split;
+}
+
 function chiefCash(request: DemoRequest): DemoResponse {
   const from = param(request, "date_from") || dayOffset(30);
   const to = param(request, "date_to") || today();
@@ -927,6 +942,7 @@ function chiefCash(request: DemoRequest): DemoResponse {
     date_from: from,
     date_to: to,
     collected_from_couriers: collected.reduce((sum, order) => sum + order.total, 0),
+    delivered_by_method: deliveredByMethod(from, to),
     outstanding: open.reduce((sum, order) => sum + order.total, 0),
     outstanding_days: [...new Set(open.map((order) => order.settledDay!))].sort(),
     days: days.map((date) => ({
