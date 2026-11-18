@@ -111,6 +111,15 @@ describe("kassa jadvali — server render", () => {
     expect(text(partial).match(/—/g)!.length).toBeGreaterThanOrEqual(16);
   });
 
+  it("86 — logist skidkasi: kalit kelsa ustun va formula, kelmasa hozirgidek", () => {
+    expect(render(SHEET)).not.toContain("Logist skidkasi");
+    const totals = { ...TOTALS, logist_discount: 1_000_000, due_total: 209_000_000, closing_debt: 4_000_000 };
+    const out = render({ ...SHEET, filials: [{ ...FILIAL, ...totals }], totals });
+    expect(out.match(/Logist skidkasi/g)!.length).toBeGreaterThanOrEqual(2);
+    expect(out).toContain("skidka − logist skidkasi (+ o&#x27;tgan qarz) = topshirishi kerak");
+    for (const figure of ["1 000 000", "209 000 000", "4 000 000"]) expect(out).toContain(figure);
+  });
+
   it("bo'sh davr — bo'sh holat; bo'sh javob yiqilmaydi", () => {
     expect(render({})).toContain("Bu davrda sotuv ham, topshiriladigan pul ham yo&#x27;q");
     expect(() => render({ filials: [{}], products: [{}] })).not.toThrow();

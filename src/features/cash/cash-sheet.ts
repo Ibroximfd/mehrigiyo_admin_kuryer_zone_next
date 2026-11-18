@@ -9,7 +9,9 @@ import type { HandoverStatus } from "./types";
 
 /**
  * Kassa — filialga topshirish jadvali (hujjat 85 §3, `chief/report/cash-sheet/`).
- * Hisob faqat serverda: `due_total = sales − online − gift − discount + opening_debt`,
+ * Hisob faqat serverda (85 §3, 86): `due_total = sales − online − discount
+ * − logist_discount + opening_debt` (skidka ichida bosh kuryer kuryerlarga
+ * yozgani ham bor, sovg'a ayirilmaydi),
  * `closing_debt = due_total − handed_over`; kam topshirilsa qarz ertaga o'tadi.
  * Frontend qo'shmaydi va ayirmaydi — kelmagan maydon «—».
  */
@@ -36,7 +38,10 @@ export type CashSheetMoney = {
   cashAmount: number | null;
   onlineAmount: number | null;
   giftAmount: number | null;
+  /** Tizim chegirmasi (ball) + bosh kuryer kuryerlarga yozgan skidka. */
   discountAmount: number | null;
+  /** Logist bosh kuryerga yozgan skidka (hujjat 86); kalit kelmasa — `null`, ustun ko'rinmaydi. */
+  logistDiscount: number | null;
   openingDebt: number | null;
   /** Topshirishi kerak. */
   dueTotal: number | null;
@@ -92,6 +97,7 @@ function mapMoney(raw: unknown): CashSheetMoney {
     onlineAmount: asOptionalNumber(json.online_amount),
     giftAmount: asOptionalNumber(json.gift_amount),
     discountAmount: asOptionalNumber(json.discount_amount),
+    logistDiscount: asOptionalNumber(json.logist_discount),
     openingDebt: asOptionalNumber(json.opening_debt),
     dueTotal: asOptionalNumber(json.due_total),
     handedOver: asOptionalNumber(json.handed_over),

@@ -82,13 +82,27 @@ export function CashSheetBody({
           <p className="border-line bg-surface text-ink-muted rounded-2xl border px-4 py-3 text-dense">Bu davrda mahsulot sotilmagan.</p>
         )}
       </Section>
-      <Section title="Filialga topshirish" description="Umumiy sotuv − onlayn − skidka (+ o'tgan qarz) = topshirishi kerak">
+      <Section
+        title="Filialga topshirish"
+        description={
+          sheet.totals.logistDiscount === null
+            ? "Umumiy sotuv − onlayn − skidka (+ o'tgan qarz) = topshirishi kerak"
+            : "Umumiy sotuv − onlayn − skidka − logist skidkasi (+ o'tgan qarz) = topshirishi kerak"
+        }
+      >
         <FilialTable sheet={sheet} handoverDate={handoverDate} onHandover={onHandover} />
       </Section>
       <ul className="text-ink-muted flex flex-col gap-x-6 gap-y-1 text-meta lg:flex-row lg:flex-wrap">
         <li>«Topshirdim» — summani kiritasiz; filial (logist) Kassa&apos;da «Oldim» bilan tasdiqlaydi</li>
         <li>Kam topshirilsa — qarz bo&apos;lib ertangi kunga o&apos;tadi</li>
         <li>Naqd — kuryerlardan «Sotuv jadvali › Pul olish»da olingan pul</li>
+        {/* 86 chiqqach: skidka zanjiri (kuryer → bosh kuryer → logist) izohi. */}
+        {sheet.totals.logistDiscount === null ? null : (
+          <>
+            <li>Skidka — ball va siz kuryerlarga yozgan skidka: filialga shuncha kam topshirasiz</li>
+            <li>Logist skidkasi — logist sizga yozgan skidka</li>
+          </>
+        )}
       </ul>
     </>
   );
@@ -182,6 +196,8 @@ function FilialTable({
   if (sheet.filials.length === 0) {
     return <p className="border-line bg-surface text-ink-muted rounded-2xl border px-4 py-3 text-dense">Bu davrda filialga topshiriladigan pul yo&apos;q.</p>;
   }
+  // Server 86 ni chiqargan bo'lsa — «Logist skidkasi» ustuni (logist bosh kuryerga yozgan).
+  const withLogist = sheet.totals.logistDiscount !== null;
   return (
     <SheetScroll label="Filialga topshirish">
       <thead>
@@ -204,6 +220,11 @@ function FilialTable({
           <HeadCell align="right" className="min-w-24">
             Skidka
           </HeadCell>
+          {withLogist ? (
+            <HeadCell align="right" className="min-w-28">
+              Logist skidkasi
+            </HeadCell>
+          ) : null}
           <HeadCell align="right" className="min-w-28">
             Topshirishi kerak
           </HeadCell>
@@ -218,7 +239,7 @@ function FilialTable({
       </thead>
       <tbody>
         {sheet.filials.map((row) => (
-          <FilialRow key={row.filial?.id ?? "none"} row={row} handoverDate={handoverDate} onHandover={onHandover} />
+          <FilialRow key={row.filial?.id ?? "none"} row={row} handoverDate={handoverDate} withLogist={withLogist} onHandover={onHandover} />
         ))}
       </tbody>
       <tfoot>
@@ -226,7 +247,7 @@ function FilialTable({
           <th scope="row" className={cn(LEAD, FILIAL_WIDTH, BLOCK_START, "bg-subtle text-ink text-title font-normal")}>
             Jami
           </th>
-          <MoneyCells money={sheet.totals} total />
+          <MoneyCells money={sheet.totals} total withLogist={withLogist} />
           <td className={cn(CELL, BLOCK_START, "bg-subtle")} />
         </tr>
       </tfoot>
@@ -237,10 +258,12 @@ function FilialTable({
 function FilialRow({
   row,
   handoverDate,
+  withLogist,
   onHandover,
 }: {
   row: CashSheetFilial;
   handoverDate: string;
+  withLogist: boolean;
   onHandover: ((target: HandoverTarget) => void) | null;
 }) {
   const handOver =
@@ -259,7 +282,7 @@ function FilialRow({
         )}
         {row.regions.length > 0 ? <span className="text-ink-muted block text-fine">{regionsText(row.regions)}</span> : null}
       </th>
-      <MoneyCells money={row} />
+      <MoneyCells money={row} withLogist={withLogist} />
       <td className={cn(CELL, "text-center")}>
         <FilialStatusCell status={filialStatus(row)} filialName={row.filial?.name ?? null} onHandover={handOver} />
       </td>
@@ -268,7 +291,7 @@ function FilialRow({
 }
 
 /** Pul kataklari — filial qatori va «Jami» da bir xil tartib. */
-function MoneyCells({ money, total = false }: { money: CashSheetMoney; total?: boolean }) {
+function MoneyCells({ money, total = false, withLogist }: { money: CashSheetMoney; total?: boolean; withLogist: boolean }) {
   const plain = cn(MONEY, total ? cn(BLOCK_START, "bg-subtle text-ink font-bold") : "text-ink");
   return (
     <>
@@ -277,6 +300,7 @@ function MoneyCells({ money, total = false }: { money: CashSheetMoney; total?: b
       <td className={plain}>{moneyText(money.onlineAmount)}</td>
       <td className={cn(plain, "text-gold")}>{moneyText(money.giftAmount)}</td>
       <td className={plain}>{moneyText(money.discountAmount)}</td>
+      {withLogist ? <td className={plain}>{moneyText(money.logistDiscount)}</td> : null}
       <td className={cn(MONEY, total && BLOCK_START, total ? "bg-brand text-brand-ink" : "bg-brand-soft text-brand", "font-bold")}>
         <span className="block">{moneyText(money.dueTotal)}</span>
         {/* O'tgan qarz alohida ustun emas (maket) — lekin «topshirishi kerak» ichida ekani ko'rinsin. */}

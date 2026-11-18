@@ -7,7 +7,7 @@ import { asArray, asInt, asOptionalBool, asOptionalNumber, asOptionalString, asR
 /**
  * Kuryerdan pul olish (hujjat 85 §2) — `sales-sheet` javobidagi har kuryer va
  * `totals` dagi `cash` bloki. Hisob faqat serverda:
- * `due_total = sales − online − discount − gift − fee + opening_debt`,
+ * `due_total = sales − online − discount − fee + opening_debt` (sovg'a ayirilmaydi),
  * `closing_debt = due_total − received`; kam olingan pul ertaga `opening_debt`
  * bo'lib o'tadi. Frontend qo'shmaydi va ayirmaydi — kelmagan maydon ekranda «—».
  */

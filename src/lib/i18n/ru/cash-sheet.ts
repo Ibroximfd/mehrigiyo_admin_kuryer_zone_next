@@ -86,6 +86,12 @@ export const CASH_SHEET: Dictionary = {
   "Bu davrda mahsulot sotilmagan.": "За этот период товар не продавался.",
   "Umumiy sotuv − onlayn − skidka (+ o'tgan qarz) = topshirishi kerak":
     "Общая продажа − онлайн − скидка (+ прошлый долг) = нужно сдать",
+  "Umumiy sotuv − onlayn − skidka − logist skidkasi (+ o'tgan qarz) = topshirishi kerak":
+    "Общая продажа − онлайн − скидка − скидка логиста (+ прошлый долг) = нужно сдать",
+  "Logist skidkasi": "Скидка логиста",
+  "Skidka — ball va siz kuryerlarga yozgan skidka: filialga shuncha kam topshirasiz":
+    "Скидка — баллы и скидки, которые вы записали курьерам: в филиал сдаёте на эту сумму меньше",
+  "Logist skidkasi — logist sizga yozgan skidka": "Скидка логиста — скидка, которую вам записал логист",
   "Bu davrda filialga topshiriladigan pul yo'q.": "За этот период денег к сдаче в филиал нет.",
   "Topshirishi kerak": "Нужно сдать",
   Topshirgan: "Сдано",
