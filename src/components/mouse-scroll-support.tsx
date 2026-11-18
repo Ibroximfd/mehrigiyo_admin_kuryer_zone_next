@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { wheelPixels, wheelTarget } from "@/lib/mouse-scroll";
+import { autoWheelX, wheelPixels, wheelTarget } from "@/lib/mouse-scroll";
 import type { ScrollBox } from "@/lib/mouse-scroll";
 
 /**
@@ -11,13 +11,22 @@ import type { ScrollBox } from "@/lib/mouse-scroll";
  */
 function chain(element: Element | null, owners: Map<ScrollBox, HTMLElement>): ScrollBox | null {
   if (!(element instanceof HTMLElement) || element === document.body) return null;
-  const overflowY = getComputedStyle(element).overflowY;
+  const style = getComputedStyle(element);
+  const scrollsY = (style.overflowY === "auto" || style.overflowY === "scroll") && element.scrollHeight > element.clientHeight + 1;
   const box: ScrollBox = {
     get parent() {
       return chain(element.parentElement, owners);
     },
-    wheelX: element.hasAttribute("data-wheel-x"),
-    scrollsY: (overflowY === "auto" || overflowY === "scroll") && element.scrollHeight > element.clientHeight + 1,
+    // Belgilangan yoki o'zi yon tomonga suriladigan konteyner (2026-11-18, `autoWheelX`).
+    wheelX: autoWheelX({
+      tagName: element.tagName,
+      marker: element.getAttribute("data-wheel-x"),
+      overflowX: style.overflowX,
+      scrollsY,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    }),
+    scrollsY,
     scrollLeft: element.scrollLeft,
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,

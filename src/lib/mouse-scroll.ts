@@ -34,6 +34,33 @@ function canMove(position: number, max: number, delta: number): boolean {
   return delta > 0 ? position < max - 1 : position > 1;
 }
 
+/** Maydonlar o'z matnini suradi — ular hech qachon avtomatik yon konteyner emas. */
+const FORM_TAGS = new Set(["input", "textarea", "select"]);
+
+/**
+ * Belgisiz konteyner yon tomonga g'ildirak bilan suriladimi (2026-11-18,
+ * egasi: «gorizontal skroll bo'ladigan hamma joyda»). `data-wheel-x`
+ * qo'yilmagan chiplar qatori, tablar, keng jadvallar ham ishlasin:
+ * - `overflow-x` — `auto`/`scroll` va kontent haqiqatan kengroq;
+ * - o'zi tepa-pastga **surilmaydi** — vertikal ro'yxat (kanban ustuni,
+ *   dialog tanasi) qoida 1 dagidek tegilmaydi; ikki o'qli jadval kartasi
+ *   uchun esa aniq `data-wheel-x` kerak (qoida 2);
+ * - `data-wheel-x="off"` — majburan o'chirish.
+ */
+export function autoWheelX(box: {
+  tagName: string;
+  marker: string | null;
+  overflowX: string;
+  scrollsY: boolean;
+  scrollWidth: number;
+  clientWidth: number;
+}): boolean {
+  if (box.marker !== null) return box.marker !== "off";
+  if (FORM_TAGS.has(box.tagName.toLowerCase())) return false;
+  if (box.overflowX !== "auto" && box.overflowX !== "scroll") return false;
+  return !box.scrollsY && box.scrollWidth > box.clientWidth + 1;
+}
+
 export function wheelTarget(start: ScrollBox | null, deltaY: number): ScrollBox | null {
   for (let box = start; box; box = box.parent) {
     if (box.scrollsY && !box.wheelX) return null;

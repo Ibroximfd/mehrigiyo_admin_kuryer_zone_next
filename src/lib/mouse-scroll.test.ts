@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wheelPixels, wheelTarget } from "./mouse-scroll";
+import { autoWheelX, wheelPixels, wheelTarget } from "./mouse-scroll";
 import type { ScrollBox } from "./mouse-scroll";
 
 function box(patch: Partial<ScrollBox> = {}): ScrollBox {
@@ -87,5 +87,28 @@ describe("keng jadval (egasi so'rovi 2026-11-18)", () => {
     expect(wheelPixels(40, 0, 900)).toBe(40);
     expect(wheelPixels(-3, 1, 900)).toBe(-96);
     expect(wheelPixels(1, 2, 900)).toBe(900);
+  });
+});
+
+describe("belgisiz yon konteyner — avtomatik (2026-11-18)", () => {
+  const wide = { tagName: "DIV", marker: null, overflowX: "auto", scrollsY: false, scrollWidth: 900, clientWidth: 400 };
+
+  it("overflow-x auto/scroll va sig'maydi — yon tomonga", () => {
+    expect(autoWheelX(wide)).toBe(true);
+    expect(autoWheelX({ ...wide, overflowX: "scroll" })).toBe(true);
+  });
+
+  it("sig'adi, overflow yashirin yoki maydon — yo'q", () => {
+    expect(autoWheelX({ ...wide, scrollWidth: 401 })).toBe(false);
+    expect(autoWheelX({ ...wide, overflowX: "hidden" })).toBe(false);
+    expect(autoWheelX({ ...wide, overflowX: "visible" })).toBe(false);
+    expect(autoWheelX({ ...wide, tagName: "INPUT" })).toBe(false);
+    expect(autoWheelX({ ...wide, tagName: "TEXTAREA" })).toBe(false);
+  });
+
+  it("o'zi tepa-pastga suriladigan (kanban ustuni) — avtomatik emas; belgi ustun", () => {
+    expect(autoWheelX({ ...wide, scrollsY: true })).toBe(false);
+    expect(autoWheelX({ ...wide, scrollsY: true, marker: "" })).toBe(true);
+    expect(autoWheelX({ ...wide, marker: "off" })).toBe(false);
   });
 });
