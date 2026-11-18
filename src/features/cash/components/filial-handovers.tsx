@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 
 import { fetchChiefCash, submitChiefHandover } from "../api";
 import { MAX_HANDOVER_DELAY_DAYS, awaitingFilial, handoverTiming } from "../types";
-import type { CourierMoneyTotals } from "../courier-debts";
 import type { ChiefCash, ChiefHandover, DeliveredByMethod, FilialChoice, HandoverStatus, HandoverTiming } from "../types";
 
 function day(iso: string): string {
@@ -51,35 +50,32 @@ const HANDOVER_STATUS: Record<HandoverStatus, { label: string; color: string }> 
 };
 
 /**
- * Kassa 2-pog'ona: har filialga alohida (`chief/cash/`, `chief/cash/handover/`).
- * Summa cheklanmaydi — to'liq summa topshiriladi; haqingiz undan ushlanmaydi.
- * Pul bir nechta filialniki bo'lsa server `filial_required` qaytaradi — tanlov
- * oynada ko'rsatiladi va o'sha e'lon qayta yuboriladi.
+ * Topshirish oynasining boshlang'ich qiymatlari: filial, qoldiq (summa maydoniga
+ * qo'yiladi), eng eski yopilmagan kun va topshirish kuni. `chief/cash/` qatori
+ * (`FinanceFilialRow`) ham, Kassa jadvali qatori ham shu shaklga tushadi.
  */
-/** Kuryerlardagi pul (filtrsiz) — yuqoridagi raqam uchun; `null` — hali yuklanmoqda. */
-export type CourierMoney = CourierMoneyTotals | null;
+export type HandoverTarget = Pick<FinanceFilialRow, "filial" | "toHandOver" | "oldestDay"> & {
+  /** Topshirish kuni; berilmasa — bugun. */
+  date?: string;
+};
 
 /**
- * Kassa 2-pog'ona: har filialga alohida (`chief/cash/`, `chief/cash/handover/`).
- * Summa cheklanmaydi — to'liq summa topshiriladi; haqingiz undan ushlanmaydi.
- * Pul bir nechta filialniki bo'lsa server `filial_required` qaytaradi — tanlov
+ * Kassa: har filialga alohida (`chief/cash/`, `chief/cash/handover/`). Summa
+ * cheklanmaydi — to'liq summa topshiriladi; haqingiz undan ushlanmaydi. Pul
+ * bir nechta filialniki bo'lsa server `filial_required` qaytaradi — tanlov
  * oynada ko'rsatiladi va o'sha e'lon qayta yuboriladi.
+ *
+ * `legacy` — Kassa jadvali (hujjat 85 §3) hali yo'q yoki ochilmadi: eski filial
+ * qatorlari («Topshirish» bilan) ko'rinadi, bosh kuryer bugun ham pulni
+ * topshira oladi. Jadval bor bo'lsa topshirish o'sha jadvaldan, bu yerda —
+ * faqat tarix (ikki joyda ikki xil qoldiq ko'rinmasin).
  *
  * Topshirish summasi DOIM sukut davrdan (server qoldig'i) olinadi — sana
  * filtri faqat tarixga ta'sir qiladi, aks holda «Bugun» tanlanganda qoldiqning
  * bir qismi topshirilib qolardi.
  */
-export function FilialHandovers({
-  courierMoney,
-  canAccept,
-  courierSection,
-}: {
-  courierMoney: CourierMoney;
-  canAccept: boolean;
-  /** «Kuryerlardagi pul» — raqamlardan keyin, eng birinchi ish (bosh kuryer telefonda ko'radi). */
-  courierSection: React.ReactNode;
-}) {
-  const [target, setTarget] = useState<FinanceFilialRow | null>(null);
+export function FilialHandovers({ canAccept, legacy }: { canAccept: boolean; legacy: boolean }) {
+  const [target, setTarget] = useState<HandoverTarget | null>(null);
   const cash = useQuery({ queryKey: queryKeys.chiefCash, queryFn: ({ signal }) => fetchChiefCash({}, signal) });
 
   if (cash.isPending) {
@@ -102,33 +98,25 @@ export function FilialHandovers({
 
   const data = cash.data;
   const toHandOver = data.byFilial.reduce((sum, row) => sum + row.toHandOver, 0);
-  const awaiting = awaitingFilial(data);
 
   return (
     <div className="flex flex-col gap-6">
-      <KeyFigures
-        items={[
-          {
-            // Kuryer zimmasidagi HAMMA pul: qabul qilinmagan + kamomad qarzi (63-javob B8 —
-            // yopilgan kundan keyingi tahrir farqi qarz bo'lib yoziladi).
-            label: "Kuryerlarda (qabul qilinmagan)",
-            value: courierMoney === null ? "—" : formatSom(courierMoney.total + courierMoney.shortage),
-            hint: courierMoneyHint(courierMoney),
-            tone: courierMoney && (courierMoney.overdue > 0 || courierMoney.shortage > 0) ? "warn" : undefined,
-          },
-          { label: "Filiallarga topshirish kerak", value: formatSom(toHandOver), tone: toHandOver > 0 ? "warn" : "ok" },
-          { label: "Filial qabul qilishi kutilmoqda", value: formatSom(awaiting) },
-        ]}
-      />
-
-      {courierSection}
-
-      <Section
-        title="Filiallarga topshirish"
-        description={`Har filialga alohida, to'liq summa. Odatda har kuni; kechiksa ${MAX_HANDOVER_DELAY_DAYS} kungacha mumkin.`}
-      >
-        <FilialRows data={data} onHandover={canAccept ? setTarget : null} />
-      </Section>
+      {legacy ? (
+        <>
+          <KeyFigures
+            items={[
+              { label: "Filiallarga topshirish kerak", value: formatSom(toHandOver), tone: toHandOver > 0 ? "warn" : "ok" },
+              { label: "Filial qabul qilishi kutilmoqda", value: formatSom(awaitingFilial(data)) },
+            ]}
+          />
+          <Section
+            title="Filiallarga topshirish"
+            description={`Har filialga alohida, to'liq summa. Odatda har kuni; kechiksa ${MAX_HANDOVER_DELAY_DAYS} kungacha mumkin.`}
+          >
+            <FilialRows data={data} onHandover={canAccept ? setTarget : null} />
+          </Section>
+        </>
+      ) : null}
 
       <HandoverHistory fallback={data} />
 
@@ -235,13 +223,6 @@ function DeliveredSplit({ split, total, orders }: { split: DeliveredByMethod; to
       ))}
     </dl>
   );
-}
-
-function courierMoneyHint(money: CourierMoney): string {
-  if (money === null) return "hammasi, filtrsiz";
-  if (money.shortage > 0) return `shundan qarz ${formatSom(money.shortage)}`;
-  if (money.overdue > 0) return `muddati o'tgan ${formatSom(money.overdue)}`;
-  return "hammasi, filtrsiz";
 }
 
 function PeriodChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -379,7 +360,8 @@ function History({ handovers, filtered, onClear }: { handovers: ChiefHandover[];
   );
 }
 
-function HandoverDialog({ cash, initial, onClose }: { cash: ChiefCash; initial: FinanceFilialRow; onClose: () => void }) {
+/** Mavjud topshirish oynasi — Kassa jadvalidagi «Topshirdim» ham shuni ochadi. */
+export function HandoverDialog({ cash, initial, onClose }: { cash: ChiefCash; initial: HandoverTarget; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -389,12 +371,12 @@ function HandoverDialog({ cash, initial, onClose }: { cash: ChiefCash; initial: 
   );
 }
 
-function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: FinanceFilialRow; onClose: () => void }) {
+function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: HandoverTarget; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [filialId, setFilialId] = useState<number | null>(initial.filial?.id ?? null);
   const [choices, setChoices] = useState<FilialChoice[] | null>(null);
   const [draft, setDraft] = useState(formatMoneyInput(initial.toHandOver));
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(initial.date ?? todayIso());
   const [note, setNote] = useState("");
   const [cardDraft, setCardDraft] = useState("");
   // Bir e'lon — bitta kalit: `filial_required` dan keyin qayta yuborilganda ham shu.

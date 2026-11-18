@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { demoIssuePlan, demoSalesSheet } from "@/lib/demo/mock/sales-sheet";
+import { demoIssuePlan, demoSalesSheet } from "@/lib/demo/mock/sales-sheet.fixture";
 
 import { mapIssuePlan, mapSalesSheet } from "../types";
 import { IssuePlanBody } from "./issue-plan-view";

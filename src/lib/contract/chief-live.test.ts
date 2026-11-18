@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { courierHandoverView, handoverTiming, mapChiefCash, mapCourierCod, mapCourierHandover } from "@/features/cash/types";
+import { handoverTiming, mapChiefCash } from "@/features/cash/types";
 import { courierOptions, planFromPreview, readyRows } from "@/features/chief/auto-plan";
 import { isOpenOrder, productsPreview } from "@/features/chief/order-view";
 import { formatDeliveryAddress } from "@/features/orders/address";
@@ -133,7 +133,6 @@ const LIVE = {
       },
     ],
   },
-  codHandovers: [],
   skladCouriers: [
     {
       id: 27,
@@ -217,9 +216,8 @@ describe("haqiqiy javoblar (test server, 2026-10-31)", () => {
     expect(mapAutoAssignPreview(LIVE.preview)).toEqual([]);
   });
 
-  it("chief/orders va cod/handovers — `page` bilan bo'sh sahifa", () => {
+  it("chief/orders — `page` bilan bo'sh sahifa", () => {
     expect(asPage(LIVE.orders)).toEqual({ items: [], hasMore: false, total: 0 });
-    expect(asPage(LIVE.orders).items.map(mapCourierHandover)).toEqual([]);
   });
 
   it("chief/couriers — `cod_total` endi son (V19)", () => {
@@ -407,36 +405,6 @@ const VODIY = {
       },
     ],
   },
-  codHandovers: {
-    count: 2,
-    next: null,
-    previous: null,
-    results: [
-      {
-        courier: { id: 28, full_name: "V2 kuryer 1" },
-        date: "2026-10-30",
-        status: "confirmed",
-        amount: 1000,
-        confirmed_amount: 1000,
-        note: null,
-        by_filial: [{ amount: 1000, orders: 1, filial_id: 2, filial_name: "Mehrigiyo Qo'qon" }],
-      },
-      {
-        courier: { id: 29, full_name: "V2 kuryer 2" },
-        date: "2026-10-26",
-        status: "pending",
-        amount: 150000,
-        confirmed_amount: null,
-        note: "eski e'lon",
-        by_filial: [],
-      },
-    ],
-  },
-  courierCodToday: {
-    orders: [{ id: "d32207ba", order_number: "ORD-20261030222513-A688B3ED", total_amount: "22222.00" }],
-    total: "22222.00",
-    settled: false,
-  },
   skladMe: { role: "chief_courier", filial_id: 2, region: "fargona", regions: ["fargona", "namangan", "andijon"], sklad_id: 1, can_write: false },
   sklads: [
     { id: 1, name: "V2 Bosh kuryer (Vodiy) skladi", regions: ["fargona", "namangan", "andijon"], is_active: true, chief: { id: 61 } },
@@ -535,26 +503,6 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     expect(handoverTiming(cash.outstandingDays, new Date(2026, 9, 31)).timing).toBe("on_time");
   });
 
-  it("1-pog'ona — e'lonlar `by_filial` bilan; eski `pending` — muddati o'tgan", () => {
-    const rows = asPage(VODIY.codHandovers).items.map(mapCourierHandover);
-    expect(rows[0]).toMatchObject({ status: "confirmed", confirmedAmount: 1000, byFilial: [{ filialId: 2, filialName: "Mehrigiyo Qo'qon", amount: 1000 }] });
-    expect(courierHandoverView(rows[1]!, new Date(2026, 9, 31))).toBe("overdue");
-  });
-
-  it("kuryer naqdi — sanasiz bir kunlik shakl ham o'qiladi (`total_amount` satr)", () => {
-    const cod = mapCourierCod(VODIY.courierCodToday, "2026-10-31");
-    expect(cod.days).toEqual([
-      {
-        date: "2026-10-31",
-        orders: [{ id: "d32207ba", orderNumber: "ORD-20261030222513-A688B3ED", amount: 22222 }],
-        amount: 22222,
-        settled: false,
-        declared: false,
-      },
-    ]);
-    expect(cod.outstandingTotal).toBe(22222);
-  });
-
   it("sklad — o'z skladi, sahifali qoldiq (`next` bor), kuryer ombori", () => {
     const me = mapSkladMe(VODIY.skladMe);
     expect(me.sklad).toEqual({ id: 1, name: "", regions: ["fargona", "namangan", "andijon"] });
@@ -565,6 +513,6 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     expect(asPage(VODIY.stock).hasMore).toBe(true);
     const couriers = asPage(VODIY.skladCouriers).items.map(mapCourierStock);
     const rows = skladStockRows(asPage(VODIY.stock).items.map(mapStockCell), couriers);
-    expect(rows).toEqual([{ item: { id: 4, name: "Amoksitsillin 500 mg", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 }, inSklad: 0, withCouriers: 8, isLow: true }]);
+    expect(rows).toEqual([{ item: { id: 4, name: "Amoksitsillin 500 mg", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 }, inSklad: 0, withCouriers: 8, minQuantity: 50, isLow: true }]);
   });
 });

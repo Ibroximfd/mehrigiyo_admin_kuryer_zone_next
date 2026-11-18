@@ -25,12 +25,6 @@ export const queryKeys = {
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */
   chiefAutoAssignPreview: (filters: Record<string, unknown>) => ["chief", "auto-assign-preview", filters] as const,
   chiefFilials: ["chief", "filials"] as const,
-  /** Kuryerning qabul qilinmagan HAMMA kunlari (`cod/?open=1`). */
-  chiefCourierOpenCod: (courierId: number) => ["chief", "courier-cod", courierId, "open"] as const,
-  /** Kuryerning naqd hisobi (oraliq). */
-  chiefCourierCod: (courierId: number, range: { from: string; to: string }) => ["chief", "courier-cod", courierId, range] as const,
-  /** Kassa 1-pog'ona: kuryerlar e'lonlari (server filtri — holat, kuryer). */
-  chiefCourierHandovers: (filters: Record<string, unknown>) => ["chief", "cod-handovers", filters] as const,
   chiefCandidates: (orderId: string) => ["chief", "candidates", orderId] as const,
   chiefCouriers: ["chief", "couriers"] as const,
   /** Kuryer login/paroli — keshda saqlanmaydi (`gcTime: 0`). */
@@ -43,17 +37,20 @@ export const queryKeys = {
   /** Sklad: o'z skladi va kuryerlari ombori (`sklad_changed` da butunlay tashlanadi). */
   chiefSklad: ["chief", "sklad"] as const,
   chiefLoadRequests: (status: string) => ["chief", "sklad", "load-requests", status] as const,
+  /** Sklad jadvali (hujjat 85 §1) — `chiefSklad` ostida: kuryerga mol berilsa yoki so'rov tasdiqlansa qoldiq ham yangilanadi. */
+  chiefSkladSheet: (params: Record<string, unknown>) => ["chief", "sklad", "sheet", params] as const,
   /** Kuryer baholari — filtr va sahifa bo'yicha (kuryerlar sahifasi filtrsiz 1-sahifani bo'lishadi). */
   chiefRatings: (filters: Record<string, unknown>) => ["chief", "ratings", filters] as const,
-  /** Kassa 2-pog'ona — `chief/cash/` (filial kesimi va topshiriqlar). Sukut davr — topshirish shu bilan. */
+  /** Kassa — `chief/cash/` (filial kesimi va topshiriqlar). Sukut davr — topshirish shu bilan. */
   chiefCash: ["chief", "cash"] as const,
   /** Kassa tarixi tanlangan davrda (faqat ko'rish). */
   chiefCashPeriod: (range: { from: string; to: string }) => ["chief", "cash", "period", range] as const,
-  /** Hamma kuryerdagi qabul qilinmagan pul (filtrsiz). */
-  chiefCourierDebts: (courierIds: readonly number[]) => ["chief", "courier-debts", courierIds] as const,
+  /** Filialga topshirish jadvali (hujjat 85 §3) — `chiefCash` ostida: topshirilsa yoki kuryerdan pul olinsa yangilanadi. */
+  chiefCashSheets: ["chief", "cash", "sheet"] as const,
+  chiefCashSheet: (params: Record<string, unknown>) => ["chief", "cash", "sheet", params] as const,
   /** Moliya va hisobot (davr bo'yicha). */
   chiefReport: (range: { from: string; to: string }) => ["chief", "report", range] as const,
-  /** Sotuv jadvali (hujjat 83) — ildiz: kuryer xizmati saqlansa hamma davr qayta so'raladi. */
+  /** Sotuv jadvali (hujjat 83) — ildiz: kuryer xizmati, skidka yoki «Oldim» saqlansa hamma davr qayta so'raladi. */
   chiefSalesSheets: ["chief", "sales-sheet"] as const,
   chiefSalesSheet: (params: Record<string, unknown>) => ["chief", "sales-sheet", params] as const,
   /** Berish rejasi — `chiefSklad` ostida: kuryerga mol berilsa (sklad hujjati) reja ham yangilanadi. */

@@ -40,10 +40,10 @@ const LEAD_WIDTH = "w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40";
 const LABEL_LEFT = "sm:left-40";
 
 /**
- * Siljiydigan karta: telefonda ham jadval bo'lib qoladi — ikki tomonga
- * siljiydi. Balandlik chegarali: sarlavha yopishishi uchun siljish kartaning
- * o'zida bo'lishi shart. `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni
- * yon tomonga suradi (`lib/mouse-scroll`).
+ * Siljiydigan karta: telefonda ham jadval bo'lib qoladi — yonga siljiydi.
+ * Balandlik cheklanmaydi: jadval sahifa bo'ylab to'liq ochiladi (egasi,
+ * 2026-11-18). `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni yon
+ * tomonga suradi (`lib/mouse-scroll`).
  */
 export function SheetScroll({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -52,7 +52,7 @@ export function SheetScroll({ label, children }: { label: string; children: Reac
       aria-label={label}
       tabIndex={0}
       data-wheel-x
-      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 max-h-120 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:max-h-160"
+      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 overflow-x-auto rounded-2xl border outline-none focus-visible:ring-2"
     >
       <table className="w-full border-separate border-spacing-0 text-dense">{children}</table>
     </div>

@@ -38,14 +38,14 @@ export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMa
           {`${matrix.negativeCount} ta katakda qoldiq minus — «Tuzatish» kerak`}
         </p>
       ) : null}
-      {/* Balandlik chegarali: sarlavha yopishishi uchun siljish kartaning o'zida bo'lishi shart.
+      {/* Balandlik cheklanmaydi — sahifa bo'ylab to'liq ochiladi (egasi, 2026-11-18).
           `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni yon tomonga suradi. */}
       <div
         role="region"
         aria-label="Kuryerlar ombori"
         tabIndex={0}
         data-wheel-x
-        className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 max-h-120 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:max-h-160"
+        className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 overflow-x-auto rounded-2xl border outline-none focus-visible:ring-2"
       >
         <table className="w-full border-separate border-spacing-0 text-dense">
           <thead>

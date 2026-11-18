@@ -1,41 +1,57 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Lock, PackageOpen, SearchX, UserRound, Warehouse } from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
+import { Lock, PackageOpen, UserRound, Warehouse } from "lucide-react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useState } from "react";
 
-import { KeyFigures, Section } from "@/components/kit/key-figures";
-import { ProductThumb } from "@/components/kit/product-thumb";
+import { Section } from "@/components/kit/key-figures";
 import { AREA_SWATCH, RegionMap } from "@/components/kit/region-map";
-import { SearchInput } from "@/components/kit/search-input";
 import { EmptyView, ErrorView } from "@/components/kit/state-views";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ChiefMe } from "@/features/chief/types";
 import { regionLabel } from "@/features/orders/regions";
+import { SkladDayView } from "@/features/sklad-sheet/components/sklad-day-view";
+import { SkladRangeView } from "@/features/sklad-sheet/components/sklad-range-view";
 import { errorMessage } from "@/lib/api-client";
 import { isAccessDenied } from "@/lib/api-availability";
-import { groupThousands } from "@/lib/format";
-import { PIECE_UNIT, shownQuantity, shownUnit } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
-import { matchesSearch } from "@/lib/search";
 import { isUzRegionCode } from "@/lib/uz-map";
 import { cn } from "@/lib/utils";
 
 import { fetchChiefSklad } from "../api";
 import { buildCourierStockMatrix } from "../courier-stock-matrix";
-import type { CourierStock, SkladChief, SkladStockRow } from "../types";
+import type { ChiefSklad, CourierStock, SkladChief, SkladStockRow } from "../types";
+import { useLoadRequests } from "../use-load-requests";
 import { CourierDocumentDialog, type CourierDocumentMode } from "./courier-document-dialog";
 import { CourierStockTable } from "./courier-stock-table";
 import { LoadRequestsPanel } from "./load-requests-panel";
 import { useSkladChanged } from "../use-sklad-changed";
 
+type ReadySklad = Extract<ChiefSklad, { kind: "ready" }>;
+
+/**
+ * Ko'rinishlar (egasi maketi, hujjat 85 §1): «Kunlik» (sukut) va «Sanadan
+ * sanagacha» — sklad jadvali; «Kuryerlar ombori» — sklad, kirim so'rovlari va
+ * kuryer × mahsulot jadvali. Tanlangani URLda (`?view=`).
+ */
+const VIEWS = [
+  { value: "day", label: "Kunlik" },
+  { value: "range", label: "Sanadan sanagacha" },
+  { value: "couriers", label: "Kuryerlar ombori" },
+] as const;
+
+const VIEW_VALUES = VIEWS.map((view) => view.value);
+
+type SkladViewKind = (typeof VIEW_VALUES)[number];
+
 /**
  * Sklad (§5; TZ 32 S-7): bosh kuryer faqat o'ziga biriktirilgan skladni va o'z
  * kuryerlari omborini ko'radi. Xaritada faqat o'z viloyatlari belgilangan,
  * qolgani neytral — boshqa skladlar haqida hech narsa chiqmaydi. Boshqa skladga
- * o'tkazilsa (`sklad_changed`) eski sklad darhol yopiladi.
+ * o'tkazilsa (`sklad_changed`) eski sklad darhol yopiladi. Sklad jadvali
+ * (`features/sklad-sheet`) hozirgi qoldiqni shu yerda yuklangan sklad
+ * ma'lumotidan oladi — server `current` blokini bermaguncha.
  */
 export function SkladView({ me }: { me: ChiefMe }) {
   useSkladChanged(me.seat.id);
@@ -68,13 +84,66 @@ export function SkladView({ me }: { me: ChiefMe }) {
       />
     );
   }
+  return <SkladReady data={data} />;
+}
+
+function SkladReady({ data }: { data: ReadySklad }) {
+  const [view, setView] = useQueryState("view", parseAsStringLiteral(VIEW_VALUES).withDefault("day"));
+  const regions = data.sklad.regions.filter(isUzRegionCode).map((code) => ({ value: code, label: regionLabel(code) }));
+
+  return (
+    <div className="flex flex-col gap-5">
+      <ViewSwitch view={view} onChange={(next) => void setView(next)} />
+      {view === "day" ? (
+        <SkladDayView fallback={data.stock} />
+      ) : view === "range" ? (
+        <SkladRangeView fallback={data.stock} regions={regions} />
+      ) : (
+        <CouriersPane data={data} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Ko'rinish tanlovi. Kirim so'rovlari «Kuryerlar ombori» ichida — kutilayotgani
+ * bo'lsa tabda soni turadi (sukut ko'rinishda ham yashirin qolmasin).
+ */
+function ViewSwitch({ view, onChange }: { view: SkladViewKind; onChange: (view: SkladViewKind) => void }) {
+  const pending = useLoadRequests("pending").data?.length ?? 0;
+  return (
+    <div role="tablist" aria-label="Ko'rinish" className="bg-surface-3 inline-flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-lg p-0.5" data-wheel-x>
+      {VIEWS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={view === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "h-9 shrink-0 rounded-md px-3.5 text-dense font-semibold whitespace-nowrap transition-colors",
+            view === option.value ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink",
+          )}
+        >
+          {option.label}
+          {option.value === "couriers" && pending > 0 ? (
+            <>
+              <span aria-hidden className="bg-brand text-brand-ink ml-1.5 rounded-full px-1.5 text-fine">
+                {pending}
+              </span>
+              <span className="sr-only">{`${pending} ta kirim so'rovi kutilmoqda`}</span>
+            </>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** «Kuryerlar ombori»: sklad va viloyatlari, kirim so'rovlari, kuryer × mahsulot jadvali (avvalgi sahifa). */
+function CouriersPane({ data }: { data: ReadySklad }) {
   const regions = data.sklad.regions.filter(isUzRegionCode);
   const name = data.sklad.name;
-  const withCouriers = data.couriers.reduce(
-    (sum, stock) => sum + stock.items.reduce((total, entry) => total + shownQuantity(entry.item, entry.quantity), 0),
-    0,
-  );
-  const low = data.stock.filter((row) => row.isLow).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,30 +189,6 @@ export function SkladView({ me }: { me: ChiefMe }) {
           actions={data.canWrite ? { stock: data.stock, store: data.store } : null}
         />
       </Section>
-
-      <Section title="Qoldiq">
-        <KeyFigures
-          items={[
-            // Yig'indida birliklar aralash (dona va karobka mahsulotlari, hujjat 70 §2) — birlik nomi yozilmaydi;
-            // donada yuritiladigan mahsulot donada qo'shiladi (hujjat 84).
-            { label: "Skladda", value: groupThousands(data.stock.reduce((sum, row) => sum + shownQuantity(row.item, row.inSklad), 0)) },
-            { label: "Kuryerlarda", value: groupThousands(withCouriers) },
-            { label: "Mahsulot turi", value: groupThousands(data.stock.length) },
-            { label: "Kam qolgan", value: groupThousands(low), tone: low > 0 ? "warn" : "default" },
-          ]}
-        />
-        {data.stock.length > 0 ? (
-          <StockTable rows={data.stock} />
-        ) : (
-          <EmptyView
-            Icon={Warehouse}
-            title="Skladda mahsulot yo'q"
-            description="Logist kirim qilgach shu yerda ko'rinadi."
-            className="border-line bg-surface rounded-2xl border"
-          />
-        )}
-      </Section>
-
     </div>
   );
 }
@@ -174,63 +219,6 @@ function SkladForbidden() {
       description="Skladni ko'rish dopuskini asosiy filialning bosh logisti beradi."
       className="border-line bg-surface rounded-2xl border"
     />
-  );
-}
-
-function StockTable({ rows }: { rows: SkladStockRow[] }) {
-  const [query, setQuery] = useQueryState("q", parseAsString);
-  const visible = rows.filter((row) => matchesSearch(row.item.name, query ?? ""));
-
-  return (
-    <div className="border-line bg-surface overflow-hidden rounded-2xl border">
-      <div className="border-line flex items-center gap-2 border-b p-3">
-        <SearchInput value={query ?? ""} onChange={(next) => void setQuery(next || null)} placeholder="Mahsulot qidirish" className="w-full sm:w-64" />
-      </div>
-      {visible.length === 0 ? (
-        <EmptyView
-          Icon={SearchX}
-          title="Hech narsa topilmadi"
-          description="Qidiruvni o'zgartiring."
-          action={<Button variant="outline" onClick={() => void setQuery(null)}>Filtrni tozalash</Button>}
-        />
-      ) : (
-        <table className="w-full text-dense">
-          <thead>
-            <tr className="text-ink-faint border-line border-b text-meta">
-              <th className="px-4 py-2.5 text-left font-medium">Mahsulot</th>
-              <th className="px-3 py-2.5 text-right font-medium">Skladda</th>
-              <th className="px-4 py-2.5 text-right font-medium">Kuryerlarda</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <StockRow key={row.item.id} row={row} />
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-/** Mahsulot qatori — sonlar ekrandagi birlikda (donada yuritiladigan mahsulot — donada, hujjat 84). */
-function StockRow({ row }: { row: SkladStockRow }) {
-  const unit = shownUnit(row.item);
-  return (
-    <tr className="border-line border-b last:border-0">
-      <td className="px-4 py-2.5">
-        <span className="flex items-center gap-2.5">
-          <ProductThumb src={row.item.image} name={row.item.name} size="sm" />
-          <span className="text-ink font-medium" data-no-translit>{row.item.name}</span>
-        </span>
-      </td>
-      <td className="tabular px-3 py-2.5 text-right">
-        <span className={cn("font-semibold", row.isLow ? "text-warn" : "text-ink")}>{groupThousands(shownQuantity(row.item, row.inSklad))}</span>
-        {unit !== PIECE_UNIT ? <span className="text-ink-faint ml-1 text-fine">{unit}</span> : null}
-        {row.isLow ? <span className="text-warn block text-fine">kam qoldi</span> : null}
-      </td>
-      <td className="text-ink-muted tabular px-4 py-2.5 text-right">{groupThousands(shownQuantity(row.item, row.withCouriers))}</td>
-    </tr>
   );
 }
 

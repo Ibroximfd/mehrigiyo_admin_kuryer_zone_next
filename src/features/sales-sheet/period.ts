@@ -19,6 +19,9 @@ export const SHEET_PERIODS = [
 
 export type SheetPeriod = (typeof SHEET_PERIODS)[number]["value"];
 
+/** Davr tugmasi: qiymat va yorliq (sahifa o'z nomini berishi mumkin — Kassa: «Sanadan sanagacha»). */
+export type PeriodOption = { value: SheetPeriod; label: string };
+
 export const SHEET_PERIOD_VALUES = SHEET_PERIODS.map((period) => period.value);
 
 export const DEFAULT_SHEET_PERIOD: SheetPeriod = "day";

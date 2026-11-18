@@ -15,8 +15,6 @@ import {
 } from "./db";
 import type { DemoCourierRow, DemoFilialHandover, DemoOrderRow, DemoZoneRow } from "./db";
 import { DEMO_CHIEF, DEMO_REGIONS } from "./fixtures";
-import { demoIssuePlan, demoSalesSheet, demoSalesSheetFile, demoSaveSheetFee } from "./sales-sheet";
-import type { DemoSheetQuery } from "./sales-sheet";
 
 /**
  * Demo rejimdagi «backend»: `api-client` har so'rovni shu yerga beradi va
@@ -659,140 +657,6 @@ function deliveredIn(from: string, to: string) {
 }
 
 
-// ── Kassa 1-pog'ona: kuryer → bosh kuryer (`chief/cod/handovers/`, `settle/`) ──
-
-function byFilialSplit(orders: DemoOrderRow[]) {
-  const groups = new Map<string, { filial_id: number; filial_name: string; amount: number; orders: number }>();
-  for (const order of orders) {
-    const filial = filialJson(order.filial);
-    const row = groups.get(order.filial) ?? { filial_id: filial.id, filial_name: filial.name, amount: 0, orders: 0 };
-    groups.set(order.filial, { ...row, amount: row.amount + order.total, orders: row.orders + 1 });
-  }
-  return [...groups.values()];
-}
-
-function deliveredBy(courierId: number, date: string) {
-  return demoDb.orders.filter((order) => order.courierId === courierId && order.deliveredAt && toIsoDay(order.deliveredAt) === date);
-}
-
-/** Kuryer e'lonlari (kutilmoqda) va qabul qilingan kunlar — logistniki bilan bir xil satr. */
-function codHandovers(request: DemoRequest): DemoResponse {
-  const pending = demoDb.declarations.map((item) => ({
-    courier: courierRef(item.courierId),
-    date: item.date,
-    status: "pending",
-    amount: item.amount,
-    confirmed_amount: null,
-    created_at: item.createdAt.toISOString(),
-    note: null,
-    by_filial: byFilialSplit(deliveredBy(item.courierId, item.date)),
-  }));
-  const settled = demoDb.settlements.map((item) => ({
-    courier: courierRef(item.courierId),
-    date: item.date,
-    status: item.confirmed === item.declared ? "confirmed" : "disputed",
-    amount: item.declared,
-    confirmed_amount: item.confirmed,
-    created_at: item.at.toISOString(),
-    confirmed_at: item.at.toISOString(),
-    note: null,
-    by_filial: byFilialSplit(deliveredBy(item.courierId, item.date)),
-  }));
-  const status = param(request, "status");
-  const courierId = param(request, "courier_id");
-  const date = param(request, "date");
-  const from = param(request, "date_from");
-  const to = param(request, "date_to");
-  const ordering = param(request, "ordering") || "-date";
-  const sign = ordering.startsWith("-") ? -1 : 1;
-  const field = ordering.replace("-", "");
-  const rows = [...pending, ...settled]
-    .filter(
-      (row) =>
-        (!status || row.status === status) &&
-        (!courierId || String(row.courier?.id) === courierId) &&
-        (!date || row.date === date) &&
-        (!from || row.date >= from) &&
-        (!to || row.date <= to),
-    )
-    .sort((a, b) => {
-      if (field === "amount") return sign * (a.amount - b.amount);
-      if (field === "courier") return (a.courier?.full_name ?? "").localeCompare(b.courier?.full_name ?? "");
-      return sign * a.date.localeCompare(b.date);
-    });
-  return paged(request, rows);
-}
-
-/** V11: kuryerning kunma-kun naqdi (logistniki bilan bir xil oraliq shakli). */
-function courierCod(courierId: number, request: DemoRequest): DemoResponse {
-  if (!demoDb.couriers.some((courier) => courier.id === courierId)) return fail(403, "courier_not_yours");
-  const from = param(request, "date_from") || dayOffset(6);
-  const to = param(request, "date_to") || today();
-  const orders = demoDb.orders.filter(
-    (order) => order.courierId === courierId && order.deliveredAt && toIsoDay(order.deliveredAt) >= from && toIsoDay(order.deliveredAt) <= to,
-  );
-  const days = [...new Set(orders.map((order) => toIsoDay(order.deliveredAt!)))].sort().reverse().map((date) => {
-    const dayOrders = orders.filter((order) => toIsoDay(order.deliveredAt!) === date);
-    const total = dayOrders.reduce((sum, order) => sum + order.total, 0);
-    const settled = dayOrders.every((order) => order.settledDay !== null);
-    const declaration = demoDb.declarations.find((item) => item.courierId === courierId && item.date === date);
-    return {
-      date,
-      orders: dayOrders.map((order) => ({ id: order.id, order_number: order.number, amount: order.total, delivered_at: order.deliveredAt!.toISOString() })),
-      computed_total: total,
-      amount: declaration?.amount ?? total,
-      settled,
-      handover: settled ? { status: "confirmed", amount: total } : declaration ? { status: "pending", amount: declaration.amount } : null,
-    };
-  });
-  const open = days.filter((item) => !item.settled);
-  return ok({
-    date_from: from,
-    date_to: to,
-    days,
-    total: days.reduce((sum, item) => sum + item.computed_total, 0),
-    outstanding_total: open.reduce((sum, item) => sum + item.amount, 0),
-    outstanding_days: open.length,
-    settled: open.length === 0,
-  });
-}
-
-function settle(courierId: number, request: DemoRequest): DemoResponse {
-  if (!demoDb.couriers.some((courier) => courier.id === courierId)) return fail(403, "courier_not_yours");
-  const json = body(request);
-  const from = String(json.date ?? json.date_from ?? "");
-  const to = String(json.date ?? json.date_to ?? from);
-  if (!from) return fail(400, "validation_error");
-  const orders = demoDb.orders.filter(
-    (order) =>
-      order.courierId === courierId &&
-      order.deliveredAt &&
-      !order.settledDay &&
-      toIsoDay(order.deliveredAt) >= from &&
-      toIsoDay(order.deliveredAt) <= to,
-  );
-  if (orders.length === 0) return fail(400, "already_settled");
-  const accepted = today();
-  const days = [...new Set(orders.map((order) => toIsoDay(order.deliveredAt!)))].sort();
-  const declared = orders.reduce((sum, order) => sum + order.total, 0);
-  const confirmed = typeof json.confirmed_amount === "number" ? json.confirmed_amount : declared;
-  for (const order of orders) {
-    order.settledDay = accepted;
-    pushHistory(order, "cash_accepted", courierRef(courierId)?.full_name ?? null);
-  }
-  for (const date of days) {
-    const dayTotal = deliveredBy(courierId, date).reduce((sum, order) => sum + order.total, 0);
-    // Kamomad oxirgi kunga yoziladi — kuryerda qarz bo'lib qoladi.
-    const share = date === days[days.length - 1] ? dayTotal - (declared - confirmed) : dayTotal;
-    demoDb.settlements.push({ courierId, date, declared: dayTotal, confirmed: share, at: new Date() });
-  }
-  demoDb.declarations = demoDb.declarations.filter((item) => !(item.courierId === courierId && days.includes(item.date)));
-  const handover = { status: confirmed === declared ? "confirmed" : "disputed", amount: declared, confirmed_amount: confirmed };
-  return json.date
-    ? ok({ success: true, settled: true, handover })
-    : ok({ days: days.map((date) => ({ date, handover })), settled_days: days.length, confirmed_total: confirmed, handover });
-}
-
 // ── Moliya va kassa 2-pog'ona (`TUZILMA_V2` §5) ─────────────────────────────
 
 function settledIn(from: string, to: string) {
@@ -1248,28 +1112,6 @@ function chiefRatings(request: DemoRequest): DemoResponse {
   });
 }
 
-// ── Sotuv jadvali va berish rejasi (hujjat 83; hisob — `./sales-sheet.ts`) ───
-
-function sheetQuery(request: DemoRequest): DemoSheetQuery {
-  const dateFrom = param(request, "date_from") || today();
-  return {
-    dateFrom,
-    dateTo: param(request, "date_to") || dateFrom,
-    courierId: Number(param(request, "courier_id")) || null,
-    withDays: param(request, "days") === "1",
-  };
-}
-
-function salesSheetFee(request: DemoRequest): DemoResponse {
-  const result = demoSaveSheetFee(body(request));
-  return result.ok ? ok(result.data) : fail(result.status, result.code, result.fields);
-}
-
-function salesSheetExport(request: DemoRequest): DemoResponse {
-  const file: DemoFile = demoSalesSheetFile(sheetQuery(request));
-  return ok(file);
-}
-
 // ── Marshrutlash ────────────────────────────────────────────────────────────
 
 type Route = [method: DemoRequest["method"], pattern: RegExp, handle: (request: DemoRequest, match: RegExpMatchArray) => DemoResponse];
@@ -1288,8 +1130,6 @@ const ROUTES: Route[] = [
   ["get", /^\/operator\/chief\/couriers\/$/, () => ok({ count: demoDb.couriers.length, results: demoDb.couriers.map(courierJson) })],
   ["post", /^\/operator\/chief\/couriers\/$/, createCourier],
   ["patch", /^\/operator\/chief\/couriers\/(\d+)\/$/, (request, match) => updateCourier(Number(match[1]), request)],
-  ["post", /^\/operator\/chief\/couriers\/(\d+)\/settle\/$/, (request, match) => settle(Number(match[1]), request)],
-  ["get", /^\/operator\/chief\/cod\/handovers\/$/, codHandovers],
   ["get", /^\/operator\/chief\/zones\/$/, zonesList],
   ["post", /^\/operator\/chief\/zones\/$/, createZone],
   ["patch", /^\/operator\/chief\/zones\/(\d+)\/$/, (request, match) => updateZone(Number(match[1]), request)],
@@ -1299,7 +1139,6 @@ const ROUTES: Route[] = [
   ["get", /^\/operator\/chief\/filials\/$/, () => ok(DEMO_FILIALS.map((filial) => ({ id: filial.id, name: filial.name, is_main: filial.isMain })))],
   ["post", /^\/operator\/chief\/places\/$/, createPlace],
   ["patch", /^\/operator\/chief\/places\/(.+)\/$/, (request, match) => updatePlace(decodeURIComponent(match[1]!), request)],
-  ["get", /^\/operator\/chief\/couriers\/(\d+)\/cod\/$/, (request, match) => courierCod(Number(match[1]), request)],
   ["get", /^\/operator\/chief\/finance\/$/, chiefFinance],
   ["get", /^\/operator\/chief\/ratings\/$/, chiefRatings],
   ["get", /^\/operator\/chief\/cash\/$/, chiefCash],
@@ -1309,10 +1148,7 @@ const ROUTES: Route[] = [
   ["get", /^\/sklad\/sklads\/$/, skladSklads],
   ["get", /^\/sklad\/stock\/$/, skladStock],
   ["get", /^\/sklad\/couriers\/$/, skladCouriers],
-  ["get", /^\/operator\/chief\/report\/sales-sheet\/$/, (request) => ok(demoSalesSheet(sheetQuery(request)))],
-  ["put", /^\/operator\/chief\/report\/sales-sheet\/fee\/$/, salesSheetFee],
-  ["get", /^\/operator\/chief\/report\/sales-sheet\/export\/$/, salesSheetExport],
-  ["get", /^\/operator\/chief\/report\/issue-plan\/$/, (request) => ok(demoIssuePlan(param(request, "date") || today()))],
+  // Sotuv jadvali, Berish rejasi, Pul olish, Kassa va Sklad jadvali — demo ma'lumot ATAYLAB yo'q (haqiqiy hisob, egasi 2026-11-18).
 ];
 
 /** Demo javob — haqiqiy so'rovdek biroz kechikadi (skelet ko'rinsin). */

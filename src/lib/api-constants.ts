@@ -63,8 +63,6 @@ export const ENDPOINTS = {
   chiefBulkAssign: "/operator/chief/orders/bulk-assign/",
   /** Filiallar ro'yxati (V14). */
   chiefFilials: "/operator/chief/filials/",
-  /** Kuryerning naqd hisobi — e'lon qilinmagan kunlar ham (V11). */
-  chiefCourierCod: (id: number) => `/operator/chief/couriers/${id}/cod/`,
   chiefCouriers: "/operator/chief/couriers/",
   chiefCourier: (id: number) => `/operator/chief/couriers/${id}/`,
   /** Kuryer login/paroli (hujjat 67): ko'rish, parol qo'yish (akkaunt ham ochadi), qurilmadan chiqarish. */
@@ -85,12 +83,17 @@ export const ENDPOINTS = {
   chiefSalesSheetExport: "/operator/chief/report/sales-sheet/export/",
   /** Berish rejasi (§4): qo'lida, zakazlarga kerak, yana berish kerak. */
   chiefIssuePlan: "/operator/chief/report/issue-plan/",
-  /** Kassa 2-pog'ona: holat va filialga topshirish (§5.2–5.3). */
+  /** Kuryerdan pul olish (hujjat 85 §2): skidka — `PUT {courier_id, date, amount, note?}`, `0` — o'chirish. */
+  chiefSalesSheetDiscount: "/operator/chief/report/sales-sheet/discount/",
+  /** «Oldim» — `POST {courier_id, date, amount, note?}`; bir kunda bir nechta (yig'iladi). */
+  chiefSalesSheetReceipts: "/operator/chief/report/sales-sheet/receipts/",
+  /** «Oldim» ni bekor qilish — faqat o'sha kuni, o'zi yozgan. */
+  chiefSalesSheetReceipt: (id: number) => `/operator/chief/report/sales-sheet/receipts/${id}/`,
+  /** Kassa — filialga topshirish jadvali (hujjat 85 §3): nima sotildi va har filial puli. */
+  chiefCashSheet: "/operator/chief/report/cash-sheet/",
+  /** Kassa: holat, tarix va filialga topshirish (§5.2–5.3; «Topshirdim» — o'zgarishsiz, 85 §3). */
   chiefCash: "/operator/chief/cash/",
   chiefCashHandover: "/operator/chief/cash/handover/",
-  /** Kassa 1-pog'ona: kuryer e'lonlari va qabul (K1 javoblari, `chief=men`). */
-  chiefCodHandovers: "/operator/chief/cod/handovers/",
-  chiefCourierSettle: (id: number) => `/operator/chief/couriers/${id}/settle/`,
   /**
    * Sklad (bosh kuryerga faqat o'qish, V7/V8): `sklads/` — faqat o'z skladi,
    * `stock/` — o'z skladi omborlari va kuryerlari ombori, `couriers/` — o'z kuryerlari.
@@ -108,6 +111,10 @@ export const ENDPOINTS = {
   chiefLoadRequestReject: (id: number) => `/operator/chief/warehouse/load-requests/${id}/reject/`,
   /** Sklad soketi — `sklad_changed` (bosh kuryer boshqa skladga o'tkazildi, §11). */
   skladSocket: "/ws/sklad/",
+  /** Sklad jadvali (hujjat 85 §1): hozirgi qoldiq, kunlik va davr harakati — `date_from`, `date_to`, `region`. */
+  chiefSkladSheet: "/operator/chief/report/sklad-sheet/",
+  /** Sklad jadvali Excel'i (§1.6) — fayl serverda yasaladi. */
+  chiefSkladSheetExport: "/operator/chief/report/sklad-sheet/export/",
   /** O'z kuryerlari baholari: qatorlar, `summary`, `by_courier` (`ILOVA_HOLAT…` §7.1). */
   chiefRatings: "/operator/chief/ratings/",
   /** Qo'lda kiritilgan tuman/shahar/qishloq (V6). */

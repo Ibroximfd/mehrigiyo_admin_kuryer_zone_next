@@ -6,19 +6,23 @@ import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe } from "@/features/chief/types";
 import { cn } from "@/lib/utils";
 
+import { CashCollectionView } from "./cash-collection-view";
 import { IssuePlanView } from "./issue-plan-view";
 import { SalesSheetView } from "./sales-sheet-view";
 
 const TABS = [
   { value: "sheet", label: "Sotuv jadvali" },
+  { value: "cash", label: "Pul olish" },
   { value: "plan", label: "Berish rejasi" },
 ] as const;
 
 const TAB_VALUES = TABS.map((tab) => tab.value);
 
 /**
- * «Sotuv jadvali» bo'limi (hujjat 83): ikki tab, tanlangani URLda (`?tab=`) —
- * havola ulashilsa ayni ko'rinish ochiladi.
+ * «Sotuv jadvali» bo'limi (hujjat 83, 85 §2): uch tab — jadval, kuryerdan pul
+ * olish va berish rejasi; tanlangani URLda (`?tab=`) — havola ulashilsa ayni
+ * ko'rinish ochiladi. «Oldim» — `cash.accept` dopuski bilan (eski «Kuryerdan
+ * qabul qilish» dagidek).
  */
 export function SalesSheetSection({ me }: { me: ChiefMe }) {
   const [tab, setTab] = useQueryState("tab", parseAsStringLiteral(TAB_VALUES).withDefault("sheet"));
@@ -41,7 +45,13 @@ export function SalesSheetSection({ me }: { me: ChiefMe }) {
           </button>
         ))}
       </div>
-      {tab === "plan" ? <IssuePlanView canOpenSklad={chiefCan(me, "warehouse.view_courier_stores")} /> : <SalesSheetView />}
+      {tab === "plan" ? (
+        <IssuePlanView canOpenSklad={chiefCan(me, "warehouse.view_courier_stores")} />
+      ) : tab === "cash" ? (
+        <CashCollectionView canAccept={chiefCan(me, "cash.accept")} />
+      ) : (
+        <SalesSheetView />
+      )}
     </div>
   );
 }

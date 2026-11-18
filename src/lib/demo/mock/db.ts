@@ -8,7 +8,6 @@ import {
   DEMO_CHIEF,
   DEMO_CLIENTS,
   DEMO_COURIERS,
-  DEMO_DECLARED_YESTERDAY,
   DEMO_ORDER_PLAN,
   DEMO_REGIONS,
   DEMO_STREETS,
@@ -70,9 +69,6 @@ export type DemoOrderRow = {
 /** Zakaz tarixi — `action` kodi, yorlig'ini frontend beradi. */
 export type DemoHistoryEntry = { at: Date; action: string; actor: string | null; courier: string | null };
 
-/** Kuryer ilovasidan «topshiraman» e'loni. */
-export type DemoDeclaration = { courierId: number; date: string; amount: number; createdAt: Date };
-
 export type DemoFilialHandover = {
   id: number;
   /** `null` — eski, filialsiz e'lon. */
@@ -91,9 +87,6 @@ export type DemoFilialHandover = {
   clientActionId: string | null;
   createdAt: Date;
 };
-
-/** Kuryerdan qabul — kun bo'yicha; sanalgan summa e'londan farq qilsa `disputed`. */
-export type DemoSettlement = { courierId: number; date: string; declared: number; confirmed: number; at: Date };
 
 export function dayOffset(daysAgo: number, now = new Date()): string {
   return toIsoDay(subDays(now, daysAgo));
@@ -173,18 +166,6 @@ function buildOrders(now: Date): DemoOrderRow[] {
   });
 }
 
-function buildDeclarations(orders: DemoOrderRow[], now: Date): DemoDeclaration[] {
-  const yesterday = dayOffset(1, now);
-  return DEMO_DECLARED_YESTERDAY.map((courierId) => ({
-    courierId,
-    date: yesterday,
-    amount: orders
-      .filter((order) => order.courierId === courierId && order.deliveredAt && toIsoDay(order.deliveredAt) === yesterday)
-      .reduce((sum, order) => sum + order.total, 0),
-    createdAt: at(0, 9, now),
-  })).filter((item) => item.amount > 0);
-}
-
 function buildHistory(now: Date): DemoFilialHandover[] {
   const code = (index: number) => DEMO_FILIALS[index % DEMO_FILIALS.length]!.code;
   return [4, 4, 5, 6, 6, 7].map((daysAgo, index) => {
@@ -208,32 +189,17 @@ function buildHistory(now: Date): DemoFilialHandover[] {
   });
 }
 
-/** Oldindan qabul qilingan kunlar — to'liq summa bilan. */
-function buildSettlements(orders: DemoOrderRow[]): DemoSettlement[] {
-  const groups = new Map<string, DemoSettlement>();
-  for (const order of orders) {
-    if (!order.settledDay || !order.deliveredAt || order.courierId === null) continue;
-    const date = toIsoDay(order.deliveredAt);
-    const key = `${order.courierId}|${date}`;
-    const row = groups.get(key) ?? { courierId: order.courierId, date, declared: 0, confirmed: 0, at: order.deliveredAt };
-    groups.set(key, { ...row, declared: row.declared + order.total, confirmed: row.confirmed + order.total });
-  }
-  return [...groups.values()];
-}
-
 function initialState(now = new Date()) {
   const orders = buildOrders(now);
   return {
     couriers: DEMO_COURIERS.map((courier): DemoCourierRow => ({ ...courier, hasAccount: true })),
     zones: DEMO_ZONES.map((zone): DemoZoneRow => ({ ...zone, districtCodes: [...zone.districtCodes] })),
     orders,
-    declarations: buildDeclarations(orders, now),
     filialHandovers: buildHistory(now),
     /** Bosh kuryer qo'lda qo'shgan joylar (V6) — lug'atga tushadi. */
     customPlaces: [] as DemoDistrict[],
     /** Bosh kuryer tahriri (hujjat 51): kod → nom / ruscha nom / yashirilgan. */
     placeEdits: new Map<string, { nameUz?: string; nameRu?: string | null; isActive?: boolean }>(),
-    settlements: buildSettlements(orders),
     nextId: 900,
   };
 }

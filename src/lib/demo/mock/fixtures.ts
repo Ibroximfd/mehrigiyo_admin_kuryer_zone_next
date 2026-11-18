@@ -152,6 +152,3 @@ export const DEMO_ORDER_PLAN: readonly OrderPlan[] = [
   { kind: "delivered", district: "qoqon_sh", filial: "Q", courierId: 503, daysAgo: 3, settled: true },
   { kind: "delivered", district: "asaka", filial: "T1", courierId: 505, daysAgo: 3, settled: true },
 ];
-
-/** Kecha yetkazgan pulini ilovadan «topshiraman» deb e'lon qilgan kuryerlar. */
-export const DEMO_DECLARED_YESTERDAY = [501, 503] as const;

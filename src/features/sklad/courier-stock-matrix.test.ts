@@ -17,7 +17,7 @@ const courier = (id: number, items: Array<[ItemRef, number]>): CourierStock => (
   items: items.map(([item, quantity]) => ({ item, quantity })),
 });
 
-const inStore = (item: ItemRef, inSklad: number): SkladStockRow => ({ item, inSklad, withCouriers: 0, isLow: false });
+const inStore = (item: ItemRef, inSklad: number): SkladStockRow => ({ item, inSklad, withCouriers: 0, minQuantity: 0, isLow: false });
 
 describe("buildCourierStockMatrix", () => {
   it("ustunlar — kuryerlardagi mahsulotlar birlashmasi, nom bo'yicha (kelish tartibiga bog'liq emas)", () => {

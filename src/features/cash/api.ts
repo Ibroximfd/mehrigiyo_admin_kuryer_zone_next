@@ -1,20 +1,31 @@
 import { api, ApiError } from "@/lib/api-client";
 import { ENDPOINTS } from "@/lib/api-constants";
-import { asPage } from "@/lib/paginate";
 
-import { codWindow, courierDebt, mapServerCourierMoney } from "./courier-debts";
-import type { CourierDebt } from "./courier-debts";
-import { mapChiefCash, mapChiefHandover, mapCourierCod, mapCourierHandover, mapFilialChoices } from "./types";
-import type { CashSort, ChiefCash, CourierCod, CourierHandover, HandoverResult, HandoverStatus } from "./types";
+import { mapCashSheet } from "./cash-sheet";
+import type { CashSheet } from "./cash-sheet";
+import { mapChiefCash, mapChiefHandover, mapFilialChoices } from "./types";
+import type { ChiefCash, HandoverResult } from "./types";
 
 /** `GET chief/cash/` — sukut oxirgi 31 kun (`TUZILMA_V2` §5.2). */
 export async function fetchChiefCash(range: { from?: string; to?: string } = {}, signal?: AbortSignal): Promise<ChiefCash> {
-  const raw = await api.get<unknown>(ENDPOINTS.chiefCash, {
-    searchParams: { date_from: range.from, date_to: range.to },
-    signal,
-    fallbackError: "Kassani yuklashda xatolik",
-  });
-  return mapChiefCash(raw, mapServerCourierMoney(raw, new Date()));
+  return mapChiefCash(
+    await api.get<unknown>(ENDPOINTS.chiefCash, {
+      searchParams: { date_from: range.from, date_to: range.to },
+      signal,
+      fallbackError: "Kassani yuklashda xatolik",
+    }),
+  );
+}
+
+/** Filialga topshirish jadvali (hujjat 85 §3): kun yoki oraliq. */
+export async function fetchCashSheet(range: { dateFrom: string; dateTo: string }, signal?: AbortSignal): Promise<CashSheet> {
+  return mapCashSheet(
+    await api.get<unknown>(ENDPOINTS.chiefCashSheet, {
+      searchParams: { date_from: range.dateFrom, date_to: range.dateTo },
+      signal,
+      fallbackError: "Kassa jadvalini yuklashda xatolik",
+    }),
+  );
 }
 
 export type HandoverInput = {
@@ -59,101 +70,4 @@ export async function submitChiefHandover(input: HandoverInput): Promise<Handove
     }
     throw error;
   }
-}
-
-export type CourierHandoverQuery = {
-  status: HandoverStatus | null;
-  courierId: number | null;
-  from: string | null;
-  to: string | null;
-  sort: CashSort;
-  page: number;
-};
-
-/** Kuryerlar e'lonlari (`chief/cod/handovers/`, V10): sana oralig'i, tartib, sahifa (10 tadan). */
-export async function fetchCourierHandovers(
-  query: CourierHandoverQuery,
-  signal?: AbortSignal,
-): Promise<{ rows: CourierHandover[]; count: number; hasMore: boolean }> {
-  const raw = await api.get<unknown>(ENDPOINTS.chiefCodHandovers, {
-    searchParams: {
-      status: query.status,
-      courier_id: query.courierId,
-      date_from: query.from,
-      date_to: query.to,
-      ordering: query.sort,
-      page: query.page,
-    },
-    signal,
-    fallbackError: "Kuryerlar pulini yuklashda xatolik",
-  });
-  const page = asPage(raw);
-  return { rows: page.items.map(mapCourierHandover), count: page.total ?? page.items.length, hasMore: page.hasMore };
-}
-
-/** Kuryerning kunma-kun naqdi — e'lon qilinmagan kunlar ham (V11). */
-export async function fetchCourierCod(
-  courierId: number,
-  range: { from: string; to: string },
-  signal?: AbortSignal,
-): Promise<CourierCod> {
-  return mapCourierCod(
-    await api.get<unknown>(ENDPOINTS.chiefCourierCod(courierId), {
-      searchParams: { date_from: range.from, date_to: range.to },
-      signal,
-      fallbackError: "Naqd hisobini yuklashda xatolik",
-    }),
-    range.to,
-  );
-}
-
-/**
- * Kuryerdan qabul (`chief/couriers/{id}/settle/`): bir kun yoki oraliq.
- * `confirmedAmount` — sanalgan pul; farq kuryerda qarz bo'lib qoladi.
- */
-export async function settleCourierCash(
-  courierId: number,
-  input: { date: string; dateTo?: string; confirmedAmount: number | null; note: string; clientActionId: string },
-): Promise<void> {
-  // Bir kun — `date`; oraliq (bir necha kunni birga) — `date_from` + `date_to` (P4).
-  const json: Record<string, unknown> =
-    input.dateTo && input.dateTo !== input.date ? { date_from: input.date, date_to: input.dateTo } : { date: input.date };
-  if (input.confirmedAmount !== null) json.confirmed_amount = input.confirmedAmount;
-  if (input.note.trim()) json.note = input.note.trim();
-  // Bir qabul — bitta kalit: tarmoq uzilib qayta yuborilsa pul ikki marta yozilmasin (59-hujjat §B6).
-  json.client_action_id = input.clientActionId;
-  await api.post<unknown>(ENDPOINTS.chiefCourierSettle(courierId), { json, fallbackError: "Naqdni qabul qilishda xatolik" });
-}
-
-/**
- * Kuryerning qabul qilinmagan HAMMA kunlari (`cod/?open=1`, 59-javob B2) —
- * muddat cheklovisiz. Eski server `open` ni bilmaydi: u holda 31 kunlik oraliq
- * qaytadi va `open: false` bo'ladi — ekran «oxirgi 31 kun» deb yozadi.
- */
-export async function fetchCourierOpenCod(courierId: number, signal?: AbortSignal): Promise<CourierCod> {
-  const range = codWindow(new Date());
-  return mapCourierCod(
-    await api.get<unknown>(ENDPOINTS.chiefCourierCod(courierId), {
-      searchParams: { open: 1, date_from: range.from, date_to: range.to },
-      signal,
-      fallbackError: "Naqd hisobini yuklashda xatolik",
-    }),
-    range.to,
-  );
-}
-
-/**
- * Eski server uchun zaxira (`chief/cash/` da `couriers` bloki yo'q): har kuryerning
- * qabul qilinmagan kunlari, bir vaqtda.
- */
-export async function fetchCourierDebts(
-  couriers: ReadonlyArray<{ id: number; fullName: string }>,
-  signal?: AbortSignal,
-): Promise<CourierDebt[]> {
-  const today = new Date();
-  return Promise.all(
-    couriers.map(async (courier) =>
-      courierDebt({ id: courier.id, fullName: courier.fullName }, await fetchCourierOpenCod(courier.id, signal), today),
-    ),
-  );
 }

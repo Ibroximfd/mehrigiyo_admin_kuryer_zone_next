@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { mapChiefCash, mapCourierHandover } from "@/features/cash/types";
+import { mapChiefCash } from "@/features/cash/types";
 import { mapAutoAssignPreview, mapAutoAssignResult, mapChiefFilials, mapChiefMe, mapChiefOrderDetail } from "@/features/chief/types";
 import { mapCourier } from "@/features/couriers/types";
 import { mapLogistOrder } from "@/features/orders/types";
 import { mapChiefRatings } from "@/features/ratings/types";
 import { mapChiefFinance } from "@/features/report/types";
-import { mapCourierCod } from "@/features/cash/types";
 import { mapOwnSklad, mapSkladMe, mapStockCell } from "@/features/sklad/types";
 import { todayIso } from "@/lib/format";
 import { asPage } from "@/lib/paginate";
@@ -51,16 +50,6 @@ describe("demo rejim: backend v2 shakllari", () => {
     const courier = mapCourier((await patch("/operator/chief/couriers/501/", { is_active: false, zone_ids: [] })).data);
     expect(courier.isActive).toBe(false);
     expect(demoDb.orders.some((order) => order.status === "shipping" && order.courierId === 501)).toBe(false);
-  });
-
-  it("1-pog'ona: e'lon kam summa bilan qabul qilinsa — `disputed`, filialga topshiriladigan pul oshadi", async () => {
-    const pending = asPage((await get("/operator/chief/cod/handovers/", { status: "pending" })).data).items.map(mapCourierHandover);
-    const row = pending[0]!;
-    const before = mapChiefCash((await get("/operator/chief/cash/")).data).byFilial.reduce((sum, item) => sum + item.toHandOver, 0);
-    const settled = await post(`/operator/chief/couriers/${row.courier!.id}/settle/`, { date: row.date, confirmed_amount: row.amount - 1000 });
-    expect(settled.data).toMatchObject({ success: true, handover: { status: "disputed" } });
-    const after = mapChiefCash((await get("/operator/chief/cash/")).data).byFilial.reduce((sum, item) => sum + item.toHandOver, 0);
-    expect(after).toBeGreaterThan(before);
   });
 
   it("kassa: `delivered_by_method` (hujjat 79 §6) yig'indisi — davrda yetkazilganlar summasi", async () => {
@@ -150,11 +139,6 @@ describe("demo rejim: backend v2 shakllari", () => {
     const low = mapChiefRatings((await get("/operator/chief/ratings/", { stars: "1,2" })).data);
     expect(low.rows.every((row) => row.stars <= 2)).toBe(true);
     expect(low.summary.count).toBe(all.summary.lowCount);
-  });
-
-  it("kuryer naqdi oraliq bilan (V11)", async () => {
-    const cod = mapCourierCod((await get("/operator/chief/couriers/503/cod/", { date_from: "2000-01-01", date_to: todayIso() })).data);
-    expect(cod.days.length).toBeGreaterThan(0);
   });
 
   it("sklad: me → sklad_id va viloyatlar, faqat o'z skladi, qoldiq — sklad + kuryerlar (V7/V8/V16)", async () => {

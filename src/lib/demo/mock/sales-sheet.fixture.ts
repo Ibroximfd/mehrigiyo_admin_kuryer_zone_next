@@ -6,7 +6,11 @@ import { toIsoDay, todayIso } from "@/lib/format";
 import { DEMO_CHIEF } from "./fixtures";
 
 /**
- * Demo «backend»: kunlik sotuv jadvali va berish rejasi (hujjat 83 §2–§5).
+ * FAQAT TEST FIKSTURASI — demo router'ga ulanmagan, ilovada hech qachon
+ * ko'rsatilmaydi (egasi, 2026-11-18: haqiqiy hisob ekranlarida demo ma'lumot
+ * yo'q). `sheet-render.test.ts` shu yerdan javob shaklini oladi.
+ *
+ * Kunlik sotuv jadvali va berish rejasi javobi (hujjat 83 §2–§5).
  * 16.11.2026 — egasi Google Sheet'idagi haqiqiy raqamlar (uch kuryer),
  * 17.11 — davomi (bitta kuryerda qaytarish bor), keyingi kunlar barqaror
  * «tasodifiy» sonlar bilan to'ldiriladi; `SINCE` dan oldin va kelajakda — bo'sh.

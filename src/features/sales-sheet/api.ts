@@ -47,6 +47,39 @@ export async function saveCourierFee(input: CourierFeeInput): Promise<void> {
   });
 }
 
+/** Bir kuryer + bir kun (hujjat 85 §2): skidka yoki «Oldim» summasi, butun so'm. */
+export type CourierCashInput = {
+  courierId: number;
+  /** `YYYY-MM-DD` — jadvalda ochiq kun. */
+  date: string;
+  amount: number;
+  note: string;
+};
+
+function cashBody(input: CourierCashInput) {
+  const note = input.note.trim();
+  return { courier_id: input.courierId, date: input.date, amount: input.amount, ...(note ? { note } : {}) };
+}
+
+/**
+ * Skidka — bosh kuryer o'zi yozadi (§2): bir kuryer + kun = bitta yozuv, `0` —
+ * o'chirish. Javobdagi yangi `cash` o'qilmaydi: jadval qayta so'raladi, shunda
+ * jami qatori va tenglama ham serverdan keladi.
+ */
+export async function saveCourierDiscount(input: CourierCashInput): Promise<void> {
+  await api.put<unknown>(ENDPOINTS.chiefSalesSheetDiscount, { json: cashBody(input), fallbackError: "Skidkani saqlab bo'lmadi" });
+}
+
+/** «Oldim» (§2): kuryerdan olingan summa; bir kunda bir nechta yozuv yig'iladi. */
+export async function addCashReceipt(input: CourierCashInput): Promise<void> {
+  await api.post<unknown>(ENDPOINTS.chiefSalesSheetReceipts, { json: cashBody(input), fallbackError: "Pulni yozib bo'lmadi" });
+}
+
+/** «Oldim» ni bekor qilish (§2) — server faqat o'sha kuni va o'zi yozganiga ruxsat beradi. */
+export async function cancelCashReceipt(receiptId: number): Promise<void> {
+  await api.delete<unknown>(ENDPOINTS.chiefSalesSheetReceipt(receiptId), { fallbackError: "Yozuvni bekor qilib bo'lmadi" });
+}
+
 /** Berish rejasi (§4): `date` — reja kuni. */
 export async function fetchIssuePlan(date: string, signal?: AbortSignal): Promise<IssuePlan> {
   return mapIssuePlan(

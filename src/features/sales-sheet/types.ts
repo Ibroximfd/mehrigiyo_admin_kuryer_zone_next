@@ -2,6 +2,9 @@ import { countsInDona, piecesPerBoxOf } from "@/lib/dona";
 import { PIECE_UNIT } from "@/lib/item-ref";
 import { asArray, asInt, asNumber, asOptionalInt, asOptionalNumber, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
+import { mapOptionalCash } from "./cash";
+import type { CourierCash } from "./cash";
+
 /**
  * Kunlik sotuv jadvali va berish rejasi (hujjat 83 §2–§4) — bosh kuryerlar
  * Google Sheet'da qo'lda yuritgan «SOTUV» jadvali. Hisob faqat serverda:
@@ -110,6 +113,8 @@ export type SheetFigures = Record<SheetFlow, CellMap> & {
   fee: CourierFee | null;
   /** Kassaga topshiriladigan naqd (`cash − fee`) — serverdan; kelmasa `null` («—», hisoblanmaydi). */
   handoverDue: number | null;
+  /** Kuryerdan pul olish (hujjat 85 §2); server hali bermasa — `null`. */
+  cash: CourierCash | null;
 };
 
 export type SheetDay = SheetFigures & { date: string };
@@ -165,6 +170,7 @@ function mapFigures(raw: unknown): SheetFigures {
     openOrders: asInt(json.open_orders),
     fee: mapFee(json.fee),
     handoverDue: asOptionalNumber(json.handover_due),
+    cash: mapOptionalCash(json.cash),
   };
 }
 

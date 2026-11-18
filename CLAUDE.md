@@ -14,18 +14,25 @@ topshiriladigan naqd»dan serverda ayiriladi (`handover_due`); frontend pulni ha
 - `/` Zakazlar — kuryerga zona bo'yicha qo'lda / avto (`/chief/orders/*`)
 - `/couriers` Kuryerlar — yaratish, bitta zonaga biriktirish, o'tkazish, bloklash (`/chief/couriers/*`)
 - `/zones` Zonalar — tuman/shaharlarni biriktirish va zonalar orasida o'tkazish (`/chief/zones/*`)
-- `/sklad` Sklad — faqat o'z skladi va kuryerlari ombori (`sklad/me|sklads|stock|couriers`)
-- `/cash` Kassa — 1-pog'ona `chief/cod/handovers/`, `chief/couriers/{id}/cod|settle/`; 2-pog'ona `chief/cash/` + `chief/cash/handover/` (`filial_required`, `oldest_day`)
+- `/sklad` Sklad — faqat o'z skladi va kuryerlari ombori (`sklad/me|sklads|stock|couriers`); `?view=` Kunlik (sukut) ·
+  Sanadan sanagacha — `chief/report/sklad-sheet/` (+ `export/`, hujjat 85 §1, `features/sklad-sheet`) · Kuryerlar ombori
+- `/cash` Kassa (hujjat 85 §3) — «Nima sotildi» + «Filialga topshirish» `chief/report/cash-sheet/` (`?p=day|range`);
+  «Topshirdim» va tarix — `chief/cash/` + `chief/cash/handover/` (`filial_required`, `oldest_day`). «Kuryerdan qabul
+  qilish» (`chief/cod/…`, `settle/`) olib tashlandi — kuryerdan pul `/sheet?tab=cash` «Pul olish»da
 - `/report` Moliya — `chief/finance/` (filial, kuryer va mahsulot kesimi)
 - `/sheet` Sotuv jadvali (hujjat 83; menyuda `secondary` — telefon pastki panelida yo'q) — kunlik «SOTUV» jadvali
-  `chief/report/sales-sheet/` (+ `fee/` kuryer xizmati, `export/` Excel) va «Berish rejasi» `chief/report/issue-plan/`
+  `chief/report/sales-sheet/` (+ `fee/` kuryer xizmati, `export/` Excel), «Pul olish» (hujjat 85 §2: `cash` bloki,
+  `discount/`, `receipts/`) va «Berish rejasi» `chief/report/issue-plan/`
 
 Butun sayt `ChiefSiteGate` bilan: `GET /chief/me/` 200 bo'lmasa — «Bu sayt bosh kuryerlar uchun».
 
 ## Backend va demo
 Sukut — haqiqiy backend v2 (`DEFAULT_DEMO = false`). Demo: `APP_DEMO=1` → `api-client` `request()` har so'rovni
 `src/lib/demo/mock/router.ts` ga beradi (haqiqiy backend shakllari, xotiradagi `db.ts`). Yangi endpoint ulansa —
-router'ga ham shu shaklda qo'shiladi. `mock/` i18n qamrovidan tashqarida. Backenddan kutilayotganlar:
+router'ga ham shu shaklda qo'shiladi. Istisno: `chief/report/sales-sheet/` (+ `fee/`, `export/`), `issue-plan/` va `chief/report/sklad-sheet/` (+ `export/`) uchun demo ma'lumot ATAYLAB yo'q —
+haqiqiy hisob raqamlari (egasi, 2026-11-18); demoda ham 404 → «server hali chiqarmagan». `mock/` i18n qamrovidan tashqarida.
+«Pul olish» (`sales-sheet` `cash` bloki, `…/discount/`, `…/receipts/`) va Kassa jadvali (`chief/report/cash-sheet/`) uchun ham demo
+ma'lumot ATAYLAB yo'q — haqiqiy pul (egasi, 2026-11-18); demoda «server hali chiqarmagan». Backenddan kutilayotganlar:
 `docs/BACKEND_KERAK_V2.md`, savollar: `docs/BACKEND_SAVOLLAR_V2_2026-10-31.md`.
 
 ## Qoidalar

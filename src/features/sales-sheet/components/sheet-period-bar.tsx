@@ -8,19 +8,28 @@ import { todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { dayTitle, rangeTitle, SHEET_PERIODS } from "../period";
+import type { PeriodOption } from "../period";
 import type { SheetPeriodControls } from "../use-sheet-period";
 
 /**
- * Davr boshqaruvi: Kun · Hafta · Oy · Oraliq. Kun rejimida — oldingi/keyingi
- * kun, sana tanlash va «Bugun»ga qaytish; hafta va oyda — haqiqiy oraliq
- * yozuvi; oraliqda — ikki sana maydoni.
+ * Davr boshqaruvi: Kun · Hafta · Oy · Oraliq (yoki `periods` dagi qismi). Kun
+ * rejimida — oldingi/keyingi kun, sana tanlash va «Bugun»ga qaytish; hafta va
+ * oyda — haqiqiy oraliq yozuvi; oraliqda — ikki sana maydoni.
  */
-export function SheetPeriodBar({ controls, children }: { controls: SheetPeriodControls; children?: React.ReactNode }) {
+export function SheetPeriodBar({
+  controls,
+  periods = SHEET_PERIODS,
+  children,
+}: {
+  controls: SheetPeriodControls;
+  periods?: readonly PeriodOption[];
+  children?: React.ReactNode;
+}) {
   const { period, range } = controls;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div role="group" aria-label="Davr" className="bg-surface-3 inline-flex gap-0.5 rounded-lg p-0.5">
-        {SHEET_PERIODS.map((option) => (
+        {periods.map((option) => (
           <button
             key={option.value}
             type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Inbox, LoaderCircle, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,9 +16,10 @@ import { shownQuantity, shownUnit } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
-import { approveLoadRequest, fetchLoadRequests, rejectLoadRequest } from "../api";
+import { approveLoadRequest, rejectLoadRequest } from "../api";
 import { describeLine, enteredQuantity, entersBoxes, rowErrorsOf, splitPieces, toPieces } from "../packaging";
 import { mapShortages, type LoadRequest, type LoadRequestStatus } from "../types";
+import { useLoadRequests } from "../use-load-requests";
 
 const TABS: Array<[LoadRequestStatus, string]> = [
   ["pending", "Kutilmoqda"],
@@ -41,11 +42,7 @@ function when(iso: string | null): string {
  */
 export function LoadRequestsPanel() {
   const [status, setStatus] = useState<LoadRequestStatus>("pending");
-  const requests = useQuery({
-    queryKey: queryKeys.chiefLoadRequests(status),
-    queryFn: ({ signal }) => fetchLoadRequests(status, signal),
-    refetchInterval: status === "pending" ? 60_000 : false,
-  });
+  const requests = useLoadRequests(status);
 
   return (
     <div className="flex flex-col gap-3">
@@ -150,7 +147,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
     });
   };
 
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: ["chief", "sklad"] });
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
   const onError = (error: unknown) => {
     if (errorCode(error) === "insufficient_stock") {
       const shortages = error instanceof ApiError ? mapShortages(error.data) : [];

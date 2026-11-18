@@ -17,24 +17,26 @@ const PARSERS = {
  * Davr URLda — havola ulashilsa ayni davr ochiladi:
  * `?p=day|week|month|range&from=&to=`. Sukut — bugun: bugungi kun URLga
  * yozilmaydi, ertasi kuni sahifa o'zi yangi kunni ochadi. Kun rejimida
- * `from` — tanlangan kun.
+ * `from` — tanlangan kun. `allowed` — sahifada bor davrlar (Kassa: kun va
+ * oraliq); URLdagi boshqasi sukut kunga tushadi.
  */
-export function useSheetPeriod() {
+export function useSheetPeriod(allowed: readonly SheetPeriod[] = SHEET_PERIOD_VALUES) {
   const [state, setState] = useQueryStates(PARSERS);
-  const range = resolveSheetRange(state.p, { from: state.from, to: state.to });
+  const period = allowed.includes(state.p) ? state.p : DEFAULT_SHEET_PERIOD;
+  const range = resolveSheetRange(period, { from: state.from, to: state.to });
   const today = todayIso();
 
   const setDay = (day: string) => void setState({ p: "day", from: day >= today ? null : day, to: null });
 
   return {
-    period: state.p,
+    period,
     range,
     singleDay: isSingleDay(range),
     /** Kun rejimida bugun ochiq — «keyingi kun» yo'q. */
     isToday: range.dateTo === today,
     /** Oraliqqa o'tilganda joriy davr maydonlarga tushadi — ko'ringan sanalar yo'qolmaydi. */
-    setPeriod: (period: SheetPeriod) =>
-      void setState(period === "range" ? { p: period, from: range.dateFrom, to: range.dateTo } : { p: period, from: null, to: null }),
+    setPeriod: (next: SheetPeriod) =>
+      void setState(next === "range" ? { p: next, from: range.dateFrom, to: range.dateTo } : { p: next, from: null, to: null }),
     setDay,
     shiftDay: (days: number) => setDay(shiftDay(range.dateFrom, days)),
     setRange: (from: string, to: string) => void setState({ p: "range", from: from || null, to: to || null }),

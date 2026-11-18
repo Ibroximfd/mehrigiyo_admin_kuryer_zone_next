@@ -1,5 +1,6 @@
 import type { Dictionary } from "../matcher";
 
+import { CASH_SHEET } from "./cash-sheet";
 import { COMMON } from "./common";
 import { COURIER_APP } from "./courier-app";
 import { COURIERS } from "./couriers";
@@ -8,6 +9,7 @@ import { PANEL } from "./panel";
 import { CHIEF } from "./chief";
 import { DISPATCH } from "./dispatch";
 import { SALES_SHEET } from "./sales-sheet";
+import { SKLAD_SHEET } from "./sklad-sheet";
 import { ZONES } from "./zones";
 
 /**
@@ -24,4 +26,6 @@ export const RU_DICTIONARY: Dictionary = {
   ...CHIEF,
   ...DISPATCH,
   ...SALES_SHEET,
+  ...CASH_SHEET,
+  ...SKLAD_SHEET,
 };

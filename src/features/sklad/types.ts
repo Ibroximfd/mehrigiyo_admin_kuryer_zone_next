@@ -165,6 +165,8 @@ export type SkladStockRow = {
   item: ItemRef;
   inSklad: number;
   withCouriers: number;
+  /** Kam qoldiq chegarasi — omborlar minimumining eng kattasi (sklad birligida); 0 — chegara yo'q. */
+  minQuantity: number;
   isLow: boolean;
 };
 
@@ -183,6 +185,7 @@ export function skladStockRows(
       item: cell.item,
       inSklad: 0,
       withCouriers: 0,
+      minQuantity: 0,
       isLow: false,
     };
     byItem.set(cell.item.id, { ...row, inSklad: row.inSklad + cell.onHand });
@@ -193,7 +196,7 @@ export function skladStockRows(
   }
   for (const [id, row] of byItem) {
     const min = minByItem.get(id) ?? 0;
-    byItem.set(id, { ...row, isLow: min > 0 && row.inSklad < min });
+    byItem.set(id, { ...row, minQuantity: min, isLow: min > 0 && row.inSklad < min });
   }
   for (const stock of couriers) {
     for (const entry of stock.items) {
