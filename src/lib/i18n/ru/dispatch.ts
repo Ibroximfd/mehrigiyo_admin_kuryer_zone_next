@@ -20,7 +20,7 @@ export const DISPATCH: Dictionary = {
   "qo'lida": "на руках",
   "Filtrga mos kuryersiz zakaz yo'q": "Нет заказов без курьера по фильтру",
   "{x} ta zakaz berildi": "Передано заказов: {x}",
-  "{x} tadan {x} tasi berildi": "Передано {x} из {x}",
+  "{x} tadan {x2} tasi berildi": "Передано {x2} из {x}",
   "· hech narsa o'zgarmadi": "· ничего не изменилось",
   "· kuryerga push bir necha soniyada boradi": "· курьер получит уведомление через несколько секунд",
   "{x} tasi berilmadi": "Не передано: {x}",

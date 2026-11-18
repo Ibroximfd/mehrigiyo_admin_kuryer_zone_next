@@ -156,14 +156,32 @@ export function createTranslator(
 
   const cache = new Map<string, string | null>();
 
+  /**
+   * Bir xil nomli o'rinlar (`{x} … {x}`) tartib bo'yicha to'ldiriladi:
+   * tarjimadagi k-`{x}` ← kalitdagi k-`{x}`. Ilgari nom bo'yicha xarita
+   * edi va ikkala o'ringa OXIRGI qiymat tushardi — «naqd 100 000 · karta
+   * 50 000» ruschada «50 000 · 50 000» bo'lib chiqardi (2026-11-18).
+   * Ko'plik shakli (`{n:заказ|…}`) yangi o'rin olmaydi — o'zidan oldingi
+   * shu nomli qiymatga tegishli. Tarjimada tartib boshqacha bo'lsa — nomlar
+   * har xil bo'lishi shart (`{x}`, `{x2}`).
+   */
   function fillTarget(template: Template, values: string[]): string {
-    const byName = new Map<string, string>();
-    template.slots.forEach((slot, index) => byName.set(slot.name, values[index] ?? ""));
+    const byName = new Map<string, string[]>();
+    template.slots.forEach((slot, index) => {
+      byName.set(slot.name, [...(byName.get(slot.name) ?? []), values[index] ?? ""]);
+    });
+    const used = new Map<string, number>();
 
     return template.target.replace(PLACEHOLDER, (_whole, name: string, forms?: string) => {
-      const value = byName.get(name) ?? "";
-      if (forms !== undefined) return russianPlural(parseNumber(value), forms.split("|"));
-      return value;
+      const list = byName.get(name) ?? [];
+      const next = used.get(name) ?? 0;
+      if (forms !== undefined) {
+        const value = list[Math.min(Math.max(next - 1, 0), list.length - 1)] ?? "";
+        return russianPlural(parseNumber(value), forms.split("|"));
+      }
+      used.set(name, next + 1);
+      // Tarjimada o'rin kalitdagidan ko'p uchrasa — oxirgi qiymat takrorlanadi.
+      return list[Math.min(next, list.length - 1)] ?? "";
     });
   }
 

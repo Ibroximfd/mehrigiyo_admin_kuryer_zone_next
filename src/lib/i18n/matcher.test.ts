@@ -143,3 +143,26 @@ describe("translateText", () => {
     expect(translateText("3 daqiqa oldin", "ru")).toBe("3 минуты назад");
   });
 });
+
+describe("bir xil nomli o'rinlar — tartib bo'yicha (2026-11-18)", () => {
+  const book = createTranslator(
+    {
+      "· naqd {x} · karta {x}": "· наличные {x} · карта {x}",
+      "{x} tadan {x2} tasi berildi": "Передано {x2} из {x}",
+      "{n} ta zakaz, {n} ta kuryer": "{n} {n|заказ|заказа|заказов}, {n} {n|курьер|курьера|курьеров}",
+    },
+    { dateWords: russianDateWords },
+  );
+
+  it("har o'ringa o'z qiymati tushadi — pul raqamlari aralashmaydi", () => {
+    expect(book.translate("· naqd 100 000 · karta 50 000")).toBe("· наличные 100 000 · карта 50 000");
+  });
+
+  it("tarjimada tartib boshqa bo'lsa — har xil nom bilan", () => {
+    expect(book.translate("5 tadan 3 tasi berildi")).toBe("Передано 3 из 5");
+  });
+
+  it("ko'plik shakli o'zidan oldingi songa tegishli", () => {
+    expect(book.translate("2 ta zakaz, 5 ta kuryer")).toBe("2 заказа, 5 курьеров");
+  });
+});
