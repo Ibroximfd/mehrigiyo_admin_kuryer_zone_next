@@ -70,6 +70,10 @@ describe("demo rejim: backend v2 shakllari", () => {
     expect(split!.cash + split!.card + split!.online).toBe(delivered);
     expect(split!.card).toBeGreaterThan(0);
     expect(split!.online).toBeGreaterThan(0);
+    // 80-javob §5: jami va son serverdan — ajratma yig'indisiga teng.
+    const cash = mapChiefCash((await get("/operator/chief/cash/", { date_from: "2000-01-01", date_to: "2999-12-31" })).data);
+    expect(cash.deliveredAmount).toBe(delivered);
+    expect(cash.deliveredOrders).toBe(demoDb.orders.filter((order) => order.deliveredAt).length);
   });
 
   it("2-pog'ona: bir nechta filialda pul — `filial_required`, `filial_id` bilan — 201 va idempotent", async () => {
@@ -80,6 +84,17 @@ describe("demo rejim: backend v2 shakllari", () => {
     const again = await post("/operator/chief/cash/handover/", { amount: 1000, filial_id: 1, client_action_id: "a1" });
     expect(again.status).toBe(200);
     expect((again.data as { id: number }).id).toBe((created.data as { id: number }).id);
+  });
+
+  it("topshirishda naqd/karta (80-javob §5): bittasi — ikkinchisi qoldiq, ikkalasi — summaga teng", async () => {
+    const split = await post("/operator/chief/cash/handover/", { amount: 1000, card: 300, cash: 700, filial_id: 1, client_action_id: "s1" });
+    expect(split.data).toMatchObject({ cash: 700, card: 300 });
+    const onlyCard = await post("/operator/chief/cash/handover/", { amount: 1000, card: 250, filial_id: 1, client_action_id: "s2" });
+    expect(onlyCard.data).toMatchObject({ cash: 750, card: 250 });
+    const wrong = await post("/operator/chief/cash/handover/", { amount: 1000, card: 300, cash: 600, filial_id: 1, client_action_id: "s3" });
+    expect(wrong).toMatchObject({ status: 400, data: { code: "validation_error" } });
+    const none = await post("/operator/chief/cash/handover/", { amount: 1000, filial_id: 1, client_action_id: "s4" });
+    expect(none.data).toMatchObject({ cash: null, card: null });
   });
 
   it("moliya: filial va kuryer kesimi bir-biriga mos (V13)", async () => {

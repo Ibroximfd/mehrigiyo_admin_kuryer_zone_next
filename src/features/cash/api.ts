@@ -25,6 +25,11 @@ export type HandoverInput = {
   periodFrom: string | null;
   periodTo: string | null;
   note: string;
+  /**
+   * Shundan kartaga o'tkazilgani (80-javob §5, ixtiyoriy). Berilsa naqd —
+   * qoldiq, ikkalasi yuboriladi (yig'indi `amount` ga teng); `null` — ajratilmaydi.
+   */
+  card: number | null;
   /** Bir e'lon — bitta kalit: takror yuborilsa server o'sha qatorni qaytaradi. */
   clientActionId: string;
 };
@@ -40,6 +45,10 @@ export async function submitChiefHandover(input: HandoverInput): Promise<Handove
   if (input.periodFrom) json.period_from = input.periodFrom;
   if (input.periodTo) json.period_to = input.periodTo;
   if (input.note.trim()) json.note = input.note.trim();
+  if (input.card !== null) {
+    json.card = input.card;
+    json.cash = input.amount - input.card;
+  }
   try {
     const raw = await api.post<unknown>(ENDPOINTS.chiefCashHandover, { json, fallbackError: "Pulni topshirishda xatolik" });
     return { kind: "created", handover: mapChiefHandover(raw) };

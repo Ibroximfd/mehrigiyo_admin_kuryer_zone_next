@@ -757,4 +757,11 @@ export const CHIEF: Dictionary = {
   "Kuryer ilovadan chiqariladi": "Курьер будет выведен из приложения",
   "Parol o'zgarmaydi — kuryer shu parol bilan qayta kira oladi.": "Пароль не меняется — курьер сможет войти снова с ним же.",
   "Parol kamida {x} belgi bo'lsin": "Пароль — минимум {x} символов",
+  // 80-javob §5: yetkazilgan zakazlar soni, topshirishda naqd/karta.
+  "Yetkazilgan zakazlar puli · {x} ta": "Деньги за доставленные заказы · {x} шт.",
+  "· naqd {x} · karta {x}": "· наличные {x} · карта {x}",
+  "Summadan oshmasin": "Не больше суммы",
+  "Shundan kartaga, so'm": "Из них на карту, сум",
+  "Ixtiyoriy — qolgani naqd": "Необязательно — остальное наличными",
+  "Naqd: {x}": "Наличные: {x}",
 };

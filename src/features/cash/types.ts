@@ -38,6 +38,9 @@ export type ChiefHandover = {
   confirmedAmount: number | null;
   /** `amount − confirmed_amount` — filial kam qabul qilgan bo'lsa. */
   shortage: number | null;
+  /** Shundan naqd va karta (80-javob §5); bosh kuryer ajratmagan bo'lsa — `null`. */
+  cash: number | null;
+  card: number | null;
   status: HandoverStatus;
   note: string;
   logistNote: string;
@@ -59,6 +62,8 @@ export function mapChiefHandover(raw: unknown): ChiefHandover | null {
     expectedAmount: asOptionalNumber(raw.expected_amount),
     confirmedAmount: asOptionalNumber(raw.confirmed_amount),
     shortage: asOptionalNumber(raw.shortage),
+    cash: asOptionalNumber(raw.cash),
+    card: asOptionalNumber(raw.card),
     status: asHandoverStatus(raw.status),
     note: asString(raw.note),
     logistNote: asString(raw.logist_note),
@@ -87,6 +92,9 @@ export type ChiefCash = {
   dateFrom: string;
   dateTo: string;
   collectedFromCouriers: number;
+  /** Davrda yetkazilgan zakazlar soni va puli (80-javob §5); eski serverda `null`. */
+  deliveredOrders: number | null;
+  deliveredAmount: number | null;
   /** To'lov turi bo'yicha yetkazilgan pul (hujjat 79 §6); eski serverda `null`. */
   deliveredByMethod: DeliveredByMethod | null;
   /** Topshirilmagan jami. */
@@ -112,6 +120,8 @@ export function mapChiefCash(raw: unknown, courierMoney: ServerCourierMoney | nu
     dateFrom: asString(json.date_from),
     dateTo: asString(json.date_to),
     collectedFromCouriers: asNumber(json.collected_from_couriers),
+    deliveredOrders: asOptionalNumber(json.delivered_orders),
+    deliveredAmount: asOptionalNumber(json.delivered_amount),
     deliveredByMethod: mapDeliveredByMethod(json.delivered_by_method),
     outstanding: asNumber(json.outstanding),
     outstandingDays: asArray(json.outstanding_days).map((day) => asString(day)).filter(Boolean).sort(),

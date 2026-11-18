@@ -907,6 +907,8 @@ function handoverJson(item: DemoFilialHandover) {
     expected_amount: item.expectedAmount,
     confirmed_amount: item.confirmedAmount,
     shortage: item.confirmedAmount !== null && item.confirmedAmount !== item.amount ? item.amount - item.confirmedAmount : null,
+    cash: item.cash ?? null,
+    card: item.card ?? null,
     status: item.status,
     note: item.note,
     logist_note: "",
@@ -938,10 +940,13 @@ function chiefCash(request: DemoRequest): DemoResponse {
   const { rows, totals } = byFilial(from, to);
   const collected = settledIn(from, to);
   const days = [...new Set(collected.map((order) => order.settledDay!))].sort().reverse();
+  const delivered = deliveredIn(from, to);
   return ok({
     date_from: from,
     date_to: to,
     collected_from_couriers: collected.reduce((sum, order) => sum + order.total, 0),
+    delivered_orders: delivered.length,
+    delivered_amount: delivered.reduce((sum, order) => sum + order.total, 0),
     delivered_by_method: deliveredByMethod(from, to),
     outstanding: open.reduce((sum, order) => sum + order.total, 0),
     outstanding_days: [...new Set(open.map((order) => order.settledDay!))].sort(),
@@ -965,6 +970,16 @@ function cashHandover(request: DemoRequest): DemoResponse {
   const clientActionId = typeof json.client_action_id === "string" ? json.client_action_id : null;
   const repeat = clientActionId ? demoDb.filialHandovers.find((item) => item.clientActionId === clientActionId) : null;
   if (repeat) return ok(handoverJson(repeat));
+  // 80-javob §5: ikkalasi — yig'indi summaga teng; bittasi — ikkinchisi qoldiq; hech biri — `null`.
+  const cashPart = typeof json.cash === "number" ? json.cash : null;
+  const cardPart = typeof json.card === "number" ? json.card : null;
+  if (cashPart !== null && cardPart !== null && cashPart + cardPart !== amount) {
+    return fail(400, "validation_error", { card: ["Naqd + karta summaga teng bo'lsin"] });
+  }
+  const split =
+    cashPart === null && cardPart === null
+      ? { cash: null, card: null }
+      : { cash: cashPart ?? amount - (cardPart ?? 0), card: cardPart ?? amount - (cashPart ?? 0) };
 
   let code: FilialCode | null = null;
   if (json.filial_id !== undefined && json.filial_id !== null) {
@@ -1004,6 +1019,7 @@ function cashHandover(request: DemoRequest): DemoResponse {
     amount,
     expectedAmount: orders.reduce((sum, order) => sum + order.total, 0),
     confirmedAmount: null,
+    ...split,
     status: "pending",
     note: typeof json.note === "string" ? json.note : "",
     clientActionId,

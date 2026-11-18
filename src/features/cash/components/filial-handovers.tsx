@@ -193,7 +193,7 @@ function HandoverHistory({ fallback }: { fallback: ChiefCash }) {
           onClear={preset === "custom" ? period.clear : undefined}
         />
       </div>
-      {data?.deliveredByMethod ? <DeliveredSplit split={data.deliveredByMethod} /> : null}
+      {data?.deliveredByMethod ? <DeliveredSplit split={data.deliveredByMethod} total={data.deliveredAmount} orders={data.deliveredOrders} /> : null}
       {period.range !== null && ranged.isPending ? (
         <Skeleton className="h-32 rounded-2xl" />
       ) : period.range !== null && ranged.isError ? (
@@ -215,14 +215,17 @@ const DELIVERED_METHODS: ReadonlyArray<{ key: keyof DeliveredByMethod; label: st
   { key: "online", label: "Click/Payme" },
 ];
 
-/** Davrda yetkazilgan zakazlar puli to'lov turi bo'yicha (hujjat 79 §6) — faqat ko'rsatish. */
-function DeliveredSplit({ split }: { split: DeliveredByMethod }) {
-  const total = split.cash + split.card + split.online;
+/**
+ * Davrda yetkazilgan zakazlar puli to'lov turi bo'yicha (hujjat 79 §6) —
+ * faqat ko'rsatish. Jami va son serverdan (80-javob §5); eski serverda
+ * jami — uchala turning yig'indisi.
+ */
+function DeliveredSplit({ split, total, orders }: { split: DeliveredByMethod; total: number | null; orders: number | null }) {
   return (
     <dl className="border-line bg-surface flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-2xl border px-4 py-2.5 text-dense">
       <div className="flex w-full items-baseline justify-between gap-3 sm:w-auto sm:justify-start">
-        <dt className="text-ink-muted">Yetkazilgan zakazlar puli</dt>
-        <dd className="text-ink tabular font-semibold">{formatSom(total)}</dd>
+        <dt className="text-ink-muted">{orders !== null ? `Yetkazilgan zakazlar puli · ${orders} ta` : "Yetkazilgan zakazlar puli"}</dt>
+        <dd className="text-ink tabular font-semibold">{formatSom(total ?? split.cash + split.card + split.online)}</dd>
       </div>
       {DELIVERED_METHODS.map(({ key, label }) => (
         <div key={key} className="flex items-baseline gap-1.5">
@@ -361,6 +364,9 @@ function History({ handovers, filtered, onClear }: { handovers: ChiefHandover[];
                   <span className="text-ink-faint">Filialsiz</span>
                 )}
                 {item.shortage ? <span className="text-danger">{` · kamomad ${formatSom(item.shortage)}`}</span> : null}
+                {item.cash !== null && item.card !== null ? (
+                  <span className="text-ink-faint">{` · naqd ${formatSom(item.cash)} · karta ${formatSom(item.card)}`}</span>
+                ) : null}
               </span>
               <span className="shrink-0 sm:order-4">
                 <StatusPill label={status.label} color={status.color} size="sm" />
@@ -390,10 +396,15 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
   const [draft, setDraft] = useState(formatMoneyInput(initial.toHandOver));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
+  const [cardDraft, setCardDraft] = useState("");
   // Bir e'lon — bitta kalit: `filial_required` dan keyin qayta yuborilganda ham shu.
   const [clientActionId] = useState(() => crypto.randomUUID());
   const amount = parseMoneyInput(draft);
-  const valid = Number.isFinite(amount) && amount > 0;
+  const amountValid = Number.isFinite(amount) && amount > 0;
+  // Ixtiyoriy: shundan kartaga — bo'sh bo'lsa ajratilmaydi, to'lsa naqd = qoldiq.
+  const card = cardDraft ? parseMoneyInput(cardDraft) : null;
+  const cardError = card !== null && (!Number.isFinite(card) || (amountValid && card > amount)) ? "Summadan oshmasin" : undefined;
+  const valid = amountValid && cardError === undefined;
   const chosen = choices?.find((row) => row.id === filialId) ?? null;
   const expected = chosen ? chosen.toHandOver : filialId === (initial.filial?.id ?? null) ? initial.toHandOver : null;
   const filialName = chosen?.name ?? initial.filial?.name ?? null;
@@ -410,6 +421,7 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
         periodFrom: (chosen ? null : initial.oldestDay) ?? openDays[0] ?? null,
         periodTo: openDays[openDays.length - 1] ?? null,
         note,
+        card,
         clientActionId,
       }),
     onSuccess: (result) => {
@@ -476,15 +488,31 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
           htmlFor="handover-amount"
           className="sm:col-span-2"
           hint={expected !== null ? `Qoldiq: ${formatSom(expected)}` : undefined}
-          error={draft && !valid ? "Summa noldan katta bo'lsin" : undefined}
+          error={draft && !amountValid ? "Summa noldan katta bo'lsin" : undefined}
         >
           <input
             inputMode="numeric"
             id="handover-amount"
-            aria-invalid={Boolean(draft) && !valid}
+            aria-invalid={Boolean(draft) && !amountValid}
             value={draft}
             onFocus={(event) => event.target.select()}
             onChange={(event) => setDraft(formatMoneyInput(event.target.value))}
+            className={cn(inputClass, "tabular")}
+          />
+        </Field>
+        <Field
+          label="Shundan kartaga, so'm"
+          htmlFor="handover-card"
+          className="sm:col-span-2"
+          hint={card !== null && cardError === undefined && amountValid ? `Naqd: ${formatSom(amount - card)}` : "Ixtiyoriy — qolgani naqd"}
+          error={cardError}
+        >
+          <input
+            inputMode="numeric"
+            id="handover-card"
+            aria-invalid={cardError !== undefined}
+            value={cardDraft}
+            onChange={(event) => setCardDraft(formatMoneyInput(event.target.value))}
             className={cn(inputClass, "tabular")}
           />
         </Field>
@@ -503,7 +531,7 @@ function HandoverForm({ cash, initial, onClose }: { cash: ChiefCash; initial: Fi
           <input id="handover-note" value={note} maxLength={255} onChange={(event) => setNote(event.target.value)} className={inputClass} />
         </Field>
       </div>
-      {valid && expected !== null && amount !== Math.round(expected) ? (
+      {amountValid && expected !== null && amount !== Math.round(expected) ? (
         <p className="text-warn mt-2 text-meta">{`Qoldiqdan farq ${formatSom(Math.abs(expected - amount))} — filial qabul qilganda ko'radi.`}</p>
       ) : null}
 

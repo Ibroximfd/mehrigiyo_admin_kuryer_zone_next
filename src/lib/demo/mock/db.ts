@@ -83,6 +83,9 @@ export type DemoFilialHandover = {
   amount: number;
   expectedAmount: number;
   confirmedAmount: number | null;
+  /** Shundan naqd/karta (80-javob §5); ajratilmagan — yo'q. */
+  cash?: number | null;
+  card?: number | null;
   status: "pending" | "confirmed" | "disputed";
   note: string;
   clientActionId: string | null;
