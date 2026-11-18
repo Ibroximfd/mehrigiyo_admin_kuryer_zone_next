@@ -9,6 +9,7 @@ Bosh kuryerlar uchun alohida veb-sayt. Shartnoma — `../mehrigiyo_platform_tz/2
 - **Sklad** (`/sklad`) — bitta sklad hamma viloyatlar uchun: skladlar xaritasi, qoldiq va kuryerlar ombori (faqat ko'rish).
 - **Kassa** (`/cash`) — kuryerlardan pul qabul qilish va har filialga alohida, to'liq summa bilan topshirish.
 - **Moliya** (`/report`) — bugun / kecha / oraliq: kuryerlar, filiallar bilan hisob (manzil × bitta narx), mahsulotlar.
+- **Sotuv jadvali** (`/sheet`) — egasi Google Sheet'idagi kunlik «SOTUV» jadvali (kuryer × mahsulot: berilgan · sotilgan · sovg'a · qolgan; naqd, onlayn, manzil, qo'lda yoziladigan kuryer xizmati) va «Berish rejasi». Shartnoma — `../mehrigiyo_platform_tz/83_BOSH_KURYER_SOTUV_JADVALI_VA_KURYER_TUMAN_FILTRI_2026-11-18.md`; backend chiqquncha — «server hali chiqarmagan», demo rejimda namuna bilan ishlaydi.
 
 ## Backend
 

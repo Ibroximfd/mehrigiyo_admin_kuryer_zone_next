@@ -3,6 +3,7 @@ import ky, { isHTTPError, isTimeoutError } from "ky";
 import { API_BASE_URL, ENDPOINTS, isAuthEndpoint } from "@/lib/api-constants";
 import { DEMO_MODE } from "@/lib/demo/mode";
 import { demoRequest } from "@/lib/demo/mock/router";
+import type { DemoFile } from "@/lib/demo/mock/router";
 import { localeInfo } from "@/lib/i18n/locale";
 import { sessionStorage } from "@/lib/session-storage";
 import { currentLocale } from "@/stores/locale-store";
@@ -292,24 +293,29 @@ async function request<T>(
     const text = await response.text();
     return (text ? JSON.parse(text) : undefined) as T;
   } catch (error) {
-    if (isHTTPError(error)) {
-      const payload = error.data as Record<string, unknown> | undefined;
-      throw new ApiError(
-        messageForStatus(error.response.status, error.data, fallbackError),
-        error.response.status,
-        error.data,
-        typeof payload?.code === "string" ? payload.code : undefined,
-      );
-    }
-    if (isTimeoutError(error)) {
-      throw new ApiError("So'rov vaqti tugadi. Qaytadan urinib ko'ring.");
-    }
-    // So'rov bekor qilingan bo'lsa (yangi filtr), uni yuqoriga o'tkazamiz —
-    // TanStack Query buni xatolik deb ko'rsatmasligi kerak.
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-
-    throw new ApiError("Tarmoq xatosi. Internetingizni tekshiring.");
+    throw toApiError(error, fallbackError);
   }
+}
+
+/** ky xatosini `ApiError` ga aylantiradi (bekor qilingan so'rov — o'z holicha). */
+function toApiError(error: unknown, fallbackError: string): unknown {
+  if (isHTTPError(error)) {
+    const payload = error.data as Record<string, unknown> | undefined;
+    return new ApiError(
+      messageForStatus(error.response.status, error.data, fallbackError),
+      error.response.status,
+      error.data,
+      typeof payload?.code === "string" ? payload.code : undefined,
+    );
+  }
+  if (isTimeoutError(error)) {
+    return new ApiError("So'rov vaqti tugadi. Qaytadan urinib ko'ring.");
+  }
+  // So'rov bekor qilingan bo'lsa (yangi filtr), uni yuqoriga o'tkazamiz —
+  // TanStack Query buni xatolik deb ko'rsatmasligi kerak.
+  if (error instanceof DOMException && error.name === "AbortError") return error;
+
+  return new ApiError("Tarmoq xatosi. Internetingizni tekshiring.");
 }
 
 /**
@@ -336,7 +342,66 @@ async function demoResponse<T>(
   return structuredClone(response.data) as T;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Fayl yuklab olish (eksport)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DownloadedFile = { blob: Blob; fileName: string | null };
+
+/**
+ * `Content-Disposition` dan fayl nomi: `filename*=UTF-8''…` ustun, keyin
+ * oddiy `filename="…"`. Topilmasa `null`.
+ */
+export function contentDispositionFileName(header: string | null): string | null {
+  if (!header) return null;
+  const encoded = /filename\*\s*=\s*(?:UTF-8|utf-8)?''([^;]+)/.exec(header);
+  if (encoded?.[1]) {
+    try {
+      return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, "")) || null;
+    } catch {
+      // Buzuq kodlash — oddiy `filename` ga tushamiz.
+    }
+  }
+  const plain = /filename\s*=\s*("([^"]*)"|[^;]+)/.exec(header);
+  const name = (plain?.[2] ?? plain?.[1] ?? "").trim();
+  return name || null;
+}
+
+/**
+ * GET → fayl (blob) + `Content-Disposition` dagi nomi. Token yangilash va
+ * xato kodlari oddiy so'rovlardagidek (`ApiError`, `code` bo'yicha). Fayl
+ * serverda yasaladi — kutish chegarasi uzunroq.
+ */
+async function download(
+  path: string,
+  options: Omit<RequestOptions, "json" | "body"> = {},
+): Promise<DownloadedFile> {
+  const { searchParams, signal, fallbackError = "Faylni yuklab bo'lmadi" } = options;
+
+  if (DEMO_MODE) {
+    const file = await demoResponse<DemoFile>("get", path, options, fallbackError);
+    return { blob: new Blob([file.content], { type: file.contentType }), fileName: file.fileName };
+  }
+
+  try {
+    const response = await client(path, {
+      method: "get",
+      timeout: 120_000,
+      searchParams: toSearchParams(searchParams),
+      headers: { Accept: "*/*" },
+      ...(signal ? { signal } : {}),
+    });
+    return {
+      blob: await response.blob(),
+      fileName: contentDispositionFileName(response.headers.get("Content-Disposition")),
+    };
+  } catch (error) {
+    throw toApiError(error, fallbackError);
+  }
+}
+
 export const api = {
+  download,
   get: <T>(path: string, options?: Omit<RequestOptions, "json" | "body">) =>
     request<T>("get", path, options),
   post: <T>(path: string, options?: RequestOptions) =>

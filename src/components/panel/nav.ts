@@ -1,12 +1,13 @@
-import { Hexagon, Receipt, Star, Truck, Wallet, Warehouse, ChartColumnBig, type LucideIcon } from "lucide-react";
+import { Hexagon, Receipt, Star, Table, Truck, Wallet, Warehouse, ChartColumnBig, type LucideIcon } from "lucide-react";
 
 import type { ChiefPermission } from "@/features/chief/types";
 import { ROUTES } from "@/lib/routes";
 
 /**
  * Bosh kuryer sayti bo'limlari (`21_TUZILMA_V2` §4.5), tartib ish oqimi bo'yicha:
- * zakaz → kuryer → zona → sklad → pul → hisobot → reyting. Telefonning pastki
- * panelida oltitadan oshmaydi — `secondary` bo'lim faqat menyuda (yon panel).
+ * zakaz → kuryer → zona → sklad → pul → hisobot → sotuv jadvali → reyting.
+ * Telefonning pastki panelida oltitadan oshmaydi — `secondary` bo'lim faqat
+ * menyuda (yon panel).
  */
 export type NavItem = {
   href: string;
@@ -25,6 +26,8 @@ export const NAV: NavItem[] = [
   { href: ROUTES.sklad, label: "Sklad", Icon: Warehouse, permission: "warehouse.view_courier_stores" },
   { href: ROUTES.cash, label: "Kassa", Icon: Wallet },
   { href: ROUTES.report, label: "Moliya", Icon: ChartColumnBig, permission: "view.analytics" },
+  // Sotuv jadvali (hujjat 83) — keng jadval, asosan kompyuterda; dopuski Moliya bilan bir xil.
+  { href: ROUTES.sheet, label: "Sotuv jadvali", Icon: Table, permission: "view.analytics", secondary: true },
   { href: ROUTES.ratings, label: "Reytinglar", Icon: Star, secondary: true },
 ];
 

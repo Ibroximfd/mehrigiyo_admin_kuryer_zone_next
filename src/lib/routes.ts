@@ -12,5 +12,6 @@ export const ROUTES = {
   sklad: "/sklad",
   cash: "/cash",
   report: "/report",
+  sheet: "/sheet",
   ratings: "/ratings",
 } as const;

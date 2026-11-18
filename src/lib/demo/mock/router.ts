@@ -15,6 +15,8 @@ import {
 } from "./db";
 import type { DemoCourierRow, DemoFilialHandover, DemoOrderRow, DemoZoneRow } from "./db";
 import { DEMO_CHIEF, DEMO_REGIONS } from "./fixtures";
+import { demoIssuePlan, demoSalesSheet, demoSalesSheetFile, demoSaveSheetFee } from "./sales-sheet";
+import type { DemoSheetQuery } from "./sales-sheet";
 
 /**
  * Demo rejimdagi «backend»: `api-client` har so'rovni shu yerga beradi va
@@ -25,6 +27,9 @@ import { DEMO_CHIEF, DEMO_REGIONS } from "./fixtures";
  */
 
 export type DemoResponse = { status: number; data: unknown };
+
+/** Fayl javobi (eksport) — `api.download` shu shakldan `Blob` yasaydi. */
+export type DemoFile = { fileName: string; content: string; contentType: string };
 
 export type DemoRequest = {
   method: "get" | "post" | "put" | "patch" | "delete";
@@ -1221,6 +1226,28 @@ function chiefRatings(request: DemoRequest): DemoResponse {
   });
 }
 
+// ── Sotuv jadvali va berish rejasi (hujjat 83; hisob — `./sales-sheet.ts`) ───
+
+function sheetQuery(request: DemoRequest): DemoSheetQuery {
+  const dateFrom = param(request, "date_from") || today();
+  return {
+    dateFrom,
+    dateTo: param(request, "date_to") || dateFrom,
+    courierId: Number(param(request, "courier_id")) || null,
+    withDays: param(request, "days") === "1",
+  };
+}
+
+function salesSheetFee(request: DemoRequest): DemoResponse {
+  const result = demoSaveSheetFee(body(request));
+  return result.ok ? ok(result.data) : fail(result.status, result.code, result.fields);
+}
+
+function salesSheetExport(request: DemoRequest): DemoResponse {
+  const file: DemoFile = demoSalesSheetFile(sheetQuery(request));
+  return ok(file);
+}
+
 // ── Marshrutlash ────────────────────────────────────────────────────────────
 
 type Route = [method: DemoRequest["method"], pattern: RegExp, handle: (request: DemoRequest, match: RegExpMatchArray) => DemoResponse];
@@ -1260,6 +1287,10 @@ const ROUTES: Route[] = [
   ["get", /^\/sklad\/sklads\/$/, skladSklads],
   ["get", /^\/sklad\/stock\/$/, skladStock],
   ["get", /^\/sklad\/couriers\/$/, skladCouriers],
+  ["get", /^\/operator\/chief\/report\/sales-sheet\/$/, (request) => ok(demoSalesSheet(sheetQuery(request)))],
+  ["put", /^\/operator\/chief\/report\/sales-sheet\/fee\/$/, salesSheetFee],
+  ["get", /^\/operator\/chief\/report\/sales-sheet\/export\/$/, salesSheetExport],
+  ["get", /^\/operator\/chief\/report\/issue-plan\/$/, (request) => ok(demoIssuePlan(param(request, "date") || today()))],
 ];
 
 /** Demo javob — haqiqiy so'rovdek biroz kechikadi (skelet ko'rinsin). */

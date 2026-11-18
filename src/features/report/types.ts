@@ -5,7 +5,8 @@ import { asArray, asBool, asInt, asNumber, asOptionalInt, asOptionalNumber, asOp
 /**
  * Moliya va hisobot (`21_TUZILMA_V2` §4.5, §7; backend `TUZILMA_V2` §5.1, V13;
  * `MOLIYA_R_F` §R): hammasi `chief/finance/` dan — filial kesimi (`by_filial`),
- * kuryerlar (`by_courier` + `by_product`). Kuryer haqi tizimga kirmaydi; `fee` —
+ * kuryerlar (`by_courier` + `by_product`). Kuryer haqi bu yerda yo'q (tizim hisoblamaydi —
+ * «Sotuv jadvali»da qo'lda yoziladi, hujjat 83 §3); `fee` —
  * bosh kuryer haqi = Σ (viloyatdagi manzil × o'sha kungi viloyat narxi). Hisob
  * serverda — frontend pulni qayta hisoblamaydi (F-5: logistdagi `finance/chiefs/` bilan ayni son).
  */

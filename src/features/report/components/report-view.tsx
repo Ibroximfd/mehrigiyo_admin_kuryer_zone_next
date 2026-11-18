@@ -30,7 +30,8 @@ function feeText(fee: number | null): string {
 /**
  * Moliya va hisobot (§4.5, §7) — bitta `chief/finance/`: davr raqamlari,
  * filiallar bilan hisob (viloyat narxi bilan haqingiz, qancha topshirish
- * kerak), kuryerlar (yetkazgani, qo'lidagi pul) va mahsulotlar. Kuryer haqi tizimda yo'q.
+ * kerak), kuryerlar (yetkazgani, qo'lidagi pul) va mahsulotlar. Kuryer haqi bu hisobotda yo'q —
+ * tizim uni hisoblamaydi, bosh kuryer «Sotuv jadvali»da qo'lda yozadi (hujjat 83 §3).
  * Raqamlar serverdan o'z holicha — logistdagi `finance/chiefs/` bilan ayni (F-5).
  */
 export function ReportView({ me }: { me: ChiefMe }) {

@@ -7,6 +7,7 @@ import { ORDERS } from "./orders";
 import { PANEL } from "./panel";
 import { CHIEF } from "./chief";
 import { DISPATCH } from "./dispatch";
+import { SALES_SHEET } from "./sales-sheet";
 import { ZONES } from "./zones";
 
 /**
@@ -22,4 +23,5 @@ export const RU_DICTIONARY: Dictionary = {
   ...ZONES,
   ...CHIEF,
   ...DISPATCH,
+  ...SALES_SHEET,
 };

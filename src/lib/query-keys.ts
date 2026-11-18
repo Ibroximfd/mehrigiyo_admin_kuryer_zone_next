@@ -53,4 +53,9 @@ export const queryKeys = {
   chiefCourierDebts: (courierIds: readonly number[]) => ["chief", "courier-debts", courierIds] as const,
   /** Moliya va hisobot (davr bo'yicha). */
   chiefReport: (range: { from: string; to: string }) => ["chief", "report", range] as const,
+  /** Sotuv jadvali (hujjat 83) — ildiz: kuryer xizmati saqlansa hamma davr qayta so'raladi. */
+  chiefSalesSheets: ["chief", "sales-sheet"] as const,
+  chiefSalesSheet: (params: Record<string, unknown>) => ["chief", "sales-sheet", params] as const,
+  /** Berish rejasi — `chiefSklad` ostida: kuryerga mol berilsa (sklad hujjati) reja ham yangilanadi. */
+  chiefIssuePlan: (date: string) => ["chief", "sklad", "issue-plan", date] as const,
 };

@@ -6,7 +6,9 @@ Viloyat bosh kuryerlari (`chief_courier` roli) **alohida saytda** ishlaydi. Repo
 (eski kod git tarixida, `57e5f00`); karkas logist saytidan (`../mehrigiyo_operator_next`) olingan, logist kodi tozalangan.
 
 **Shartnoma:** `../mehrigiyo_platform_tz/21_TUZILMA_V2_OWNER_FILIAL_DOSTAVKA_REJA.md` §0, §4.5, §5, §5a, §5b, §6.
-Reja aytmagan funksiya qo'shilmaydi. Kuryer haqi tizimga kirmaydi.
+Reja aytmagan funksiya qo'shilmaydi. Kuryer haqini tizim **hisoblamaydi** — egasi qarori (2026-11-18,
+`83_BOSH_KURYER_SOTUV_JADVALI…` §3): bosh kuryer «Sotuv jadvali»da qo'lda yozgan summa saqlanadi va «kassaga
+topshiriladigan naqd»dan serverda ayiriladi (`handover_due`); frontend pulni ham, molni ham qayta hisoblamaydi.
 
 ## Bo'limlar (ildizda, navigatsiya ≤ 6)
 - `/` Zakazlar — kuryerga zona bo'yicha qo'lda / avto (`/chief/orders/*`)
@@ -15,6 +17,8 @@ Reja aytmagan funksiya qo'shilmaydi. Kuryer haqi tizimga kirmaydi.
 - `/sklad` Sklad — faqat o'z skladi va kuryerlari ombori (`sklad/me|sklads|stock|couriers`)
 - `/cash` Kassa — 1-pog'ona `chief/cod/handovers/`, `chief/couriers/{id}/cod|settle/`; 2-pog'ona `chief/cash/` + `chief/cash/handover/` (`filial_required`, `oldest_day`)
 - `/report` Moliya — `chief/finance/` (filial, kuryer va mahsulot kesimi)
+- `/sheet` Sotuv jadvali (hujjat 83; menyuda `secondary` — telefon pastki panelida yo'q) — kunlik «SOTUV» jadvali
+  `chief/report/sales-sheet/` (+ `fee/` kuryer xizmati, `export/` Excel) va «Berish rejasi» `chief/report/issue-plan/`
 
 Butun sayt `ChiefSiteGate` bilan: `GET /chief/me/` 200 bo'lmasa — «Bu sayt bosh kuryerlar uchun».
 

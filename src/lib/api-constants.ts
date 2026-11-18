@@ -77,6 +77,14 @@ export const ENDPOINTS = {
   chiefZoneStats: "/operator/chief/zones/stats/",
   /** Filial kesimidagi moliya (`TUZILMA_V2` §5.1). */
   chiefFinance: "/operator/chief/finance/",
+  /** Kunlik sotuv jadvali (hujjat 83 §2): kuryer × mahsulot, pul, manzil — kun yoki oraliq. */
+  chiefSalesSheet: "/operator/chief/report/sales-sheet/",
+  /** Kuryer xizmati — bosh kuryer qo'lda yozadi (§3): `PUT {courier_id, date, amount, note}`. */
+  chiefSalesSheetFee: "/operator/chief/report/sales-sheet/fee/",
+  /** Sotuv jadvali Excel'i (§5) — fayl serverda yasaladi. */
+  chiefSalesSheetExport: "/operator/chief/report/sales-sheet/export/",
+  /** Berish rejasi (§4): qo'lida, zakazlarga kerak, yana berish kerak. */
+  chiefIssuePlan: "/operator/chief/report/issue-plan/",
   /** Kassa 2-pog'ona: holat va filialga topshirish (§5.2–5.3). */
   chiefCash: "/operator/chief/cash/",
   chiefCashHandover: "/operator/chief/cash/handover/",
