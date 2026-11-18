@@ -101,8 +101,8 @@ describe("pul olish — server render", () => {
     for (const name of ["Bahtiyor aka", "Xayrullo aka", "Muhammadqul aka", "Jami", "3 ta kuryer"]) expect(out).toContain(name);
     expect(out).toContain("22 manzil · 1 atkaz");
     expect(out).toContain("23 manzil");
-    // Tenglama sakkiz bo'lak, natija — «Olinishi kerak».
-    expect(out.match(/<li /g)?.length).toBeGreaterThanOrEqual(8);
+    // Tenglama yetti bo'lak (sovg'a kirmaydi), natija — «Olinishi kerak».
+    expect(out.match(/<li /g)?.length).toBeGreaterThanOrEqual(7);
   });
 
   it("amal: qarz bor — «Oldim», yopilgan — «✓ olindi»; skidka — maydonda, serverdagi summa bilan", () => {

@@ -94,7 +94,7 @@ export function CashCollectionBody({ sheet, range, canAccept }: { sheet: SalesSh
   );
 }
 
-/** Tenglama: Umumiy sotuv − Onlayn − Skidka − Sovg'a − Kuryer xizmati + O'tgan qarz = Olinishi kerak − Olindi. */
+/** Tenglama: Umumiy sotuv − Onlayn − Skidka − Kuryer xizmati + O'tgan qarz = Olinishi kerak − Olindi. */
 function CashStrip({ items }: { items: readonly StripItem[] }) {
   return (
     <section aria-label="Tenglama" className="border-line bg-surface rounded-2xl border p-3">
@@ -134,11 +134,11 @@ function CashLegend() {
     <ul className="text-ink-muted flex flex-col gap-x-6 gap-y-1 text-meta lg:flex-row lg:flex-wrap">
       <li>
         <strong className="text-ink font-semibold">Umumiy sotuv</strong>
-        <span> — sovg&apos;a ham katalog narxida, shuning uchun sovg&apos;a ayiriladi</span>
+        <span> — sotilgan zakazlar summasi; sovg&apos;a unga kirmaydi (jadvalda ma&apos;lumot uchun)</span>
       </li>
       <li>
         <strong className="text-brand font-semibold">Olinishi kerak</strong>
-        <span> = umumiy sotuv − onlayn − skidka − sovg&apos;a − kuryer xizmati + o&apos;tgan qarz</span>
+        <span> = umumiy sotuv − onlayn − skidka − kuryer xizmati + o&apos;tgan qarz</span>
       </li>
       <li>
         <strong className="text-danger font-semibold">Qarz</strong>

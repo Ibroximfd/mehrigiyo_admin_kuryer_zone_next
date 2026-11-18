@@ -19,16 +19,16 @@ export type StripItem = {
 };
 
 /**
- * Tenglama qatori (maket bo'yicha): Umumiy sotuv − Onlayn − Skidka − Sovg'a −
- * Kuryer xizmati + O'tgan qarz = Olinishi kerak − Olindi. Oraliqda o'tgan qarz —
- * davr boshidagi.
+ * Tenglama qatori: Umumiy sotuv − Onlayn − Skidka − Kuryer xizmati + O'tgan
+ * qarz = Olinishi kerak − Olindi. Sovg'a umumiy sotuvga kirmaydi (sovg'a qatori
+ * 0 so'm — backend 85-javob), shuning uchun tenglamada yo'q; jadvalda ma'lumot
+ * uchun turadi. Oraliqda o'tgan qarz — davr boshidagi.
  */
 export function cashStrip(cash: CourierCash, single: boolean): StripItem[] {
   return [
     { op: "", label: "Umumiy sotuv", value: moneyText(cash.salesAmount), result: false },
     { op: "−", label: "Onlayn", value: moneyText(cash.onlineAmount), result: false },
     { op: "−", label: "Skidka", value: moneyText(cash.discountAmount), result: false },
-    { op: "−", label: "Sovg'a", value: moneyText(cash.giftAmount), result: false },
     { op: "−", label: "Kuryer xizmati", value: moneyText(cash.feeAmount), result: false },
     { op: "+", label: single ? "O'tgan qarz" : "Davr boshidagi qarz", value: moneyText(cash.openingDebt), result: false },
     { op: "=", label: "Olinishi kerak", value: moneyText(cash.dueTotal), result: true },

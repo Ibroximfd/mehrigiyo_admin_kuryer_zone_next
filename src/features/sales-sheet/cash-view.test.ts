@@ -30,23 +30,22 @@ const receipt = (patch: Partial<CashReceipt>): CashReceipt => ({
 });
 
 describe("pul olish — ko'rinish qoidalari", () => {
-  it("tenglama: sakkiz bo'lak, maket tartibida, qiymatlar serverdan", () => {
+  it("tenglama: yetti bo'lak — sovg'a kirmaydi (85-javob), qiymatlar serverdan", () => {
     const strip = cashStrip(TOTALS, true);
     expect(strip.map((item) => `${item.op}${item.label}`)).toEqual([
       "Umumiy sotuv",
       "−Onlayn",
       "−Skidka",
-      "−Sovg'a",
       "−Kuryer xizmati",
       "+O'tgan qarz",
       "=Olinishi kerak",
       "−Olindi",
     ]);
-    expect(strip.map((item) => item.value)).toEqual(["54 400 000", "11 680 000", "450 000", "9 400 000", "3 770 000", "200 000", "29 300 000", "11 395 000"]);
+    expect(strip.map((item) => item.value)).toEqual(["54 400 000", "11 680 000", "450 000", "3 770 000", "200 000", "29 300 000", "11 395 000"]);
     expect(strip.filter((item) => item.result).map((item) => item.label)).toEqual(["Olinishi kerak"]);
     // Oraliqda — davr boshidagi qarz; kelmagan raqam — «—».
     const range = cashStrip(mapCourierCash({}), false);
-    expect(range[5]!.label).toBe("Davr boshidagi qarz");
+    expect(range[4]!.label).toBe("Davr boshidagi qarz");
     expect(range.every((item) => item.value === "—")).toBe(true);
   });
 

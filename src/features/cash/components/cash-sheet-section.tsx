@@ -82,7 +82,7 @@ export function CashSheetBody({
           <p className="border-line bg-surface text-ink-muted rounded-2xl border px-4 py-3 text-dense">Bu davrda mahsulot sotilmagan.</p>
         )}
       </Section>
-      <Section title="Filialga topshirish" description="Umumiy sotuv − onlayn − sovg'a − skidka (+ o'tgan qarz) = topshirishi kerak">
+      <Section title="Filialga topshirish" description="Umumiy sotuv − onlayn − skidka (+ o'tgan qarz) = topshirishi kerak">
         <FilialTable sheet={sheet} handoverDate={handoverDate} onHandover={onHandover} />
       </Section>
       <ul className="text-ink-muted flex flex-col gap-x-6 gap-y-1 text-meta lg:flex-row lg:flex-wrap">

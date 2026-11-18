@@ -62,9 +62,10 @@ export const CASH_SHEET: Dictionary = {
   "Faqat bugun va o'zingiz yozgan yozuv bekor qilinadi": "Отменить можно только сегодняшнюю запись, внесённую вами",
 
   // ── Pul olish: izoh ─────────────────────────────────────────────────────
-  "— sovg'a ham katalog narxida, shuning uchun sovg'a ayiriladi": "— подарки тоже по каталожной цене, поэтому подарок вычитается",
-  "= umumiy sotuv − onlayn − skidka − sovg'a − kuryer xizmati + o'tgan qarz":
-    "= общая продажа − онлайн − скидка − подарок − курьерская услуга + прошлый долг",
+  "— sotilgan zakazlar summasi; sovg'a unga kirmaydi (jadvalda ma'lumot uchun)":
+    "— сумма проданных заказов; подарки в неё не входят (в таблице — для справки)",
+  "= umumiy sotuv − onlayn − skidka − kuryer xizmati + o'tgan qarz":
+    "= общая продажа − онлайн − скидка − услуга курьера + прошлый долг",
   "= olinishi kerak − olindi; ertangi kunning «O'tgan qarz»iga o'zi qo'shiladi":
     "= нужно получить − получено; сам добавляется в «Прошлый долг» следующего дня",
 
@@ -83,8 +84,8 @@ export const CASH_SHEET: Dictionary = {
   "Nima sotildi": "Что продано",
   Sotildi: "Продано",
   "Bu davrda mahsulot sotilmagan.": "За этот период товар не продавался.",
-  "Umumiy sotuv − onlayn − sovg'a − skidka (+ o'tgan qarz) = topshirishi kerak":
-    "Общая продажа − онлайн − подарок − скидка (+ прошлый долг) = нужно сдать",
+  "Umumiy sotuv − onlayn − skidka (+ o'tgan qarz) = topshirishi kerak":
+    "Общая продажа − онлайн − скидка (+ прошлый долг) = нужно сдать",
   "Bu davrda filialga topshiriladigan pul yo'q.": "За этот период денег к сдаче в филиал нет.",
   "Topshirishi kerak": "Нужно сдать",
   Topshirgan: "Сдано",
