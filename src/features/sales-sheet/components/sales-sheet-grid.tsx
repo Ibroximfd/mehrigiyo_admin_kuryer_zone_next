@@ -36,11 +36,11 @@ function rowsOf(figures: SheetFigures) {
 }
 
 /** «Berilgan» tarkibi (§2.2): davr boshidagi qoldiq + davrda berilgan — katak izohida. */
-function givenTitle(figures: SheetFigures, productId: number): string | undefined {
-  const opening = cellOf(figures.opening, productId);
-  const issued = cellOf(figures.issued, productId);
+function givenTitle(figures: SheetFigures, product: SheetProduct): string | undefined {
+  const opening = cellOf(figures.opening, product.id);
+  const issued = cellOf(figures.issued, product.id);
   if (isZeroCell(opening) && isZeroCell(issued)) return undefined;
-  return `Boshida ${cellText(opening)} + berildi ${cellText(issued)}`;
+  return `Boshida ${cellText(opening, product)} + berildi ${cellText(issued, product)}`;
 }
 
 /**
@@ -178,7 +178,7 @@ function FigureRows({
             zero={row.flow === "closing" ? "show" : "blank"}
             signed={row.flow === "other"}
             start={index === 0}
-            titleOf={row.flow === "given" ? (productId) => givenTitle(figures, productId) : undefined}
+            titleOf={row.flow === "given" ? (product) => givenTitle(figures, product) : undefined}
           />
           {index === 0 ? <MoneyCells figures={figures} rowSpan={rows.length} fee={fee} total={total} /> : null}
         </tr>

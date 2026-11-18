@@ -125,7 +125,7 @@ function FilialTable({ report }: { report: ChiefFinance }) {
       description="Haqingiz = Σ (viloyatdagi manzil soni × o'sha kungi viloyat narxi); filial uni alohida to'laydi. «Topshirish kerak» — joriy qoldiq, davrga bog'liq emas."
     >
       {report.addressDefinition ? <p className="text-ink-faint -mt-2 text-meta" data-no-translit>{report.addressDefinition}</p> : null}
-      <div className="border-line bg-surface overflow-x-auto rounded-2xl border">
+      <div data-wheel-x className="border-line bg-surface overflow-x-auto rounded-2xl border">
         <table className="w-full min-w-3xl text-dense">
           <thead>
             <tr className="text-ink-faint border-line border-b text-meta">
@@ -250,7 +250,7 @@ function CourierTable({ report }: { report: ChiefFinance }) {
   const units = (row: (typeof rows)[number]) => row.products.reduce((total, entry) => total + entry.quantity, 0);
   return (
     <Section title="Kuryerlar" description="«Kuryerda» — hozir qo'lidagi pul; «Topshirdi» — davrda sizga topshirgani">
-      <div className="border-line bg-surface overflow-x-auto rounded-2xl border">
+      <div data-wheel-x className="border-line bg-surface overflow-x-auto rounded-2xl border">
         <table className="w-full min-w-2xl text-dense">
           <thead>
             <tr className="text-ink-faint border-line border-b text-meta">

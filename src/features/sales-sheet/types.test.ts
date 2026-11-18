@@ -43,8 +43,8 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
     expect(sheet).toMatchObject({ dateFrom: "2026-11-16", dateTo: "2026-11-16" });
     // Nom — `name_uz`, bo'lmasa `name`; birlik — `unit_label`.
     expect(sheet.products).toEqual([
-      { id: 6, name: "Doctor Ali Tea (Ipak choy)", unitLabel: "dona" },
-      { id: 7, name: "Rayhon", unitLabel: "karobka" },
+      { id: 6, name: "Doctor Ali Tea (Ipak choy)", unitLabel: "dona", countsInDona: false, piecesPerBox: null },
+      { id: 7, name: "Rayhon", unitLabel: "karobka", countsInDona: false, piecesPerBox: null },
     ]);
     const [bahtiyor] = sheet.couriers;
     expect(bahtiyor!.courier).toEqual({ id: 31, fullName: "Bahtiyor" });
@@ -130,6 +130,28 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
   });
 });
 
+describe("faqat dona — yangi maydonlar (hujjat 84 §2)", () => {
+  it("`count_unit`, `pieces_per_box` mahsulotda; `pieces_total` katakda — bo'lsa o'qiladi", () => {
+    const sheet = mapSalesSheet({
+      products: [
+        { id: 34, name_uz: "Doctor Ali Kremi", unit_label: "karobka", count_unit: "piece", pieces_per_box: 3 },
+        { id: 7, name: "Rayhon", unit_label: "karobka", count_unit: "box", pieces_per_box: 6 },
+      ],
+      couriers: [{ sold: { "34": { qty: 21, pieces: 2, pieces_total: 65 }, "7": { qty: 4, pieces: 0 } }, other: { "34": { qty: 0, pieces: 0, pieces_total: -2 } } }],
+    });
+    expect(sheet.products).toEqual([
+      { id: 34, name: "Doctor Ali Kremi", unitLabel: "karobka", countsInDona: true, piecesPerBox: 3 },
+      { id: 7, name: "Rayhon", unitLabel: "karobka", countsInDona: false, piecesPerBox: 6 },
+    ]);
+    const [courier] = sheet.couriers;
+    expect(cellOf(courier!.sold, 34)).toEqual({ qty: 21, pieces: 2, piecesTotal: 65 });
+    // `pieces_total` kelmagan katak — kalitsiz (eski shakl).
+    expect(cellOf(courier!.sold, 7)).toEqual({ qty: 4, pieces: 0 });
+    // Faqat `pieces_total` noldan farqli katak ham nol emas.
+    expect(isZeroCell(cellOf(courier!.other, 34))).toBe(false);
+  });
+});
+
 describe("berish rejasi — `mapIssuePlan` (hujjat 83 §4)", () => {
   it("kontrakt namunasi", () => {
     const plan = mapIssuePlan({
@@ -149,7 +171,7 @@ describe("berish rejasi — `mapIssuePlan` (hujjat 83 §4)", () => {
       store: { on_hand: { "6": { qty: 20, pieces: 0 } }, to_issue: { "6": { qty: 7, pieces: 0 } }, shortage: {} },
     });
     // `unit_label` kelmasa — «dona».
-    expect(plan.products).toEqual([{ id: 6, name: "Doctor Ali Tea", unitLabel: "dona" }]);
+    expect(plan.products).toEqual([{ id: 6, name: "Doctor Ali Tea", unitLabel: "dona", countsInDona: false, piecesPerBox: null }]);
     expect(plan.couriers[0]).toEqual({
       courier: { id: 31, fullName: "Bahtiyor" },
       carriedOrders: 9,

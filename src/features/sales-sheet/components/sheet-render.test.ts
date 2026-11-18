@@ -46,6 +46,16 @@ describe("sotuv jadvali — server render", () => {
     expect(out).toContain('href="/?scope=delivered&amp;courier=31&amp;from=2026-11-16&amp;to=2026-11-16&amp;once=1"');
   });
 
+  it("faqat dona (hujjat 84): Kremi ustuni donada — «38», karobka + dona yozuvi va «karobka» sarlavhasi yo'q", () => {
+    const out = sheetHtml("2026-11-16");
+    expect(out).toContain("Doctor Ali Kremi");
+    // Bahtiyor: boshida 7 + berildi 31 = 38 dona.
+    expect(out).toContain('title="Boshida 7 + berildi 31"');
+    expect(out).toMatch(/>38<\/td>/);
+    expect(out).not.toContain("kar.");
+    expect(out).not.toContain("karobka");
+  });
+
   it("«Qolgan» da nol yoziladi, boshqa qatorlarda nol katak bo'sh", () => {
     const out = sheetHtml("2026-11-16");
     // Bahtiyor: Oregado Box berilgan 1, sotilgan 1 → qolgan 0 (yozuv bilan).
@@ -116,6 +126,8 @@ describe("berish rejasi — server render", () => {
     expect(text(out)).toContain("Yangi biriktirilgan 54");
     expect(out).toContain("Omborda yetmaydi");
     expect(text(out)).toContain("Rayhon — 122 berish kerak, omboringizda 90, 32 yetmaydi");
+    // Donada yuritiladigan karobkali mahsulot — donada (hujjat 84).
+    expect(text(out)).toContain("Doctor Ali Kremi — 12 berish kerak, omboringizda 10, 2 yetmaydi");
     for (const label of ["Qo&#x27;lida (qoldiq)", "Zakazlarga kerak", "Yana berish kerak", "Ortiqcha", "Omboringizda bor", "Yetmaydi", "JAMI"]) expect(out).toContain(label);
     expect(out).toContain("Kechadan o&#x27;tgan: 9 ta zakaz");
     expect(out).toContain("Yangi biriktirilgan: 21 ta zakaz");

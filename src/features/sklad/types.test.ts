@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, parseSkladChanged, skladStockRows, skladStore, type StockCell } from "./types";
 
-const item = { id: 14, name: "Alatoo bals", image: null, unitLabel: "dona" };
+const item = { id: 14, name: "Alatoo bals", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 };
 
 const cell = (onHand: number, isLow: boolean, locationId = 1): StockCell => ({
   kind: "region",
@@ -43,6 +43,8 @@ describe("sklad item.image", () => {
       name: "G",
       image: "https://x.uz/m/g.png",
       unitLabel: "dona",
+      countsInDona: false,
+      stockFactor: 1,
     });
     expect(mapStockCell({ item: { id: 2, name: "G", image: null } }).item.image).toBeNull();
     expect(mapStockCell({ item: { id: 2, name: "G" } }).item.image).toBeNull();

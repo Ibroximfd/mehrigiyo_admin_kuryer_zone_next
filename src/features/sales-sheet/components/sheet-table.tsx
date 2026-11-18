@@ -1,7 +1,7 @@
 import { PIECE_UNIT } from "@/lib/item-ref";
 import { cn } from "@/lib/utils";
 
-import { cellText, signedCellText } from "../display";
+import { cellText, columnUnit, signedCellText } from "../display";
 import { cellOf, isZeroCell } from "../types";
 import type { CellMap, SheetProduct } from "../types";
 
@@ -42,7 +42,8 @@ const LABEL_LEFT = "sm:left-40";
 /**
  * Siljiydigan karta: telefonda ham jadval bo'lib qoladi — ikki tomonga
  * siljiydi. Balandlik chegarali: sarlavha yopishishi uchun siljish kartaning
- * o'zida bo'lishi shart.
+ * o'zida bo'lishi shart. `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni
+ * yon tomonga suradi (`lib/mouse-scroll`).
  */
 export function SheetScroll({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -50,6 +51,7 @@ export function SheetScroll({ label, children }: { label: string; children: Reac
       role="region"
       aria-label={label}
       tabIndex={0}
+      data-wheel-x
       className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 max-h-120 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:max-h-160"
     >
       <table className="w-full border-separate border-spacing-0 text-dense">{children}</table>
@@ -83,14 +85,17 @@ export function HeadCell({ children, align = "center", className }: { children: 
 export function ProductHeads({ products }: { products: readonly SheetProduct[] }) {
   return (
     <>
-      {products.map((product) => (
-        <HeadCell key={product.id} className="min-w-16">
-          <span className="text-ink mx-auto line-clamp-2 max-w-24 break-words" data-no-translit title={product.name}>
-            {product.name}
-          </span>
-          {product.unitLabel !== PIECE_UNIT ? <span className="block text-fine font-normal">{product.unitLabel}</span> : null}
-        </HeadCell>
-      ))}
+      {products.map((product) => {
+        const unit = columnUnit(product);
+        return (
+          <HeadCell key={product.id} className="min-w-16">
+            <span className="text-ink mx-auto line-clamp-2 max-w-24 break-words" data-no-translit title={product.name}>
+              {product.name}
+            </span>
+            {unit !== PIECE_UNIT ? <span className="block text-fine font-normal">{unit}</span> : null}
+          </HeadCell>
+        );
+      })}
     </>
   );
 }
@@ -148,7 +153,7 @@ export function QtyCells({
   signed?: boolean;
   start?: boolean;
   /** Katak izohi (`title`) — masalan, «berilgan» ning tarkibi. */
-  titleOf?: (productId: number) => string | undefined;
+  titleOf?: (product: SheetProduct) => string | undefined;
 }) {
   return (
     <>
@@ -158,10 +163,10 @@ export function QtyCells({
         return (
           <td
             key={product.id}
-            title={empty ? undefined : titleOf?.(product.id)}
+            title={empty ? undefined : titleOf?.(product)}
             className={cn(CELL, "tabular px-1.5 text-center whitespace-nowrap", ROW_TONE[tone], start && BLOCK_START)}
           >
-            {empty ? (zero === "show" ? "0" : null) : signed ? signedCellText(cell) : cellText(cell)}
+            {empty ? (zero === "show" ? "0" : null) : signed ? signedCellText(cell, product) : cellText(cell, product)}
           </td>
         );
       })}

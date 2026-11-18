@@ -13,19 +13,28 @@ import { DEMO_CHIEF } from "./fixtures";
  * Bu fayl server o'rnida: `given`, `closing`, `handover_due`, `totals`,
  * `to_issue`, `shortage` shu yerda hisoblanadi — ekranlar faqat o'qiydi.
  * Kuryer xizmati yozuvlari modul xotirasida (sahifa yangilansa boshiga qaytadi).
+ *
+ * «Doctor Ali Kremi» — donalab sotiladigan karobkali mahsulot (hujjat 84): 1 karobkada
+ * 3 dona, skladda hali karobkada (`unit_label: karobka`). Uning sonlari shu faylda donada
+ * yuritiladi; javobda server kabi `{qty: karobka, pieces: ortiqcha dona, pieces_total}`.
  */
 
-/** Egasi jadvali ustunlari, katalog tartibida. `dailyLoad` — to'ldirilgan kunlarda beriladigan mol o'lchami. */
+/**
+ * Egasi jadvali ustunlari, katalog tartibida. `dailyLoad` — to'ldirilgan kunlarda beriladigan
+ * mol o'lchami; `price` — shu fayldagi son birligining narxi (Kremi — 1 dona narxi);
+ * `piecesPerBox` — karobkasiz mahsulotda 1.
+ */
 const PRODUCTS = [
-  { id: 6, name: "Doctor Ali Tea", nameUz: "Tea (ipak choy)", price: 160_000, dailyLoad: 4, gifted: false },
-  { id: 7, name: "Rayhon", nameUz: "Rayhon", price: 190_000, dailyLoad: 60, gifted: true },
-  { id: 8, name: "Elixir", nameUz: "Elixir", price: 420_000, dailyLoad: 4, gifted: true },
-  { id: 9, name: "Oregado Box", nameUz: "Oregado Box", price: 650_000, dailyLoad: 1, gifted: false },
-  { id: 10, name: "Yostiq", nameUz: "Yostiq", price: 350_000, dailyLoad: 1, gifted: false },
-  { id: 21, name: "One shot", nameUz: "One shot", price: 120_000, dailyLoad: 1, gifted: false },
-  { id: 22, name: "Vanna uchun", nameUz: "Vanna uchun", price: 180_000, dailyLoad: 0, gifted: false },
-  { id: 23, name: "Qora ko'z", nameUz: "Qora ko'z", price: 250_000, dailyLoad: 8, gifted: false },
-  { id: 24, name: "Chufa yog'i", nameUz: "Chufa yog'i", price: 300_000, dailyLoad: 0, gifted: false },
+  { id: 6, name: "Doctor Ali Tea", nameUz: "Tea (ipak choy)", price: 160_000, dailyLoad: 4, gifted: false, piecesPerBox: 1 },
+  { id: 7, name: "Rayhon", nameUz: "Rayhon", price: 190_000, dailyLoad: 60, gifted: true, piecesPerBox: 1 },
+  { id: 8, name: "Elixir", nameUz: "Elixir", price: 420_000, dailyLoad: 4, gifted: true, piecesPerBox: 1 },
+  { id: 9, name: "Oregado Box", nameUz: "Oregado Box", price: 650_000, dailyLoad: 1, gifted: false, piecesPerBox: 1 },
+  { id: 10, name: "Yostiq", nameUz: "Yostiq", price: 350_000, dailyLoad: 1, gifted: false, piecesPerBox: 1 },
+  { id: 21, name: "One shot", nameUz: "One shot", price: 120_000, dailyLoad: 1, gifted: false, piecesPerBox: 1 },
+  { id: 22, name: "Vanna uchun", nameUz: "Vanna uchun", price: 180_000, dailyLoad: 0, gifted: false, piecesPerBox: 1 },
+  { id: 23, name: "Qora ko'z", nameUz: "Qora ko'z", price: 250_000, dailyLoad: 8, gifted: false, piecesPerBox: 1 },
+  { id: 24, name: "Chufa yog'i", nameUz: "Chufa yog'i", price: 300_000, dailyLoad: 0, gifted: false, piecesPerBox: 1 },
+  { id: 34, name: "Doctor Ali Kremi", nameUz: "Doctor Ali Kremi", price: 200_000, dailyLoad: 12, gifted: false, piecesPerBox: 3 },
 ] as const;
 
 const COURIERS = [
@@ -58,23 +67,24 @@ type Move = {
 
 /** 16.11 boshidagi qoldiq (15.11 dan o'tgan). */
 const OPENING: Record<number, Vector> = {
-  31: [3, 20, 2, 0, 1, 0, 0, 4, 0],
-  32: [1, 15, 1, 0, 0, 0, 0, 4, 0],
-  33: [2, 25, 1, 0, 0, 0, 0, 2, 0],
+  31: [3, 20, 2, 0, 1, 0, 0, 4, 0, 7],
+  32: [1, 15, 1, 0, 0, 0, 0, 4, 0, 4],
+  33: [2, 25, 1, 0, 0, 0, 0, 2, 0, 2],
 };
 
 const FIXED_DAYS: Record<string, Record<number, Move>> = {
   // Egasi jadvali: berilgan 4·100·7·1·1·0·0·10·0 va h.k. (`given = opening + issued`).
+  // Kremi (oxirgi ustun, donada): Bahtiyorga 31 dona berildi — jadvalda «31», «10 kar. 1 dona» emas.
   "2026-11-16": {
-    31: { issued: [1, 80, 5, 1, 0, 0, 0, 6, 0], sold: [1, 57, 3, 1, 0, 0, 0, 6, 0], gift: [0, 20, 2, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 12_060_000, online: 5_010_000, addresses: 22, refused: 1, openOrders: 9 },
-    32: { issued: [5, 60, 2, 0, 0, 1, 0, 12, 0], sold: [6, 40, 2, 0, 0, 1, 0, 12, 0], gift: [0, 15, 1, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 13_170_000, online: 3_720_000, addresses: 23, refused: 0, openOrders: 6 },
-    33: { issued: [3, 50, 4, 0, 0, 0, 0, 10, 0], sold: [3, 33, 0, 0, 0, 0, 0, 2, 0], gift: [0, 12, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 5_850_000, online: 2_950_000, addresses: 12, refused: 0, openOrders: 11 },
+    31: { issued: [1, 80, 5, 1, 0, 0, 0, 6, 0, 31], sold: [1, 57, 3, 1, 0, 0, 0, 6, 0, 20], gift: [0, 20, 2, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 12_060_000, online: 5_010_000, addresses: 22, refused: 1, openOrders: 9 },
+    32: { issued: [5, 60, 2, 0, 0, 1, 0, 12, 0, 9], sold: [6, 40, 2, 0, 0, 1, 0, 12, 0, 8], gift: [0, 15, 1, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 13_170_000, online: 3_720_000, addresses: 23, refused: 0, openOrders: 6 },
+    33: { issued: [3, 50, 4, 0, 0, 0, 0, 10, 0, 6], sold: [3, 33, 0, 0, 0, 0, 0, 2, 0, 5], gift: [0, 12, 0, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 5_850_000, online: 2_950_000, addresses: 12, refused: 0, openOrders: 11 },
   },
   // Berish rejasidagi «yana berish kerak» berilgan; Muhammadqul ortiqchasini qaytargan (`other` manfiy).
   "2026-11-17": {
-    31: { issued: [2, 57, 4, 1, 0, 0, 0, 5, 0], sold: [4, 52, 4, 1, 0, 0, 0, 7, 0], gift: [0, 18, 1, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 13_240_000, online: 4_380_000, addresses: 24, refused: 0, openOrders: 4 },
-    32: { issued: [4, 50, 3, 0, 0, 1, 0, 6, 0], sold: [3, 45, 2, 0, 0, 1, 0, 8, 0], gift: [0, 15, 1, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 11_950_000, online: 4_110_000, addresses: 21, refused: 1, openOrders: 5 },
-    33: { issued: [1, 15, 0, 0, 0, 0, 0, 0, 0], sold: [2, 30, 1, 0, 0, 0, 0, 5, 0], gift: [0, 10, 0, 0, 0, 0, 0, 0, 0], other: [0, 0, -3, 0, 0, 0, 0, -2, 0], cash: 6_420_000, online: 2_260_000, addresses: 14, refused: 0, openOrders: 3 },
+    31: { issued: [2, 57, 4, 1, 0, 0, 0, 5, 0, 12], sold: [4, 52, 4, 1, 0, 0, 0, 7, 0, 22], gift: [0, 18, 1, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 13_240_000, online: 4_380_000, addresses: 24, refused: 0, openOrders: 4 },
+    32: { issued: [4, 50, 3, 0, 0, 1, 0, 6, 0, 6], sold: [3, 45, 2, 0, 0, 1, 0, 8, 0, 7], gift: [0, 15, 1, 0, 0, 0, 0, 0, 0, 0], other: ZERO, cash: 11_950_000, online: 4_110_000, addresses: 21, refused: 1, openOrders: 5 },
+    33: { issued: [1, 15, 0, 0, 0, 0, 0, 0, 0, 0], sold: [2, 30, 1, 0, 0, 0, 0, 5, 0, 2], gift: [0, 10, 0, 0, 0, 0, 0, 0, 0, 0], other: [0, 0, -3, 0, 0, 0, 0, -2, 0, -1], cash: 6_420_000, online: 2_260_000, addresses: 14, refused: 0, openOrders: 3 },
   },
 };
 
@@ -221,18 +231,37 @@ const handoverDue = (figures: Figures) => figures.cash - (figures.fee?.amount ??
 
 // ── Javob shakllari (backenddagidek) ────────────────────────────────────────
 
-/** `{id: {qty, pieces}}` — nol katak yuborilmaydi (§2.1). */
+/**
+ * Katak (§2.1, hujjat 84 §2.2): karobkali mahsulotda `qty` — karobka, `pieces` — ortiqcha
+ * dona (ishora saqlanadi), `pieces_total` — jami dona. Karobkasiz mahsulotda `qty` — dona.
+ */
+function cellJson(quantity: number, piecesPerBox: number) {
+  // `+ 0` — manfiy harakatda `-0` chiqmasin (javobda oddiy nol).
+  return { qty: Math.trunc(quantity / piecesPerBox) + 0, pieces: (quantity % piecesPerBox) + 0, pieces_total: quantity };
+}
+
+/** `{id: {qty, pieces, pieces_total}}` — nol katak yuborilmaydi (§2.1). */
 function cellsJson(vector: Vector) {
   return Object.fromEntries(
-    PRODUCTS.flatMap((product, index) => (vector[index] ? [[String(product.id), { qty: vector[index], pieces: 0 }]] : [])),
+    PRODUCTS.flatMap((product, index) => (vector[index] ? [[String(product.id), cellJson(vector[index], product.piecesPerBox)]] : [])),
   );
 }
 
-/** Faqat shu javobda noldan farqli katagi bor mahsulotlar (§2.1). */
+/** Faqat shu javobda noldan farqli katagi bor mahsulotlar (§2.1); hammasi donada yuritiladi (hujjat 84 §2.1). */
 function productsJson(vectors: readonly Vector[]) {
   return PRODUCTS.flatMap((product, index) =>
     vectors.some((vector) => vector[index] !== 0)
-      ? [{ id: product.id, name: product.name, name_uz: product.nameUz, order: index + 1, unit_label: "dona" }]
+      ? [
+          {
+            id: product.id,
+            name: product.name,
+            name_uz: product.nameUz,
+            order: index + 1,
+            unit_label: product.piecesPerBox > 1 ? "karobka" : "dona",
+            count_unit: "piece",
+            pieces_per_box: product.piecesPerBox,
+          },
+        ]
       : [],
   );
 }
@@ -330,13 +359,13 @@ export function demoSaveSheetFee(json: Record<string, unknown>, today = todayIso
 // ── §4. Berish rejasi (egasi maketidagi 17.11.2026 namunasi) ────────────────
 
 const PLAN = [
-  { courierId: 31, carried: 9, fresh: 21, onHand: [3, 23, 2, 0, 1, 0, 0, 4, 0], required: [5, 80, 6, 1, 0, 0, 0, 9, 0] },
-  { courierId: 32, carried: 6, fresh: 24, onHand: [0, 20, 0, 0, 0, 0, 0, 4, 0], required: [4, 70, 3, 0, 0, 1, 0, 10, 0] },
-  { courierId: 33, carried: 11, fresh: 9, onHand: [2, 30, 5, 0, 0, 0, 0, 10, 0], required: [3, 45, 2, 0, 0, 0, 0, 8, 0] },
+  { courierId: 31, carried: 9, fresh: 21, onHand: [3, 23, 2, 0, 1, 0, 0, 4, 0, 8], required: [5, 80, 6, 1, 0, 0, 0, 9, 0, 14] },
+  { courierId: 32, carried: 6, fresh: 24, onHand: [0, 20, 0, 0, 0, 0, 0, 4, 0, 5], required: [4, 70, 3, 0, 0, 1, 0, 10, 0, 10] },
+  { courierId: 33, carried: 11, fresh: 9, onHand: [2, 30, 5, 0, 0, 0, 0, 10, 0, 3], required: [3, 45, 2, 0, 0, 0, 0, 8, 0, 4] },
 ] as const;
 
-/** Bosh kuryer omboridagi qoldiq. */
-const STORE_ON_HAND: Vector = [20, 90, 15, 3, 2, 2, 0, 30, 0];
+/** Bosh kuryer omboridagi qoldiq (Kremi — 10 dona: 12 berish kerak, 2 yetmaydi). */
+const STORE_ON_HAND: Vector = [20, 90, 15, 3, 2, 2, 0, 30, 0, 10];
 
 /** `max(a − b, 0)` — mahsulot bo'yicha. */
 const shortfall = (a: Vector, b: Vector): Vector => a.map((quantity, index) => Math.max(quantity - b[index], 0));
@@ -390,7 +419,9 @@ export function demoSalesSheetFile(query: DemoSheetQuery, today = todayIso()) {
     ...rows.map((row) => ({ name: row.courier.fullName, figures: row.period })),
     { name: "JAMI", figures: overCouriers(rows.map((row) => row.period)) },
   ];
-  const head = ["Kuryer", "Qator", ...PRODUCTS.map((product) => product.nameUz), "Naqd", "Onlayn (ilova)", "Manzil soni", "Borganda atkaz", "Kuryer xizmati", "Topshiradi"];
+  // Donada yuritiladigan karobkali mahsulot ustunida bitta son, sarlavhada «(dona)» (hujjat 84 §2.5).
+  const productHeads = PRODUCTS.map((product) => (product.piecesPerBox > 1 ? `${product.nameUz} (dona)` : product.nameUz));
+  const head = ["Kuryer", "Qator", ...productHeads, "Naqd", "Onlayn (ilova)", "Manzil soni", "Borganda atkaz", "Kuryer xizmati", "Topshiradi"];
   const lines = blocks.flatMap(({ name, figures }) =>
     SHEET_ROWS.map(([label, flow], index) => {
       const money = index === 0 ? [figures.cash, figures.online, figures.addresses, figures.refused, figures.fee?.amount ?? 0, handoverDue(figures)] : ["", "", "", "", "", ""];

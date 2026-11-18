@@ -94,7 +94,7 @@ export function SalesSheetBody({ sheet, range, onOpenDay }: { sheet: SalesSheet;
 function ChecksNote({ sheet }: { sheet: SalesSheet }) {
   if (sheet.checks.length === 0) return null;
   const courierName = (id: number | null) => sheet.couriers.find((row) => row.courier.id === id)?.courier.fullName ?? "—";
-  const productName = (id: number | null) => sheet.products.find((product) => product.id === id)?.name ?? "—";
+  const productOf = (id: number | null) => sheet.products.find((product) => product.id === id);
   return (
     <section role="status" aria-label="Daftar va zakazlar farqi" className="border-warn bg-warn-soft flex items-start gap-2 rounded-2xl border px-4 py-3">
       <TriangleAlert aria-hidden className="text-warn mt-0.5 size-4 shrink-0" />
@@ -102,18 +102,21 @@ function ChecksNote({ sheet }: { sheet: SalesSheet }) {
         <p className="font-semibold">{`Sklad daftari zakazlardagi sotuvdan farq qiladi — ${sheet.checks.length} ta qator`}</p>
         <p className="text-ink-muted mt-0.5 text-meta">Jadval raqamlari daftar bo&apos;yicha. Sabab odatda — qo&apos;lda tuzatish; farqni bosh logist bilan tekshiring.</p>
         <ul className="mt-2 flex flex-col gap-1">
-          {sheet.checks.map((check) => (
-            <li key={`${check.date}-${check.courierId}-${check.flow}-${check.productId}`}>
-              <span className="tabular">{shortDate(check.date)}</span>
-              {" · "}
-              <span data-no-translit>{courierName(check.courierId)}</span>
-              {check.flow === "gift" ? " · Sovg'a · " : " · Sotilgan · "}
-              <span className="font-semibold" data-no-translit>
-                {productName(check.productId)}
-              </span>
-              {`: daftarda ${cellText(check.ledger)}, zakazlarda ${cellText(check.orders)}`}
-            </li>
-          ))}
+          {sheet.checks.map((check) => {
+            const product = productOf(check.productId);
+            return (
+              <li key={`${check.date}-${check.courierId}-${check.flow}-${check.productId}`}>
+                <span className="tabular">{shortDate(check.date)}</span>
+                {" · "}
+                <span data-no-translit>{courierName(check.courierId)}</span>
+                {check.flow === "gift" ? " · Sovg'a · " : " · Sotilgan · "}
+                <span className="font-semibold" data-no-translit>
+                  {product?.name ?? "—"}
+                </span>
+                {`: daftarda ${cellText(check.ledger, product)}, zakazlarda ${cellText(check.orders, product)}`}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

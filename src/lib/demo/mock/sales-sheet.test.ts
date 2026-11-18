@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { cellText } from "@/features/sales-sheet/display";
 import { cellOf, mapIssuePlan, mapSalesSheet } from "@/features/sales-sheet/types";
-import type { CourierSheet, SalesSheet, SheetFigures } from "@/features/sales-sheet/types";
+import type { CellMap, CourierSheet, SalesSheet, SheetFigures } from "@/features/sales-sheet/types";
 
 import { demoRequest } from "./router";
 import type { DemoFile } from "./router";
@@ -12,8 +13,14 @@ const putFee = (json: unknown) => demoRequest({ method: "put", path: `${SHEET}fe
 const sheet = async (from: string, to = from, extra: Record<string, string> = {}) =>
   mapSalesSheet((await get(SHEET, { date_from: from, date_to: to, ...extra })).data);
 
+/** Katak soni mahsulot birligida: donada yuritiladiganda — `pieces_total` (Kremi: karobka + dona emas). */
+const amount = (cells: CellMap, productId: number) => {
+  const cell = cellOf(cells, productId);
+  return cell.piecesTotal ?? cell.qty;
+};
+
 const qty = (figures: SheetFigures, flow: "opening" | "issued" | "given" | "sold" | "gift" | "other" | "closing", productId: number) =>
-  cellOf(figures[flow], productId).qty;
+  amount(figures[flow], productId);
 
 /** Tenglama (§2.2) har mahsulotda yopiladi: `given = opening + issued`, `closing = given − sold − gift + other`. */
 function expectBalanced(report: SalesSheet, figures: SheetFigures) {
@@ -65,9 +72,20 @@ describe("demo: sotuv jadvali (hujjat 83 §2, §7)", () => {
       products: Array<{ name_uz: string }>;
       couriers: Array<{ gift: Record<string, unknown> }>;
     };
-    expect(raw.products.map((product) => product.name_uz)).toEqual(["Tea (ipak choy)", "Rayhon", "Elixir", "Oregado Box", "Yostiq", "One shot", "Qora ko'z"]);
+    expect(raw.products.map((product) => product.name_uz)).toEqual(["Tea (ipak choy)", "Rayhon", "Elixir", "Oregado Box", "Yostiq", "One shot", "Qora ko'z", "Doctor Ali Kremi"]);
     // Bahtiyor: sovg'a faqat Rayhon va Elixir.
     expect(Object.keys(raw.couriers[0]!.gift)).toEqual(["7", "8"]);
+  });
+
+  it("faqat dona (hujjat 84): Kremi 31 dona berildi — katak «31», «10 kar. 1 dona» emas", async () => {
+    const report = await sheet("2026-11-16");
+    const kremi = report.products.find((product) => product.id === 34)!;
+    expect(kremi).toMatchObject({ unitLabel: "karobka", countsInDona: true, piecesPerBox: 3 });
+    const bahtiyor = byName(report, "Bahtiyor");
+    expect(cellOf(bahtiyor.issued, 34)).toEqual({ qty: 10, pieces: 1, piecesTotal: 31 });
+    expect(cellText(cellOf(bahtiyor.issued, 34), kremi)).toBe("31");
+    expect(cellText(cellOf(bahtiyor.given, 34), kremi)).toBe("38");
+    expect(cellText(cellOf(report.totals.issued, 34), kremi)).toBe("46");
   });
 
   it("tenglama har kuryer, har mahsulot va jamida yopiladi — belgilangan va to'ldirilgan kunlarda", async () => {
@@ -171,17 +189,18 @@ describe("demo: berish rejasi (§4) va eksport (§5)", () => {
     expect(plan.couriers.map((row) => [row.carriedOrders, row.newOrders])).toEqual([[9, 21], [6, 24], [11, 9]]);
     for (const row of plan.couriers) {
       for (const product of plan.products) {
-        const [onHand, required] = [cellOf(row.onHand, product.id).qty, cellOf(row.required, product.id).qty];
-        expect(cellOf(row.toIssue, product.id).qty).toBe(Math.max(required - onHand, 0));
-        expect(cellOf(row.surplus, product.id).qty).toBe(Math.max(onHand - required, 0));
+        const [onHand, required] = [amount(row.onHand, product.id), amount(row.required, product.id)];
+        expect(amount(row.toIssue, product.id)).toBe(Math.max(required - onHand, 0));
+        expect(amount(row.surplus, product.id)).toBe(Math.max(onHand - required, 0));
       }
     }
     // Rayhon: 122 ta berish kerak, omborda 90 ta — 32 ta yetmaydi (maketdagi ogohlantirish).
     expect(cellOf(plan.store.toIssue, 7).qty).toBe(122);
     expect(cellOf(plan.store.onHand, 7).qty).toBe(90);
-    expect(plan.store.shortage).toEqual({ "7": { qty: 32, pieces: 0 } });
+    // Kremi (donada, 1 kar. = 3 dona): 12 dona berish kerak, omborda 10 — 2 dona yetmaydi.
+    expect(plan.store.shortage).toEqual({ "7": { qty: 32, pieces: 0, piecesTotal: 32 }, "34": { qty: 0, pieces: 2, piecesTotal: 2 } });
     // Hamma joyda nol mahsulot (Vanna uchun, Chufa yog'i) ustun bo'lmaydi.
-    expect(plan.products).toHaveLength(7);
+    expect(plan.products).toHaveLength(8);
   });
 
   it("eksport — fayl javobi: nom davr bo'yicha, ichida kuryer qatorlari va JAMI", async () => {
@@ -190,8 +209,10 @@ describe("demo: berish rejasi (§4) va eksport (§5)", () => {
     const lines = file.content.split("\n");
     // Sarlavha + (3 kuryer + JAMI) × 4 qator.
     expect(lines).toHaveLength(1 + 4 * 4);
-    expect(lines[1]).toBe("Bahtiyor aka;Berilgan;4;100;7;1;1;0;0;10;0;12060000;5010000;22;1;1495000;10565000");
-    expect(lines.at(-4)).toContain("JAMI;Berilgan;15;250;15;1;1;1;0;38;0;31080000;11680000;57;1;3770000;27310000");
+    // Kremi ustuni — bitta son donada, sarlavhada «(dona)» (hujjat 84 §2.5).
+    expect(lines[0]).toContain(";Doctor Ali Kremi (dona);");
+    expect(lines[1]).toBe("Bahtiyor aka;Berilgan;4;100;7;1;1;0;0;10;0;38;12060000;5010000;22;1;1495000;10565000");
+    expect(lines.at(-4)).toContain("JAMI;Berilgan;15;250;15;1;1;1;0;38;0;59;31080000;11680000;57;1;3770000;27310000");
     const range = (await get(`${SHEET}export/`, { date_from: "2026-11-16", date_to: "2026-11-17" })).data as DemoFile;
     expect(range.fileName).toBe("sotuv_2026-11-16_2026-11-17.csv");
   });

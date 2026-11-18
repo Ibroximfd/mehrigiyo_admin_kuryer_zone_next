@@ -1,3 +1,4 @@
+import { shownQuantity } from "@/lib/item-ref";
 import type { ItemRef } from "@/lib/item-ref";
 
 import type { CourierStock, SkladStockRow } from "./types";
@@ -5,15 +6,16 @@ import type { CourierStock, SkladStockRow } from "./types";
 /**
  * Kuryerlar ombori matritsasi (egasi so'rovi 2026-11-18 — Google Sheet kabi):
  * qator — kuryer, ustun — mahsulot, katak — kuryer qo'lidagi miqdor. Miqdorlar
- * server bergan holicha, mahsulotning o'z qoldiq birligida (`unit_label`) —
- * sklad qoldig'i (`stock/`) ham shu birlikda, shuning uchun «Omborim» qatori
- * kuryer kataklari bilan bir ustunda turadi.
+ * ekrandagi birlikda (`shownQuantity`): server bergan holicha, faqat donada
+ * yuritiladigan, lekin skladda karobkada turgan mahsulot donaga aylantiriladi
+ * (hujjat 84). Sklad qoldig'i (`stock/`) ham shu birlikda, shuning uchun
+ * «Omborim» qatori kuryer kataklari bilan bir ustunda turadi.
  */
 
 export type StockMatrixLine = {
   /** `products` tartibida; `0` — mahsulot yo'q (katak bo'sh chiziladi). */
   cells: number[];
-  /** Qator yig'indisi. Birliklar aralash (dona va karobka, hujjat 70 §2) — birlik nomi yozilmaydi. */
+  /** Qator yig'indisi. Birliklar aralash (dona va karobka mahsulotlari, hujjat 70 §2) — birlik nomi yozilmaydi. */
   total: number;
   /** Miqdori noldan farqli mahsulotlar soni — «N xil mahsulot». */
   kinds: number;
@@ -46,7 +48,7 @@ function lineOf(entries: readonly StockEntry[], columnOf: ReadonlyMap<number, nu
   const cells = Array.from({ length: columnOf.size }, () => 0);
   for (const entry of entries) {
     const column = columnOf.get(entry.item.id);
-    if (column !== undefined) cells[column] += entry.quantity;
+    if (column !== undefined) cells[column] += shownQuantity(entry.item, entry.quantity);
   }
   return {
     cells,

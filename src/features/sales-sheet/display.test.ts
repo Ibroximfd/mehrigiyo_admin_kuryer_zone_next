@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api-client";
 import { translateText } from "@/lib/i18n/translate";
 
 import { salesSheetFileName, salesSheetParams } from "./api";
-import { cellText, filledCells, fullDate, moneyText, shortDate, signedCellText } from "./display";
+import { cellDona, cellText, columnUnit, filledCells, fullDate, moneyText, shortDate, signedCellText } from "./display";
 import { feeAmountOf, feeErrorText } from "./fee";
 
 describe("katak matni — sklad bilan bir xil shakl", () => {
@@ -13,6 +13,34 @@ describe("katak matni — sklad bilan bir xil shakl", () => {
     expect(cellText({ qty: 1245, pieces: 0 })).toBe("1 245");
     expect(cellText({ qty: 2, pieces: 1 })).toBe("2 kar. 1 dona");
     expect(cellText({ qty: 0, pieces: 5 })).toBe("5 dona");
+  });
+
+  it("donada yuritiladigan mahsulot (hujjat 84 §2.2) — bitta son: `pieces_total`, bo'lmasa qty × karobkadagi dona + dona", () => {
+    const kremi = { id: 34, name: "Kremi", unitLabel: "karobka", countsInDona: true, piecesPerBox: 3 };
+    expect(cellText({ qty: 21, pieces: 2, piecesTotal: 65 }, kremi)).toBe("65");
+    expect(cellText({ qty: 21, pieces: 2 }, kremi)).toBe("65");
+    expect(cellText({ qty: 10, pieces: 1 }, kremi)).toBe("31");
+    expect(cellText({ qty: 400, pieces: 0 }, kremi)).toBe("1 200");
+    expect(signedCellText({ qty: -1, pieces: -1, piecesTotal: -4 }, kremi)).toBe("−4");
+    expect(signedCellText({ qty: -1, pieces: -1 }, kremi)).toBe("−4");
+    // Ustun donada — sarlavhada birlik yozilmaydi.
+    expect(columnUnit(kremi)).toBe("dona");
+  });
+
+  it("karobkadagi dona noma'lum — taxmin yo'q: `pieces_total` bo'lsa birligi bilan, bo'lmasa avvalgidek", () => {
+    const unknown = { id: 34, name: "Kremi", unitLabel: "karobka", countsInDona: true, piecesPerBox: null };
+    expect(cellDona({ qty: 21, pieces: 2 }, unknown)).toBeNull();
+    expect(cellText({ qty: 21, pieces: 2 }, unknown)).toBe("21 kar. 2 dona");
+    expect(cellText({ qty: 21, pieces: 0 }, unknown)).toBe("21");
+    expect(cellText({ qty: 21, pieces: 2, piecesTotal: 65 }, unknown)).toBe("65 dona");
+    expect(columnUnit(unknown)).toBe("karobka");
+  });
+
+  it("faqat karobkada sotiladigan mahsulot va mahsulotsiz katak — o'zgarmaydi", () => {
+    const boxOnly = { id: 7, name: "Rayhon", unitLabel: "karobka", countsInDona: false, piecesPerBox: 3 };
+    expect(cellText({ qty: 2, pieces: 1, piecesTotal: 7 }, boxOnly)).toBe("2 kar. 1 dona");
+    expect(cellDona({ qty: 2, pieces: 1 }, undefined)).toBeNull();
+    expect(columnUnit(boxOnly)).toBe("karobka");
   });
 
   it("ishorali harakat: qaytarish — «−», tuzatish — «+»", () => {
@@ -37,9 +65,9 @@ describe("katak matni — sklad bilan bir xil shakl", () => {
 
   it("noldan farqli kataklar — ustun tartibida", () => {
     const products = [
-      { id: 6, name: "Tea", unitLabel: "dona" },
-      { id: 7, name: "Rayhon", unitLabel: "dona" },
-      { id: 8, name: "Elixir", unitLabel: "dona" },
+      { id: 6, name: "Tea", unitLabel: "dona", countsInDona: false, piecesPerBox: null },
+      { id: 7, name: "Rayhon", unitLabel: "dona", countsInDona: false, piecesPerBox: null },
+      { id: 8, name: "Elixir", unitLabel: "dona", countsInDona: false, piecesPerBox: null },
     ];
     expect(filledCells({ "8": { qty: 1, pieces: 0 }, "6": { qty: 2, pieces: 0 } }, products).map((entry) => entry.product.name)).toEqual(["Tea", "Elixir"]);
     expect(filledCells({}, products)).toEqual([]);

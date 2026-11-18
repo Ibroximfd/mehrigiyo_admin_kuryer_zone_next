@@ -17,7 +17,7 @@ import { regionLabel } from "@/features/orders/regions";
 import { errorMessage } from "@/lib/api-client";
 import { isAccessDenied } from "@/lib/api-availability";
 import { groupThousands } from "@/lib/format";
-import { PIECE_UNIT } from "@/lib/item-ref";
+import { PIECE_UNIT, shownQuantity, shownUnit } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { matchesSearch } from "@/lib/search";
 import { isUzRegionCode } from "@/lib/uz-map";
@@ -70,7 +70,10 @@ export function SkladView({ me }: { me: ChiefMe }) {
   }
   const regions = data.sklad.regions.filter(isUzRegionCode);
   const name = data.sklad.name;
-  const withCouriers = data.couriers.reduce((sum, stock) => sum + stock.items.reduce((total, entry) => total + entry.quantity, 0), 0);
+  const withCouriers = data.couriers.reduce(
+    (sum, stock) => sum + stock.items.reduce((total, entry) => total + shownQuantity(entry.item, entry.quantity), 0),
+    0,
+  );
   const low = data.stock.filter((row) => row.isLow).length;
 
   return (
@@ -121,8 +124,9 @@ export function SkladView({ me }: { me: ChiefMe }) {
       <Section title="Qoldiq">
         <KeyFigures
           items={[
-            // Yig'indida birliklar aralash (dona va karobka, hujjat 70 §2) — birlik nomi yozilmaydi.
-            { label: "Skladda", value: groupThousands(data.stock.reduce((sum, row) => sum + row.inSklad, 0)) },
+            // Yig'indida birliklar aralash (dona va karobka mahsulotlari, hujjat 70 §2) — birlik nomi yozilmaydi;
+            // donada yuritiladigan mahsulot donada qo'shiladi (hujjat 84).
+            { label: "Skladda", value: groupThousands(data.stock.reduce((sum, row) => sum + shownQuantity(row.item, row.inSklad), 0)) },
             { label: "Kuryerlarda", value: groupThousands(withCouriers) },
             { label: "Mahsulot turi", value: groupThousands(data.stock.length) },
             { label: "Kam qolgan", value: groupThousands(low), tone: low > 0 ? "warn" : "default" },
@@ -200,25 +204,33 @@ function StockTable({ rows }: { rows: SkladStockRow[] }) {
           </thead>
           <tbody>
             {visible.map((row) => (
-              <tr key={row.item.id} className="border-line border-b last:border-0">
-                <td className="px-4 py-2.5">
-                  <span className="flex items-center gap-2.5">
-                    <ProductThumb src={row.item.image} name={row.item.name} size="sm" />
-                    <span className="text-ink font-medium" data-no-translit>{row.item.name}</span>
-                  </span>
-                </td>
-                <td className="tabular px-3 py-2.5 text-right">
-                  <span className={cn("font-semibold", row.isLow ? "text-warn" : "text-ink")}>{groupThousands(row.inSklad)}</span>
-                  {row.item.unitLabel !== PIECE_UNIT ? <span className="text-ink-faint ml-1 text-fine">{row.item.unitLabel}</span> : null}
-                  {row.isLow ? <span className="text-warn block text-fine">kam qoldi</span> : null}
-                </td>
-                <td className="text-ink-muted tabular px-4 py-2.5 text-right">{groupThousands(row.withCouriers)}</td>
-              </tr>
+              <StockRow key={row.item.id} row={row} />
             ))}
           </tbody>
         </table>
       )}
     </div>
+  );
+}
+
+/** Mahsulot qatori — sonlar ekrandagi birlikda (donada yuritiladigan mahsulot — donada, hujjat 84). */
+function StockRow({ row }: { row: SkladStockRow }) {
+  const unit = shownUnit(row.item);
+  return (
+    <tr className="border-line border-b last:border-0">
+      <td className="px-4 py-2.5">
+        <span className="flex items-center gap-2.5">
+          <ProductThumb src={row.item.image} name={row.item.name} size="sm" />
+          <span className="text-ink font-medium" data-no-translit>{row.item.name}</span>
+        </span>
+      </td>
+      <td className="tabular px-3 py-2.5 text-right">
+        <span className={cn("font-semibold", row.isLow ? "text-warn" : "text-ink")}>{groupThousands(shownQuantity(row.item, row.inSklad))}</span>
+        {unit !== PIECE_UNIT ? <span className="text-ink-faint ml-1 text-fine">{unit}</span> : null}
+        {row.isLow ? <span className="text-warn block text-fine">kam qoldi</span> : null}
+      </td>
+      <td className="text-ink-muted tabular px-4 py-2.5 text-right">{groupThousands(shownQuantity(row.item, row.withCouriers))}</td>
+    </tr>
   );
 }
 

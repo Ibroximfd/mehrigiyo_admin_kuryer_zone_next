@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { wheelTarget } from "@/lib/mouse-scroll";
+import { wheelPixels, wheelTarget } from "@/lib/mouse-scroll";
 import type { ScrollBox } from "@/lib/mouse-scroll";
 
 /**
@@ -21,14 +21,18 @@ function chain(element: Element | null, owners: Map<ScrollBox, HTMLElement>): Sc
     scrollLeft: element.scrollLeft,
     scrollWidth: element.scrollWidth,
     clientWidth: element.clientWidth,
+    scrollTop: element.scrollTop,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
   };
   owners.set(box, element);
   return box;
 }
 
 /**
- * Butun ilova uchun bitta tinglovchi: `data-wheel-x` qatorlar ustida
- * sichqoncha g'ildiragi yon tomonga suradi (Shift shart emas). Trackpad
+ * Butun ilova uchun bitta tinglovchi: `data-wheel-x` qatorlar va keng
+ * jadvallar ustida sichqoncha g'ildiragi yon tomonga suradi (Shift shart
+ * emas; qoida — `wheelTarget`). Trackpad
  * gorizontal surishi (deltaX), Shift+g'ildirak va Ctrl (zoom) —
  * brauzerniki, tegilmaydi.
  */
@@ -43,8 +47,7 @@ export function MouseScrollSupport() {
       const element = target ? owners.get(target) : undefined;
       if (!element) return;
       event.preventDefault();
-      // Satr rejimidagi g'ildirak (Firefox) — piksellarga.
-      element.scrollLeft += event.deltaMode === 1 ? event.deltaY * 32 : event.deltaY;
+      element.scrollLeft += wheelPixels(event.deltaY, event.deltaMode, element.clientWidth);
     };
     document.addEventListener("wheel", onWheel, { passive: false });
     return () => document.removeEventListener("wheel", onWheel);

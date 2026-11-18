@@ -1036,11 +1036,30 @@ function cashHandover(request: DemoRequest): DemoResponse {
 
 // ── Sklad (bosh kuryerga faqat o'qish, `JAVOBLAR_SKLAD` S1.3) ────────────────
 
+/**
+ * Donalab sotiladigan karobkali mahsulot (hujjat 84 §3): skladda hali karobkada
+ * (`stock_unit: box`, son — karobka), sayt uni donada ko'rsatadi (1 kar. = 3 dona).
+ */
+const DONA_ITEM = {
+  id: 34,
+  name: "Doctor Ali Kremi",
+  sku: "P-34",
+  package_size: 1,
+  unit_label: "karobka",
+  stock_unit: "box",
+  pieces_per_box: 3,
+  piece_sale: true,
+  units_allowed: ["box", "piece"],
+  image: null,
+};
+
 function courierStockItems(courierId: number) {
-  return DEMO_PRODUCTS.flatMap((product) => {
+  const items = DEMO_PRODUCTS.flatMap((product) => {
     const quantity = Math.floor(demoSeed("stock", courierId, product.id) * 9) - 3;
     return quantity > 0 ? [{ item: { id: product.id, name: product.name, sku: `P-${product.id}`, image: null }, quantity }] : [];
   });
+  const boxes = Math.floor(demoSeed("stock", courierId, DONA_ITEM.id) * 5);
+  return boxes > 0 ? [...items, { item: DONA_ITEM, quantity: boxes }] : items;
 }
 
 const OWN_SKLAD = () => DEMO_SKLADS.findIndex((sklad) => sklad.chiefId === DEMO_CHIEF.id);
@@ -1093,18 +1112,21 @@ function skladSklads(): DemoResponse {
 /** V8: o'z skladining viloyat omborlari + kuryerlari ombori (faqat o'qish). */
 function skladStock(request: DemoRequest): DemoResponse {
   const sklad = DEMO_SKLADS[OWN_SKLAD()];
-  const regionRows = (sklad?.regions ?? []).flatMap((region, regionIndex) =>
-    DEMO_PRODUCTS.map((product) => {
+  const regionRows = (sklad?.regions ?? []).flatMap((region, regionIndex) => {
+    const location = { id: 100 + regionIndex, name: `${region} ombori`, kind: "region", region };
+    const rows = DEMO_PRODUCTS.map((product) => {
       const onHand = Math.round(10 + demoSeed("sklad", region, product.id) * 300);
       return {
-        location: { id: 100 + regionIndex, name: `${region} ombori`, kind: "region", region },
+        location,
         item: { id: product.id, name: product.name, sku: `P-${product.id}`, package_size: 1, image: null },
         on_hand: onHand,
         min_quantity: 40,
         is_low: onHand <= 40,
       };
-    }),
-  );
+    });
+    // Karobkadagi mahsulot (son — karobka) faqat birinchi omborda: 41 kar. = 123 dona.
+    return regionIndex === 0 ? [...rows, { location, item: DONA_ITEM, on_hand: 41, min_quantity: 5, is_low: false }] : rows;
+  });
   const courierRows = demoDb.couriers
     .filter((courier) => courier.isActive)
     .flatMap((courier) =>

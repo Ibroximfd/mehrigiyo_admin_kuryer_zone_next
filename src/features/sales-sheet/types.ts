@@ -1,3 +1,4 @@
+import { countsInDona, piecesPerBoxOf } from "@/lib/dona";
 import { PIECE_UNIT } from "@/lib/item-ref";
 import { asArray, asInt, asNumber, asOptionalInt, asOptionalNumber, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
 
@@ -8,8 +9,12 @@ import { asArray, asInt, asNumber, asOptionalInt, asOptionalNumber, asOptionalSt
  * o'qiladi — frontend qo'shmaydi va ayirmaydi, faqat formatlaydi.
  */
 
-/** Bitta katak (§2.1): `qty` — sklad birligida (karobka yoki dona), `pieces` — karobkadan tashqari donalar. */
-export type QtyCell = { qty: number; pieces: number };
+/**
+ * Bitta katak (§2.1): `qty` — katalog birligida (karobka yoki dona), `pieces` — karobkadan
+ * tashqari donalar. `piecesTotal` — donada yuritiladigan mahsulotda jami dona (hujjat 84 §2.2),
+ * faqat server bersa.
+ */
+export type QtyCell = { qty: number; pieces: number; piecesTotal?: number };
 
 export const EMPTY_CELL: QtyCell = { qty: 0, pieces: 0 };
 
@@ -17,7 +22,7 @@ export const EMPTY_CELL: QtyCell = { qty: 0, pieces: 0 };
 export type CellMap = Readonly<Record<string, QtyCell>>;
 
 export function isZeroCell(cell: QtyCell): boolean {
-  return cell.qty === 0 && cell.pieces === 0;
+  return cell.qty === 0 && cell.pieces === 0 && !cell.piecesTotal;
 }
 
 export function cellOf(cells: CellMap, productId: number): QtyCell {
@@ -32,7 +37,9 @@ export function hasCells(cells: CellMap): boolean {
 function mapCell(raw: unknown): QtyCell {
   // `checks[]` da miqdor son holida ham kelishi mumkin — u sklad birligidagi son.
   if (!isRecord(raw)) return { qty: asInt(raw), pieces: 0 };
-  return { qty: asInt(raw.qty), pieces: asInt(raw.pieces) };
+  const piecesTotal = asOptionalInt(raw.pieces_total);
+  const cell = { qty: asInt(raw.qty), pieces: asInt(raw.pieces) };
+  return piecesTotal === null ? cell : { ...cell, piecesTotal };
 }
 
 export function mapCells(raw: unknown): CellMap {
@@ -46,7 +53,15 @@ export function mapCells(raw: unknown): CellMap {
 }
 
 /** Ustun: `unitLabel` — sklad birligining nomi («dona» yoki «karobka»). */
-export type SheetProduct = { id: number; name: string; unitLabel: string };
+export type SheetProduct = {
+  id: number;
+  name: string;
+  unitLabel: string;
+  /** Donada yuritiladi (`count_unit: piece`, hujjat 84 §1) — katakda bitta son, donada. */
+  countsInDona: boolean;
+  /** 1 karobkadagi dona (`pieces_per_box`); kelmasa `null` — taxmin qilinmaydi. */
+  piecesPerBox: number | null;
+};
 
 /** Tartib — serverniki (katalog tartibi, §2.1). */
 function mapProducts(raw: unknown): SheetProduct[] {
@@ -56,6 +71,8 @@ function mapProducts(raw: unknown): SheetProduct[] {
       id: asInt(json.id),
       name: asOptionalString(json.name_uz) ?? asString(json.name),
       unitLabel: asOptionalString(json.unit_label) ?? PIECE_UNIT,
+      countsInDona: countsInDona(json),
+      piecesPerBox: piecesPerBoxOf(json.pieces_per_box),
     };
   });
 }

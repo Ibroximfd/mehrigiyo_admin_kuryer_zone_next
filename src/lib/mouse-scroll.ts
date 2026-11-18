@@ -1,13 +1,19 @@
 /**
- * Sichqoncha uchun gorizontal surish (2026-10-30): operator va logistlar
- * oddiy sichqoncha ishlatadi — g'ildirak faqat tepa-pastga suradi,
- * gorizontal qatorlar (chiplar, tablar, kanban) esa yon tomonga suriladi.
+ * Sichqoncha uchun gorizontal surish (2026-10-30; keng jadvallar — egasi
+ * so'rovi 2026-11-18): operator, logist va bosh kuryerlar oddiy sichqoncha
+ * ishlatadi — g'ildirak faqat tepa-pastga suradi, ekranga sig'magan
+ * gorizontal qatorlar (chiplar, tablar, keng jadvallar) esa yon tomonga
+ * suriladi.
  *
  * Qoida: faqat `data-wheel-x` belgili konteyner ichida. G'ildirak avval
  * yaqinroq **vertikal** skrollga beriladi (kanban ustuni ichida — ustun
- * suriladi); vertikal skrollga duch kelinsa (oxiriga yetgan bo'lsa ham)
- * gorizontalga o'tilmaydi — ustun oxirida doska kutilmaganda yon tomonga
- * sakrab ketmasin. Jadvallar belgisiz — sahifa avvalgidek suriladi.
+ * suriladi); belgisiz vertikal skrollga duch kelinsa (oxiriga yetgan bo'lsa
+ * ham) gorizontalga o'tilmaydi — ustun oxirida doska kutilmaganda yon
+ * tomonga sakrab ketmasin. Belgili konteynerning o'zi ham vertikal siljisa
+ * (balandligi chegarali jadval — sarlavha yopishishi uchun), g'ildirak shu
+ * yo'nalishda tepa-pastga sura olguncha vertikal qoladi, tepa/past chetida —
+ * yon tomonga. Yon chetga yetganda hodisa o'tkaziladi — sahifa suriladi,
+ * foydalanuvchi hech qachon jadval ichida qamalib qolmaydi.
  */
 export type ScrollBox = {
   parent: ScrollBox | null;
@@ -17,16 +23,39 @@ export type ScrollBox = {
   scrollLeft: number;
   scrollWidth: number;
   clientWidth: number;
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
 };
+
+/** Shu yo'nalishda yana siljiy oladimi; brauzer kasr piksel beradi — 1 px chegara. */
+function canMove(position: number, max: number, delta: number): boolean {
+  if (max <= 1) return false;
+  return delta > 0 ? position < max - 1 : position > 1;
+}
 
 export function wheelTarget(start: ScrollBox | null, deltaY: number): ScrollBox | null {
   for (let box = start; box; box = box.parent) {
     if (box.scrollsY && !box.wheelX) return null;
     if (!box.wheelX) continue;
-    const max = box.scrollWidth - box.clientWidth;
-    if (max <= 1) continue;
-    const canMove = deltaY > 0 ? box.scrollLeft < max - 1 : box.scrollLeft > 1;
-    return canMove ? box : null;
+    if (box.scrollsY && canMove(box.scrollTop, box.scrollHeight - box.clientHeight, deltaY)) return null;
+    const maxX = box.scrollWidth - box.clientWidth;
+    // Sig'adigan belgili qator — tashqi belgili qatorga; vertikal chetidagi jadval — sahifaga.
+    if (maxX <= 1) {
+      if (box.scrollsY) return null;
+      continue;
+    }
+    return canMove(box.scrollLeft, maxX, deltaY) ? box : null;
   }
   return null;
+}
+
+/** Satr rejimidagi bitta qadam (Firefox `deltaMode: 1`) — pikselda. */
+const LINE_PX = 32;
+
+/** G'ildirak siljishi pikselda: `deltaMode` 0 — piksel, 1 — satr, 2 — sahifa (konteyner eni). */
+export function wheelPixels(delta: number, deltaMode: number, pageWidth: number): number {
+  if (deltaMode === 1) return delta * LINE_PX;
+  if (deltaMode === 2) return delta * pageWidth;
+  return delta;
 }

@@ -5,7 +5,7 @@ import { ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal, TriangleAlert, War
 import { ProductThumb } from "@/components/kit/product-thumb";
 import { Button } from "@/components/ui/button";
 import { groupThousands } from "@/lib/format";
-import { PIECE_UNIT, type ItemRef } from "@/lib/item-ref";
+import { PIECE_UNIT, shownUnit, type ItemRef } from "@/lib/item-ref";
 import { cn } from "@/lib/utils";
 
 import type { CourierStockLine, CourierStockMatrix, StockMatrixLine } from "../courier-stock-matrix";
@@ -38,11 +38,13 @@ export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMa
           {`${matrix.negativeCount} ta katakda qoldiq minus — «Tuzatish» kerak`}
         </p>
       ) : null}
-      {/* Balandlik chegarali: sarlavha yopishishi uchun siljish kartaning o'zida bo'lishi shart. */}
+      {/* Balandlik chegarali: sarlavha yopishishi uchun siljish kartaning o'zida bo'lishi shart.
+          `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni yon tomonga suradi. */}
       <div
         role="region"
         aria-label="Kuryerlar ombori"
         tabIndex={0}
+        data-wheel-x
         className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 max-h-120 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:max-h-160"
       >
         <table className="w-full border-separate border-spacing-0 text-dense">
@@ -107,6 +109,7 @@ export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMa
 
 /** Ustun sarlavhasi: rasm + nom (ko'pi bilan ikki qator, to'lig'i `title` da); birlik faqat «dona» bo'lmasa. */
 function ProductHead({ product }: { product: ItemRef }) {
+  const unit = shownUnit(product);
   return (
     <th scope="col" className={cn(HEAD, "px-2 text-center")}>
       {/* Rasm tepada, nom ostida: ustun tor — bir ekranga ko'proq mahsulot sig'adi (sheet kabi). */}
@@ -115,7 +118,7 @@ function ProductHead({ product }: { product: ItemRef }) {
         <span className="text-ink text-fine line-clamp-2 leading-tight break-words" data-no-translit title={product.name}>
           {product.name}
         </span>
-        {product.unitLabel !== PIECE_UNIT ? <span className="text-fine font-normal">{product.unitLabel}</span> : null}
+        {unit !== PIECE_UNIT ? <span className="text-fine font-normal">{unit}</span> : null}
       </span>
     </th>
   );

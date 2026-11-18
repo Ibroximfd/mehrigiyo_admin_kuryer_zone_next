@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, errorCode, errorMessage } from "@/lib/api-client";
 import { groupThousands } from "@/lib/format";
+import { shownQuantity, shownUnit } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { approveLoadRequest, fetchLoadRequests, rejectLoadRequest } from "../api";
-import { describePieces, hasPackage, packedQuantity, rowErrorsOf, splitPieces, toPieces } from "../packaging";
+import { describeLine, enteredQuantity, entersBoxes, rowErrorsOf, splitPieces, toPieces } from "../packaging";
 import { mapShortages, type LoadRequest, type LoadRequestStatus } from "../types";
 
 const TABS: Array<[LoadRequestStatus, string]> = [
@@ -106,13 +107,13 @@ const toInt = (value: string) => {
 function LoadRequestCard({ request }: { request: LoadRequest }) {
   const queryClient = useQueryClient();
   const pending = request.status === "pending";
-  // Boshlang'ich qiymat — so'ralgan miqdor, karobkali mahsulotda karobka + dona ko'rinishida.
+  // Boshlang'ich qiymat — so'ralgan miqdor: karobkali mahsulotda karobka + dona, donada yuritiladiganda — bitta son donada.
   const [drafts, setDrafts] = useState<Record<number, LineDraft>>(() =>
     Object.fromEntries(
       request.lines.map((line) => {
-        const { boxes, pieces } = hasPackage(line.packageSize)
+        const { boxes, pieces } = entersBoxes(line.item, line.packageSize)
           ? splitPieces(line.quantity, line.packageSize)
-          : { boxes: 0, pieces: line.quantity };
+          : { boxes: 0, pieces: shownQuantity(line.item, line.quantity) };
         return [line.item.id, { boxes: String(boxes), pieces: String(pieces) }];
       }),
     ),
@@ -124,14 +125,19 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
 
   const lines = request.lines.map((line) => {
     const draft = drafts[line.item.id] ?? { boxes: "0", pieces: "0" };
-    const boxes = hasPackage(line.packageSize) ? toInt(draft.boxes) : 0;
+    const boxed = entersBoxes(line.item, line.packageSize);
+    const boxes = boxed ? toInt(draft.boxes) : 0;
     const pieces = toInt(draft.pieces);
-    const amount = toPieces(boxes, pieces, line.packageSize);
-    return { line, draft, boxes, pieces, amount, over: amount > line.quantity };
+    // Ekrandagi birlikda: so'ralgan va kiritilgan (donada yuritiladigan mahsulot — donada, hujjat 84).
+    const requested = shownQuantity(line.item, line.quantity);
+    const amount = boxed ? toPieces(boxes, pieces, line.packageSize) : pieces;
+    const packed = enteredQuantity(line.item, line.packageSize, boxes, pieces);
+    return { line, draft, boxed, requested, amount, packed, over: amount > requested };
   });
   // Faqat kamaytirilgan qatorlar yuboriladi; ko'rsatilmagani so'ralganicha qoladi (§4.2).
-  const reduced = lines.filter((row) => !row.over && row.amount < row.line.quantity);
+  const reduced = lines.flatMap((row) => (!row.over && row.amount < row.requested && row.packed ? [{ itemId: row.line.item.id, packed: row.packed }] : []));
   const anyOver = lines.some((row) => row.over);
+  const notWhole = lines.some((row) => row.packed === null);
   const allZero = lines.every((row) => row.amount === 0);
 
   const setDraft = (itemId: number, patch: Partial<LineDraft>) => {
@@ -171,16 +177,13 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
       try {
         await approveLoadRequest(
           request.id,
-          sent.map(({ line, boxes, pieces }) => ({
-            itemId: line.item.id,
-            ...packedQuantity(boxes, pieces, line.packageSize),
-          })),
+          sent.map(({ itemId, packed }) => ({ itemId, ...packed })),
         );
       } catch (error) {
         // `fields.lines[i]` — yuborilgan tartibda; indeksni mahsulotga qaytaramiz.
         const byIndex = rowErrorsOf(error, "lines");
         setRowErrors(
-          Object.fromEntries(sent.flatMap((row, index) => (byIndex[index] ? [[row.line.item.id, byIndex[index]]] : []))),
+          Object.fromEntries(sent.flatMap((row, index) => (byIndex[index] ? [[row.itemId, byIndex[index]]] : []))),
         );
         throw error;
       }
@@ -217,10 +220,15 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
       {request.note ? <p className="text-ink-muted mt-1 text-meta" data-no-translit>{`«${request.note}»`}</p> : null}
 
       <ul className="divide-line mt-2 divide-y">
-        {lines.map(({ line, draft, amount, over }) => {
-          const boxed = hasPackage(line.packageSize);
-          const unit = line.item.unitLabel;
-          const rowError = over ? `So'ralgandan ko'p — ko'pi bilan ${line.quantity} ${unit}` : rowErrors[line.item.id];
+        {lines.map(({ line, draft, boxed, requested, amount, packed, over }) => {
+          const unit = shownUnit(line.item);
+          const rowError = over
+            ? `So'ralgandan ko'p — ko'pi bilan ${requested} ${unit}`
+            : packed === null
+              ? "Karobkada turgan mahsulotda son butun karobkaga teng bo'lsin."
+              : rowErrors[line.item.id];
+          // Karobka hajmi eslatmasi: karobkali mahsulotda va skladda hali karobkada turgan dona mahsulotida.
+          const perBox = boxed ? line.packageSize : line.item.stockFactor > 1 ? line.item.stockFactor : null;
           return (
             <li key={line.item.id} className="py-2">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -231,8 +239,8 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
                   </p>
                   <p className="text-ink-faint text-fine">
                     <span>so&apos;raldi</span>{" "}
-                    <span className="text-ink-muted font-medium">{describePieces(line.quantity, line.packageSize, unit)}</span>
-                    {boxed ? <span className="ml-1.5">{`· 1 kar. = ${line.packageSize} dona`}</span> : null}
+                    <span className="text-ink-muted font-medium">{describeLine(line.item, line.packageSize, line.quantity)}</span>
+                    {perBox ? <span className="ml-1.5">{`· 1 kar. = ${perBox} dona`}</span> : null}
                   </p>
                 </div>
                 {pending ? (
@@ -259,7 +267,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
                   </div>
                 ) : (
                   <span className="text-ink tabular text-right text-dense font-semibold">
-                    {line.approvedQuantity === null ? "—" : describePieces(line.approvedQuantity, line.packageSize, unit)}
+                    {line.approvedQuantity === null ? "—" : describeLine(line.item, line.packageSize, line.approvedQuantity)}
                   </span>
                 )}
               </div>
@@ -310,7 +318,7 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
               <X />
               Rad etish
             </Button>
-            <Button disabled={busy || allZero || anyOver} onClick={() => approve.mutate()}>
+            <Button disabled={busy || allZero || anyOver || notWhole} onClick={() => approve.mutate()}>
               {approve.isPending ? <LoaderCircle className="animate-spin" /> : <Check />}
               {reduced.length ? "Qisman tasdiqlash" : "Tasdiqlash"}
             </Button>

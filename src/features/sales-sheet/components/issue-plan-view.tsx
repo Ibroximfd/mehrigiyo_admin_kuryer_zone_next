@@ -108,7 +108,7 @@ function ShortageBanner({ plan }: { plan: IssuePlan }) {
               <span className="font-semibold" data-no-translit>
                 {product.name}
               </span>
-              {` — ${cellText(cellOf(plan.store.toIssue, product.id))} berish kerak, omboringizda ${cellText(cellOf(plan.store.onHand, product.id))}, ${cellText(cell)} yetmaydi`}
+              {` — ${cellText(cellOf(plan.store.toIssue, product.id), product)} berish kerak, omboringizda ${cellText(cellOf(plan.store.onHand, product.id), product)}, ${cellText(cell, product)} yetmaydi`}
             </li>
           ))}
         </ul>

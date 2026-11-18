@@ -1,12 +1,14 @@
 import { ApiError } from "@/lib/api-client";
-import { PIECE_UNIT } from "@/lib/item-ref";
+import { PIECE_UNIT, shownQuantity, shownUnit, stockQuantityOf } from "@/lib/item-ref";
+import type { ItemRef } from "@/lib/item-ref";
 
 /**
- * Karobka ↔ dona (hujjat 44, 70 §2). Donada yuritiladigan mahsulotda karobka —
+ * Karobka ↔ dona (hujjat 44, 70 §2). Skladda donada turgan mahsulotda karobka —
  * odamga qulaylik: serverga karobka va dona alohida ketadi, ko'paytirishni
  * server `package_size` bo'yicha o'zi qiladi. `package_size` yo'q yoki `1` —
  * bo'linish yo'q: karobkasiz dona-mahsulot yoki skladda KAROBKADA yuritiladigan
  * mahsulot (server unda `package_size: 1` beradi, qoldiq o'zi karobkada).
+ * Donalab sotiladigan mahsulot (hujjat 84) esa bo'linmaydi — `entersBoxes`.
  */
 
 export function hasPackage(packageSize: number): boolean {
@@ -47,6 +49,36 @@ export type PackedQuantity = { boxes: number; units: number } | { quantity: numb
 export function packedQuantity(boxes: number, pieces: number, packageSize: number): PackedQuantity {
   const units = Math.max(0, Math.trunc(pieces));
   return hasPackage(packageSize) ? { boxes: Math.max(0, Math.trunc(boxes)), units } : { quantity: units };
+}
+
+/**
+ * Karobka + dona maydonlari bilan kiritiladimi: faqat donada yuritilmaydigan
+ * karobkali mahsulot. Donada yuritiladigan mahsulot (hujjat 84 §1) — bitta dona
+ * maydoni, «2 kar. 1 dona» bo'lib bo'linmaydi.
+ */
+export function entersBoxes(item: ItemRef, packageSize: number): boolean {
+  return !item.countsInDona && hasPackage(packageSize);
+}
+
+/** Qator miqdori (server birligida) matni: karobkali — «2 kar. 1 dona»; donada yuritiladigan — «7 dona». */
+export function describeLine(item: ItemRef, packageSize: number, quantity: number): string {
+  return entersBoxes(item, packageSize)
+    ? describePieces(quantity, packageSize, item.unitLabel)
+    : describePieces(shownQuantity(item, quantity), 1, shownUnit(item));
+}
+
+/**
+ * Kiritilgan qator → server shakli. Karobka + dona maydonli mahsulot — avvalgidek.
+ * Donada yuritiladigan mahsulot — bitta dona maydonidan: skladda donada bo'lsa
+ * avvalgi shakl (`{boxes: 0, units}` yoki `{quantity}`); skladda hali karobkada
+ * (`stockFactor > 1`) — dona butun karobkaga aniq aylantirilib `{quantity}`,
+ * butun chiqmasa `null` (yuborilmaydi, qatorda xato).
+ */
+export function enteredQuantity(item: ItemRef, packageSize: number, boxes: number, pieces: number): PackedQuantity | null {
+  if (!item.countsInDona) return packedQuantity(boxes, pieces, packageSize);
+  const quantity = stockQuantityOf(item, Math.max(0, Math.trunc(pieces)));
+  if (quantity === null) return null;
+  return item.stockFactor > 1 ? { quantity } : packedQuantity(0, quantity, packageSize);
 }
 
 /**

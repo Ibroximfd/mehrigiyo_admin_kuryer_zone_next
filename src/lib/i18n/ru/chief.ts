@@ -621,6 +621,9 @@ export const CHIEF: Dictionary = {
   // Hujjat 72: dona nomi serverdan («flakon», «quti»…).
   "{n} kar. {n2} {x}": "{n} кор. {n2} {x}",
   "· 1 kar. = {x} dona": "· 1 кор. = {x} шт.",
+  // Hujjat 84: donada yuritiladigan, skladda hali karobkada turgan mahsulot — kiritish donada, yuborish butun karobka.
+  "Karobkada turgan mahsulotda son butun karobkaga teng bo'lsin.":
+    "Для товара, который хранится в коробках, количество должно составлять целое число коробок.",
   // Hujjat 77: zakaz qatori birligi — «1 karobka (3 dona)», sovg'ada «1 dona».
   "{n} {x} ({n2} dona)": "{n} {x} ({n2} шт.)",
   "{n} flakon": "{n} {n|флакон|флакона|флаконов}",

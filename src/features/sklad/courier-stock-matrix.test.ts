@@ -5,7 +5,7 @@ import type { ItemRef } from "@/lib/item-ref";
 import { buildCourierStockMatrix } from "./courier-stock-matrix";
 import type { CourierStock, SkladStockRow } from "./types";
 
-const product = (id: number, name: string, unitLabel = "dona"): ItemRef => ({ id, name, image: null, unitLabel });
+const product = (id: number, name: string, unitLabel = "dona"): ItemRef => ({ id, name, image: null, unitLabel, countsInDona: false, stockFactor: 1 });
 
 const GEPATOFIT = product(11, "Gepatofit");
 const KARDIOMED = product(12, "Kardiomed");
@@ -90,6 +90,15 @@ describe("buildCourierStockMatrix", () => {
     expect(matrix.store).toEqual({ cells: [12, 2460, 300], total: 2772, kinds: 3 });
     expect(matrix.rows[0]?.cells).toEqual([0, 0, 4]);
     expect(matrix.totals).toEqual({ cells: [0, 0, 4], total: 4 });
+  });
+
+  it("faqat dona (hujjat 84): skladda karobkada turgan dona mahsuloti katakda donada, yig'indilar ham", () => {
+    const kremi: ItemRef = { ...product(34, "Kremi", "karobka"), countsInDona: true, stockFactor: 3 };
+    const matrix = buildCourierStockMatrix([courier(1, [[kremi, 2], [GEPATOFIT, 5]]), courier(2, [[kremi, -1]])], [inStore(kremi, 41)]);
+    expect(matrix.products).toEqual([GEPATOFIT, kremi]);
+    expect(matrix.store?.cells).toEqual([0, 123]);
+    expect(matrix.rows.map((row) => row.cells)).toEqual([[5, 6], [0, -3]]);
+    expect(matrix.totals).toEqual({ cells: [5, 3], total: 8 });
   });
 
   it("kuryer ham, mahsulot ham yo'q — bo'sh matritsa", () => {
