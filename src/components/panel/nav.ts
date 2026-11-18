@@ -26,8 +26,9 @@ export const NAV: NavItem[] = [
   { href: ROUTES.sklad, label: "Sklad", Icon: Warehouse, permission: "warehouse.view_courier_stores" },
   { href: ROUTES.cash, label: "Kassa", Icon: Wallet },
   { href: ROUTES.report, label: "Moliya", Icon: ChartColumnBig, permission: "view.analytics" },
-  // Sotuv jadvali (hujjat 83) — keng jadval, asosan kompyuterda; dopuski Moliya bilan bir xil.
-  { href: ROUTES.sheet, label: "Sotuv jadvali", Icon: Table, permission: "view.analytics", secondary: true },
+  // Sotuv jadvali (hujjat 83) — keng jadval, asosan kompyuterda. Bosh kuryerning kundalik
+  // ish quroli: Kassa kabi alohida dopusksiz (Moliya dopuskiga bog'lansa menyuda ko'rinmasdi).
+  { href: ROUTES.sheet, label: "Sotuv jadvali", Icon: Table, secondary: true },
   { href: ROUTES.ratings, label: "Reytinglar", Icon: Star, secondary: true },
 ];
 

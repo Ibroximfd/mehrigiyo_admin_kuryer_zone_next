@@ -10,7 +10,7 @@ export default function SheetPage() {
     <>
       <PageHeader title="Sotuv jadvali" description="Har kuryer bo'yicha: berildi → sotildi → sovg'a → qoldi. Qoldiq ertangi kunga o'zi o'tadi." />
       <div className="px-4 py-4 sm:px-6 sm:py-5">
-        <ChiefGate permission="view.analytics">{(me) => <SalesSheetSection me={me} />}</ChiefGate>
+        <ChiefGate>{(me) => <SalesSheetSection me={me} />}</ChiefGate>
       </div>
     </>
   );
