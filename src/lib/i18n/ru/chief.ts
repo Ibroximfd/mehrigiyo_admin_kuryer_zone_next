@@ -61,6 +61,7 @@ export const CHIEF: Dictionary = {
   Almashtirish: "Заменить",
   "{x} tafsiloti": "{x} — подробно",
   "{x} — jamoangizdan mos kuryer": "{x} — подходящий курьер из вашей команды",
+  "— jamoangizdan mos kuryer": "— подходящий курьер из вашей команды",
   "Kuryerga biriktirishda xatolik": "Ошибка назначения курьера",
 
   "Jamoangizda kuryer yo'q": "В вашей команде нет курьеров",

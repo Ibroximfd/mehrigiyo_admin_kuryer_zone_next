@@ -41,7 +41,12 @@ export function ChiefAssignDialog({
       <DialogContent className="flex max-h-[85vh] w-[30rem] max-w-[calc(100vw-2rem)] flex-col">
         <DialogTitle>Kuryerga berish</DialogTitle>
         <DialogDescription>
-          {order ? `${order.orderNumber} — jamoangizdan mos kuryer` : ""}
+          {/* Raqam lotinda qoladi — kirill rejimida «ОРД-…» bo'lib ketmasin. */}
+          {order ? (
+            <>
+              <span data-no-translit>{order.orderNumber}</span> — jamoangizdan mos kuryer
+            </>
+          ) : null}
         </DialogDescription>
         {order ? (
           <div className="scrollbar-thin -mx-1 mt-2 min-h-0 flex-1 overflow-y-auto px-1">
