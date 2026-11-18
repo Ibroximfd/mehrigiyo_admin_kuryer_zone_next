@@ -764,4 +764,10 @@ export const CHIEF: Dictionary = {
   "Shundan kartaga, so'm": "Из них на карту, сум",
   "Ixtiyoriy — qolgani naqd": "Необязательно — остальное наличными",
   "Naqd: {x}": "Наличные: {x}",
+  // ── Kuryerlar ombori — jadval (egasi so'rovi 2026-11-18) ────────────────
+  Omborim: "Мой склад",
+  "{n} ta katakda qoldiq minus — «Tuzatish» kerak": "Ячеек с минусовым остатком: {n} — нужна «Корректировка»",
+  "{x}: berish": "{x}: выдать",
+  "{x}: qabul": "{x}: принять",
+  "{x}: tuzatish": "{x}: корректировка",
 };

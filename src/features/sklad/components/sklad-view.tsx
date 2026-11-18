@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownToLine, ArrowUpFromLine, Lock, PackageOpen, SearchX, SlidersHorizontal, UserRound, Warehouse } from "lucide-react";
+import { Lock, PackageOpen, SearchX, UserRound, Warehouse } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 
@@ -24,8 +24,10 @@ import { isUzRegionCode } from "@/lib/uz-map";
 import { cn } from "@/lib/utils";
 
 import { fetchChiefSklad } from "../api";
+import { buildCourierStockMatrix } from "../courier-stock-matrix";
 import type { CourierStock, SkladChief, SkladStockRow } from "../types";
 import { CourierDocumentDialog, type CourierDocumentMode } from "./courier-document-dialog";
+import { CourierStockTable } from "./courier-stock-table";
 import { LoadRequestsPanel } from "./load-requests-panel";
 import { useSkladChanged } from "../use-sklad-changed";
 
@@ -111,6 +113,7 @@ export function SkladView({ me }: { me: ChiefMe }) {
       <Section title="Kuryerlar ombori" description="Kuryerlar qo'lidagi mol — kuryer ilovasi yozgan holatda">
         <CourierStocks
           stocks={data.couriers}
+          storeStock={data.stock}
           actions={data.canWrite ? { stock: data.stock, store: data.store } : null}
         />
       </Section>
@@ -222,7 +225,16 @@ function StockTable({ rows }: { rows: SkladStockRow[] }) {
 /** Kuryer qatoridagi amallar (§6): faqat `can_write` bo'lsa; aks holda faqat ko'rish. */
 type CourierActions = { stock: SkladStockRow[]; store: { id: number; name: string } | null };
 
-function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: CourierActions | null }) {
+function CourierStocks({
+  stocks,
+  storeStock,
+  actions,
+}: {
+  stocks: CourierStock[];
+  /** Sklad qoldig'i — jadvalning «Omborim» qatori (ko'rish; `can_write` ga bog'liq emas). */
+  storeStock: SkladStockRow[];
+  actions: CourierActions | null;
+}) {
   const [open, setOpen] = useState<{ mode: CourierDocumentMode; courier: CourierStock } | null>(null);
   if (stocks.length === 0) {
     return (
@@ -236,59 +248,20 @@ function CourierStocks({ stocks, actions }: { stocks: CourierStock[]; actions: C
   }
   return (
     <>
-    <ul className="border-line bg-surface divide-line divide-y overflow-hidden rounded-2xl border">
-      {stocks.map((stock) => {
-        const total = stock.items.reduce((sum, entry) => sum + entry.quantity, 0);
-        return (
-          <li key={stock.courier.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
-            <span className="min-w-0 sm:w-48 sm:shrink-0">
-              <span className="text-ink block truncate text-dense font-semibold" data-no-translit>{stock.courier.fullName}</span>
-              <span className="text-ink-faint text-meta">{`${stock.items.length} xil mahsulot`}</span>
-            </span>
-            {stock.items.length === 0 ? (
-              <span className="text-ink-faint text-meta">Qo&apos;lida mol yo&apos;q</span>
-            ) : (
-              <span className="flex flex-wrap gap-1.5">
-                {stock.items.map((entry) => (
-                  <span key={entry.item.id} className="bg-subtle text-ink inline-flex items-center gap-1.5 rounded-md py-1 pr-2 pl-1 text-meta">
-                    <ProductThumb src={entry.item.image} name={entry.item.name} size="sm" className="size-6" />
-                    <span data-no-translit>{entry.item.name}</span>
-                    <span className={cn("tabular font-semibold", entry.quantity < 0 && "text-danger")}>{entry.quantity}</span>
-                    {entry.item.unitLabel !== PIECE_UNIT ? <span className="text-ink-faint">{entry.item.unitLabel}</span> : null}
-                  </span>
-                ))}
-              </span>
-            )}
-            {actions ? (
-              <span className="flex shrink-0 flex-wrap gap-1.5 sm:ml-auto">
-                <Button size="sm" variant="outline" onClick={() => setOpen({ mode: "courier_load", courier: stock })}>
-                  <ArrowUpFromLine />
-                  Berish
-                </Button>
-                <Button size="sm" variant="outline" disabled={total === 0} onClick={() => setOpen({ mode: "courier_return", courier: stock })}>
-                  <ArrowDownToLine />
-                  Qabul
-                </Button>
-                <Button size="sm" variant="ghost" disabled={total === 0} onClick={() => setOpen({ mode: "adjustment", courier: stock })}>
-                  <SlidersHorizontal />
-                  Tuzatish
-                </Button>
-              </span>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
-    {open && actions ? (
-      <CourierDocumentDialog
-        key={`${open.mode}-${open.courier.courier.id}`}
-        mode={open.mode}
-        courier={open.courier}
-        stock={actions.stock}
-        store={actions.store}
-        onClose={() => setOpen(null)}
+      <CourierStockTable
+        matrix={buildCourierStockMatrix(stocks, storeStock)}
+        onAction={actions ? (mode, courier) => setOpen({ mode, courier }) : null}
       />
-    ) : null}
+      {open && actions ? (
+        <CourierDocumentDialog
+          key={`${open.mode}-${open.courier.courier.id}`}
+          mode={open.mode}
+          courier={open.courier}
+          stock={actions.stock}
+          store={actions.store}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
     </>
   );
 }
