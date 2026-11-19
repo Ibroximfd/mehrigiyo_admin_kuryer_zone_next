@@ -44,6 +44,17 @@ export function cellText(cell: QtyCell, product?: SheetProduct): string {
   return `${groupThousands(cell.qty)} kar. ${groupThousands(cell.pieces)} ${PIECE_UNIT}`;
 }
 
+/**
+ * Matnda (Telegram) — birlik bilan, chunki ustun sarlavhasi yo'q: jadvaldagi son +
+ * sarlavhadagi birlik. «57 dona», «3 karobka», «2 kar. 1 dona», «5 dona».
+ */
+export function cellUnitText(cell: QtyCell, product: SheetProduct): string {
+  const dona = cellDona(cell, product);
+  if (dona !== null) return `${groupThousands(dona)} ${PIECE_UNIT}`;
+  if (cell.pieces === 0) return `${groupThousands(cell.qty)} ${product.unitLabel}`;
+  return cellText(cell, product);
+}
+
 /** Ishorali harakat (`other`: tuzatish, qaytarish) — «+3», «−2 kar. 1 dona», donada — «−7». */
 export function signedCellText(cell: QtyCell, product?: SheetProduct): string {
   const negative = cell.qty < 0 || cell.pieces < 0 || (cell.piecesTotal ?? 0) < 0;

@@ -601,6 +601,9 @@ export const CHIEF: Dictionary = {
   "Saqlab bo'lmadi": "Не удалось сохранить",
   "Sklad ombori topilmadi — bosh logistga murojaat qiling.": "Склад не найден — обратитесь к главному логисту.",
   "Skladda berish uchun mol yo'q.": "На складе нет товара для выдачи.",
+  // «Tuzatish» — hamma mahsulot (egasi, 2026-11-19): kuryerda yo'qlari alohida guruhda.
+  "Tuzatish uchun mahsulot yo'q — sklad qoldig'i bo'sh.": "Нет товаров для корректировки — остаток склада пуст.",
+  "Kuryerda yo'q mahsulotlar": "Товары, которых нет у курьера",
   "Skladdan kuryerga — sklad kamayadi, kuryerda ko'payadi.": "Со склада курьеру — на складе уменьшается, у курьера увеличивается.",
   "So'rov holati": "Статус запроса",
   "So'rov rad etildi": "Запрос отклонён",

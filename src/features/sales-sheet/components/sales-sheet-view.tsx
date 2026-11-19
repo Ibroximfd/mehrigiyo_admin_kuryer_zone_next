@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, TriangleAlert } from "lucide-react";
+import { Hourglass, Table, TriangleAlert } from "lucide-react";
 
 import { KeyFigures } from "@/components/kit/key-figures";
 import { EmptyView } from "@/components/kit/state-views";
@@ -10,26 +10,32 @@ import { groupThousands } from "@/lib/format";
 
 import { cellText, moneyText, shortDate } from "../display";
 import type { SheetRange } from "../period";
+import type { RegionGroup } from "../regions";
 import { hasCells } from "../types";
 import type { SalesSheet } from "../types";
 import { useSalesSheet } from "../use-sales-sheet";
 import { useSheetPeriod } from "../use-sheet-period";
+import { useSheetRegions } from "../use-sheet-regions";
 import { SalesSheetGrid } from "./sales-sheet-grid";
 import { SheetExcelButton } from "./sheet-excel-button";
 import { SheetPeriodBar } from "./sheet-period-bar";
 import { SheetQueryState } from "./sheet-query-state";
+import { SheetTelegramButton } from "./sheet-telegram-button";
 
 /**
  * «Sotuv jadvali» tabi (hujjat 83 §1–§3, §5): davr URLda, bitta so'rov —
- * `chief/report/sales-sheet/`. Sukut — bugun.
+ * `chief/report/sales-sheet/`. Sukut — bugun. Kuryerlar viloyat bo'yicha
+ * guruhlanadi (`useSheetRegions`); `reportTitle` — Telegram matni sarlavhasi.
  */
-export function SalesSheetView() {
+export function SalesSheetView({ reportTitle }: { reportTitle: string }) {
   const controls = useSheetPeriod();
   const sheet = useSalesSheet(controls.range);
+  const regions = useSheetRegions(sheet.data);
 
   return (
     <div className="flex flex-col gap-4">
       <SheetPeriodBar controls={controls}>
+        <SheetTelegramButton sheet={sheet.data} regions={regions} range={controls.range} title={reportTitle} />
         <SheetExcelButton range={controls.range} />
       </SheetPeriodBar>
       <SheetQueryState
@@ -54,7 +60,7 @@ export function SalesSheetView() {
               className="border-line bg-surface rounded-2xl border"
             />
           ) : (
-            <SalesSheetBody sheet={data} range={controls.range} onOpenDay={controls.setDay} />
+            <SalesSheetBody sheet={data} range={controls.range} regions={regions} onOpenDay={controls.setDay} />
           )
         }
       </SheetQueryState>
@@ -62,8 +68,18 @@ export function SalesSheetView() {
   );
 }
 
-/** Tayyor holat: asosiy raqamlar (`totals`), ogohlantirishlar, jadval va qatorlar izohi. */
-export function SalesSheetBody({ sheet, range, onOpenDay }: { sheet: SalesSheet; range: SheetRange; onOpenDay: (day: string) => void }) {
+/** Tayyor holat: asosiy raqamlar (`totals`), ogohlantirishlar, jadval va qatorlar izohi. `regions: null` — guruhsiz. */
+export function SalesSheetBody({
+  sheet,
+  range,
+  regions = null,
+  onOpenDay,
+}: {
+  sheet: SalesSheet;
+  range: SheetRange;
+  regions?: readonly RegionGroup[] | null;
+  onOpenDay: (day: string) => void;
+}) {
   const { totals } = sheet;
   return (
     <>
@@ -78,11 +94,37 @@ export function SalesSheetBody({ sheet, range, onOpenDay }: { sheet: SalesSheet;
           { label: "Kassaga topshiriladi", value: moneyText(totals.handoverDue), hint: "naqd − kuryer xizmati" },
         ]}
       />
+      <PendingNote sheet={sheet} />
       <ChecksNote sheet={sheet} />
       <AdjustmentsNote sheet={sheet} />
-      <SalesSheetGrid sheet={sheet} range={range} onOpenDay={onOpenDay} />
+      <SalesSheetGrid sheet={sheet} range={range} regions={regions} onOpenDay={onOpenDay} />
       <SheetLegend />
     </>
+  );
+}
+
+/**
+ * Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan sotuv (hujjat 97 §3):
+ * jadvaldagi sotilgan/sovg'a sonlariga kirgan, naqd va «Kassaga» ga — yo'q.
+ * Raqamlar bir-biriga mos kelmayotgandek ko'rinmasin deb ochiq aytiladi.
+ */
+function PendingNote({ sheet }: { sheet: SalesSheet }) {
+  const pending = sheet.pending;
+  if (!pending) return null;
+  return (
+    <div role="status" className="bg-info-soft text-ink flex items-start gap-2 rounded-2xl px-4 py-3 text-dense">
+      <Hourglass aria-hidden className="text-info mt-0.5 size-4 shrink-0" />
+      <p>
+        <span className="font-semibold">{`Logist hali tasdiqlamagan sotuv: ${moneyText(pending.salesAmount)}`}</span>
+        {pending.cashAmount > 0 ? (
+          <>
+            {" · "}
+            <span>{`shundan naqd ${moneyText(pending.cashAmount)}`}</span>
+          </>
+        ) : null}
+        <span className="text-ink-muted block text-meta">Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Naqd va «Kassaga topshiriladi» — logist tasdiqlagandan keyin.</span>
+      </p>
+    </div>
   );
 }
 
@@ -159,6 +201,10 @@ function SheetLegend() {
       <li>
         <strong className="text-danger font-semibold">Qolgan</strong>
         <span> = berilgan − sotilgan − sovg&apos;a; ertangi kunga o&apos;zi o&apos;tadi</span>
+      </li>
+      <li>
+        <strong className="text-ink font-semibold">Topshirdi</strong>
+        <span> — «Pul olish»da kuryerdan olingan; «kerak» — olinishi kerak (o&apos;tgan qarz bilan)</span>
       </li>
     </ul>
   );

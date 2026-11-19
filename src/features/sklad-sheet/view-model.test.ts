@@ -30,7 +30,9 @@ describe("hozirgi qoldiq (§1.1)", () => {
       },
     });
     const model = buildCurrentStock(linesFromCurrent(sheet.products, sheet.current!));
-    const [store, couriers, total] = model.rows;
+    const [total, couriers, store] = model.rows;
+    // Tartib: Jami · Kuryerlarda · Omborda (egasi, 2026-11-19).
+    expect(model.rows.map((row) => row.key)).toEqual(["total", "couriers", "store"]);
     expect(model.columns.map((column) => column.name)).toEqual(["Tea (ipak choy)", "Sustav", "Oregado Box", "Rayhon"]);
     expect(store?.cells.map((cell) => [cell.text, cell.tone])).toEqual([
       ["52", "plain"],
@@ -64,11 +66,11 @@ describe("hozirgi qoldiq (§1.1)", () => {
       { id: 34, name: "Kremi", unit: "" },
       { id: 6, name: "Tea", unit: "" },
     ]);
-    expect(model.rows[0]?.cells.map((cell) => [cell.text, cell.tone])).toEqual([
+    expect(model.rows[2]?.cells.map((cell) => [cell.text, cell.tone])).toEqual([
       ["12", "warn"],
       ["40", "plain"],
     ]);
-    expect(model.rows[2]?.cells.map((cell) => cell.text)).toEqual(["18", "40"]);
+    expect(model.rows[0]?.cells.map((cell) => cell.text)).toEqual(["18", "40"]);
     expect(model.lowCount).toBe(1);
   });
 

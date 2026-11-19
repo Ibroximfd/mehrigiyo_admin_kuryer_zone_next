@@ -50,7 +50,7 @@ export function SalesSheetSection({ me }: { me: ChiefMe }) {
       ) : tab === "cash" ? (
         <CashCollectionView canAccept={chiefCan(me, "cash.accept")} />
       ) : (
-        <SalesSheetView />
+        <SalesSheetView reportTitle={me.filial?.name || me.seat.fullName} />
       )}
     </div>
   );

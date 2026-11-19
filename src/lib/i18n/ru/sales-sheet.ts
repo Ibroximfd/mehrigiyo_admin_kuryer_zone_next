@@ -70,6 +70,29 @@ export const SALES_SHEET: Dictionary = {
   kassaga: "в кассу",
   "kassaga topshiriladi": "сдаётся в кассу",
 
+  // ── Viloyatlar kesimi va yangi ustunlar (egasi, 2026-11-19) ─────────────
+  // «{viloyat} jami» — viloyat nomi ham lug'atdan o'giriladi.
+  "{x} jami": "{x} — итого",
+  "ball + qo'lda": "баллы + вручную",
+  "kerak {x}": "нужно {x}",
+  "— «Pul olish»da kuryerdan olingan; «kerak» — olinishi kerak (o'tgan qarz bilan)":
+    "— получено от курьера в «Приёме денег»; «нужно» — сколько нужно получить (с прошлым долгом)",
+
+  // ── Tasdiqlanmagan sotuv (hujjat 97 §3) ────────────────────────────────
+  "Logist hali tasdiqlamagan sotuv: {x}": "Продажи, ещё не подтверждённые логистом: {x}",
+  "shundan naqd {x}": "из них наличными {x}",
+  "Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Naqd va «Kassaga topshiriladi» — logist tasdiqlagandan keyin.":
+    "В проданное количество вошли в день, когда курьер нажал «доставил». Наличные и «Сдаётся в кассу» — после подтверждения логистом.",
+
+  // ── Telegram matni ──────────────────────────────────────────────────────
+  "Telegram matni": "Текст для Telegram",
+  "Telegram uchun matn": "Текст для Telegram",
+  "Nol qatorlar matnga kirmaydi.": "Нулевые строки в текст не попадают.",
+  "Qaysi qism": "Какая часть",
+  "Telegram matnini nusxalash": "Скопировать текст для Telegram",
+  "Nusxa olish": "Копировать",
+  "Sotuv hisoboti": "Отчёт о продажах",
+
   // ── Kuryer xizmati — qo'lda ─────────────────────────────────────────────
   "{x}: kuryer xizmati, so'm": "{x}: курьерская услуга, сум",
   "so'm, o'zingiz yozasiz": "сум, вписываете сами",

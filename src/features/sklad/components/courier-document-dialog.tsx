@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
@@ -11,23 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ApiError, errorCode, errorMessage } from "@/lib/api-client";
 import { groupThousands } from "@/lib/format";
-import { shownQuantity, stockQuantityOf, type ItemRef } from "@/lib/item-ref";
+import { shownQuantity, stockQuantityOf } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { createCourierDocument } from "../api";
+import { documentRows, draftQuantity, initialDraft, planDocument } from "../courier-document";
+import type { CourierDocumentMode } from "../courier-document";
 import { mapShortages, type CourierStock, type SkladStockRow } from "../types";
 
-export type CourierDocumentMode = "courier_load" | "courier_return" | "adjustment";
+export type { CourierDocumentMode } from "../courier-document";
 
 const COPY: Record<CourierDocumentMode, { title: string; hint: string; submit: string; column: string }> = {
   courier_load: { title: "Kuryerga berish", hint: "Skladdan kuryerga — sklad kamayadi, kuryerda ko'payadi.", submit: "Berish", column: "Beriladi" },
   courier_return: { title: "Kuryerdan qabul", hint: "Kuryerdan skladga — kuryerda kamayadi, sklad ko'payadi.", submit: "Qabul qilish", column: "Qabul" },
   adjustment: { title: "Tuzatish", hint: "Sanaganda chiqqan sonni yozing — kuryer qoldig'i shunga tenglashadi.", submit: "Saqlash", column: "Sanaldi" },
 };
-
-/** `available` — ekrandagi birlikda: donada yuritiladigan mahsulot donada (hujjat 84). */
-type Row = { item: ItemRef; available: number };
 
 /** Hujjat xatosi — o'qiladigan matn (403 ruxsat, 409 qoldiq yetmaydi). */
 function documentError(error: unknown): string {
@@ -43,7 +42,8 @@ function documentError(error: unknown): string {
 
 /**
  * Bosh kuryer hujjati (sklad hujjati 2026-11-03 §6): faqat uchta tur. Kuryerga berish —
- * sklad omboridagi mol; qabul va tuzatish — kuryer qo'lidagi mol. Tuzatishda `actual_qty`.
+ * sklad omboridagi mol; qabul — kuryer qo'lidagi mol; tuzatish — hamma mahsulot, kuryerdagisi
+ * oldinda (`documentRows`). Tuzatishda `actual_qty`, faqat o'zgargan qator yuboriladi.
  * Son ekrandagi birlikda kiritiladi (donada yuritiladigan mahsulot — donada, hujjat 84 §3);
  * skladda hali karobkada turgan bunday mahsulot serverga butun karobka bo'lib aniq aylantiriladi.
  */
@@ -62,33 +62,10 @@ export function CourierDocumentDialog({
 }) {
   const queryClient = useQueryClient();
   const copy = COPY[mode];
-  const rows: Row[] =
-    mode === "courier_load"
-      ? // Hujjat 90: skladda 0 yoki minus bo'lsa ham berish mumkin — sklad minusga tushadi.
-        stock.map((row) => ({ item: row.item, available: shownQuantity(row.item, row.inSklad) }))
-      : courier.items
-          // Qabulda faqat qo'lidagi (musbat) mol; tuzatishda minus qator ham — sanab tenglashtiriladi.
-          .filter((entry) => mode === "adjustment" || entry.quantity > 0)
-          .map((entry) => ({ item: entry.item, available: shownQuantity(entry.item, entry.quantity) }));
-  // Sukut: berishda 0; qabulda hammasi; tuzatishda joriy qoldiq (o'zgarmagan qator yuborilmaydi).
-  const [draft, setDraft] = useState<Record<number, string>>(() =>
-    Object.fromEntries(rows.map((row) => [row.item.id, mode === "courier_load" ? "" : String(row.available)])),
-  );
-  const value = (id: number) => {
-    const parsed = Number.parseInt(draft[id] ?? "", 10);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  };
-  const lines = rows
-    .map((row) => ({ row, qty: value(row.item.id) }))
-    .filter(({ row, qty }) => (mode === "adjustment" ? qty !== row.available : qty > 0));
-  /** Bordan ko'p — saqlanadi, qoldiq minusga tushadi (hujjat 90): faqat ogohlantirish. */
-  const overLimit = mode !== "adjustment" && lines.some(({ row, qty }) => qty > row.available);
-  /** Server birligidagi qatorlar; butun karobka chiqmagan qator yuborilmaydi (tugma yopiq). */
-  const sendable = lines.flatMap(({ row, qty }) => {
-    const quantity = stockQuantityOf(row.item, qty);
-    return quantity === null ? [] : [{ itemId: row.item.id, quantity }];
-  });
-  const notWhole = sendable.length < lines.length;
+  const rows = documentRows(mode, courier, stock);
+  const [draft, setDraft] = useState<Record<number, string>>(() => initialDraft(mode, rows));
+  const value = (id: number) => draftQuantity(draft[id]);
+  const { lines, sendable, notWhole, overLimit } = planDocument(mode, rows, draft);
   const needsStore = mode !== "adjustment" && store === null;
 
   const save = useMutation({
@@ -128,34 +105,44 @@ export function CourierDocumentDialog({
           <p className="text-warn mt-3 text-dense">Sklad ombori topilmadi — bosh logistga murojaat qiling.</p>
         ) : rows.length === 0 ? (
           <p className="text-ink-muted mt-3 text-dense">
-            {mode === "courier_load" ? "Skladda berish uchun mol yo'q." : "Kuryer qo'lida mol yo'q."}
+            {mode === "courier_load"
+              ? "Skladda berish uchun mol yo'q."
+              : mode === "adjustment"
+                ? "Tuzatish uchun mahsulot yo'q — sklad qoldig'i bo'sh."
+                : "Kuryer qo'lida mol yo'q."}
           </p>
         ) : (
           <ul className="border-line divide-line scrollbar-thin mt-3 max-h-[50dvh] divide-y overflow-y-auto rounded-xl border">
-            {rows.map(({ item, available }) => (
-              <li key={item.id} className="flex items-center gap-2.5 px-3 py-2">
-                <ProductThumb src={item.image} name={item.name} size="sm" />
-                <span className="min-w-0 flex-1">
-                  <span className="text-ink block truncate text-dense font-medium" data-no-translit>{item.name}</span>
-                  <span className="text-ink-faint text-meta">{`${mode === "courier_load" ? "Skladda" : "Kuryerda"}: ${groupThousands(available)}`}</span>
-                  {item.stockFactor > 1 ? <span className="text-ink-faint ml-1.5 text-meta">{`· 1 kar. = ${item.stockFactor} dona`}</span> : null}
-                </span>
-                <input
-                  inputMode="numeric"
-                  aria-label={`${item.name}: ${copy.column}`}
-                  placeholder="0"
-                  value={draft[item.id] ?? ""}
-                  onFocus={(event) => event.target.select()}
-                  onChange={(event) => setDraft((current) => ({ ...current, [item.id]: event.target.value.replace(/\D/g, "") }))}
-                  className={cn(
-                    inputClass,
-                    "tabular h-9 w-20 text-right",
-                    stockQuantityOf(item, value(item.id)) === null
-                      ? "border-danger"
-                      : mode !== "adjustment" && value(item.id) > available && "border-warn",
-                  )}
-                />
-              </li>
+            {rows.map(({ item, available, held }, index) => (
+              <Fragment key={item.id}>
+                {/* Tuzatishda kuryerda yo'q mahsulotlar alohida guruh — 0 dan yoziladi. */}
+                {mode === "adjustment" && !held && (index === 0 || rows[index - 1]?.held) ? (
+                  <li className="bg-subtle text-ink-muted px-3 py-1.5 text-meta font-semibold">Kuryerda yo&apos;q mahsulotlar</li>
+                ) : null}
+                <li className="flex items-center gap-2.5 px-3 py-2">
+                  <ProductThumb src={item.image} name={item.name} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-ink block truncate text-dense font-medium" data-no-translit>{item.name}</span>
+                    <span className="text-ink-faint text-meta">{`${mode === "courier_load" ? "Skladda" : "Kuryerda"}: ${groupThousands(available)}`}</span>
+                    {item.stockFactor > 1 ? <span className="text-ink-faint ml-1.5 text-meta">{`· 1 kar. = ${item.stockFactor} dona`}</span> : null}
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    aria-label={`${item.name}: ${copy.column}`}
+                    placeholder="0"
+                    value={draft[item.id] ?? ""}
+                    onFocus={(event) => event.target.select()}
+                    onChange={(event) => setDraft((current) => ({ ...current, [item.id]: event.target.value.replace(/\D/g, "") }))}
+                    className={cn(
+                      inputClass,
+                      "tabular h-9 w-20 text-right",
+                      stockQuantityOf(item, value(item.id)) === null
+                        ? "border-danger"
+                        : mode !== "adjustment" && value(item.id) > available && "border-warn",
+                    )}
+                  />
+                </li>
+              </Fragment>
             ))}
           </ul>
         )}

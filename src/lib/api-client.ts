@@ -1,4 +1,4 @@
-import ky, { isHTTPError, isTimeoutError } from "ky";
+import ky, { isHTTPError, isNetworkError, isTimeoutError } from "ky";
 
 import { API_BASE_URL, ENDPOINTS, isAuthEndpoint } from "@/lib/api-constants";
 import { DEMO_MODE } from "@/lib/demo/mode";
@@ -179,6 +179,30 @@ function apiLanguage(): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Token qachon yangilanadi, sessiya qachon tugaydi
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Token faqat `401` da yangilanadi. ky tarmoq xatosida ham so'rovni qayta
+ * yuboradi va `beforeRetry` ni chaqiradi — u holda token va sessiyaga
+ * tegilmaydi, so'rov shunchaki qayta ketadi.
+ */
+export function needsTokenRefresh(error: unknown): boolean {
+  return isHTTPError(error) && error.response.status === 401;
+}
+
+/**
+ * Refresh o'tmadi: sessiya faqat backend uni rad etsa (`4xx` yoki buzuq javob)
+ * tugaydi. Internet uzilishi, timeout va `5xx` da sessiya qoladi — aks holda
+ * mobil internetdagi foydalanuvchi bir lahzalik uzilishdan chiqib ketardi.
+ */
+export function refreshRejected(error: unknown): boolean {
+  if (isNetworkError(error) || isTimeoutError(error)) return false;
+  if (isHTTPError(error)) return error.response.status < 500;
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Asosiy klient
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -214,6 +238,8 @@ const client = ky.create({
         // Login/refresh'dan kelgan 401 — noto'g'ri parol yoki o'lik refresh
         // token, ya'ni token yangilash bilan hal bo'lmaydi.
         if (isAuthEndpoint(path)) throw error;
+        // Tarmoq xatosi — ky o'zi qayta yuboradi; token va sessiyaga tegilmaydi.
+        if (!needsTokenRefresh(error)) return;
         if (!sessionStorage.canRefresh) {
           endSession();
           throw error;
@@ -226,7 +252,7 @@ const client = ky.create({
           request.headers.set("Authorization", `Bearer ${access}`);
         } catch (refreshError) {
           // Tarmoq uzilishi sessiyani o'ldirmaydi — faqat backend rad etsa.
-          if (isHTTPError(refreshError) || !isTimeoutError(refreshError)) {
+          if (refreshRejected(refreshError)) {
             endSession();
           }
           throw error;

@@ -33,14 +33,24 @@ function russianTranslator() {
   return russian;
 }
 
+/**
+ * shadcn ichidagi inglizcha yashirin matnlar (`sr-only` «Close») — o'zbekcha
+ * manbasi. Busiz kirill o'girgichi uni harfma-harf «Слосе» qilardi.
+ */
+export const UI_INTERNAL_SOURCE: Readonly<Record<string, string>> = { Close: "Yopish" };
+
+function sourceOf(text: string): string {
+  return UI_INTERNAL_SOURCE[text] ?? text;
+}
+
 export function translateText(text: string, locale: Locale): string {
   switch (locale) {
     case "uz-latn":
       return text;
     case "uz-cyrl":
-      return toCyrillic(text);
+      return toCyrillic(sourceOf(text));
     case "ru":
-      return russianTranslator().translate(text);
+      return russianTranslator().translate(sourceOf(text));
   }
 }
 

@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api-client";
 import { translateText } from "@/lib/i18n/translate";
 
 import { salesSheetFileName, salesSheetParams } from "./api";
-import { cellDona, cellText, columnUnit, filledCells, fullDate, moneyText, shortDate, signedCellText } from "./display";
+import { cellDona, cellText, cellUnitText, columnUnit, filledCells, fullDate, moneyText, shortDate, signedCellText } from "./display";
 import { feeAmountOf, feeErrorText } from "./fee";
 
 describe("katak matni — sklad bilan bir xil shakl", () => {
@@ -41,6 +41,18 @@ describe("katak matni — sklad bilan bir xil shakl", () => {
     expect(cellText({ qty: 2, pieces: 1, piecesTotal: 7 }, boxOnly)).toBe("2 kar. 1 dona");
     expect(cellDona({ qty: 2, pieces: 1 }, undefined)).toBeNull();
     expect(columnUnit(boxOnly)).toBe("karobka");
+  });
+
+  it("matnda (Telegram) — birlik bilan: jadval katagi + ustun sarlavhasidagi birlik", () => {
+    const kremi = { id: 34, name: "Kremi", unitLabel: "karobka", countsInDona: true, piecesPerBox: 3 };
+    const rayhon = { id: 7, name: "Rayhon", unitLabel: "karobka", countsInDona: false, piecesPerBox: 6 };
+    const tea = { id: 6, name: "Tea", unitLabel: "dona", countsInDona: false, piecesPerBox: null };
+    expect(cellUnitText({ qty: 10, pieces: 1 }, kremi)).toBe("31 dona");
+    expect(cellUnitText({ qty: 3, pieces: 0 }, rayhon)).toBe("3 karobka");
+    expect(cellUnitText({ qty: 2, pieces: 1 }, rayhon)).toBe("2 kar. 1 dona");
+    expect(cellUnitText({ qty: 0, pieces: 5 }, rayhon)).toBe("5 dona");
+    expect(cellUnitText({ qty: 1245, pieces: 0 }, tea)).toBe("1 245 dona");
+    expect(translateText("3 karobka", "ru")).toBe("3 кор.");
   });
 
   it("ishorali harakat: qaytarish — «−», tuzatish — «+»", () => {

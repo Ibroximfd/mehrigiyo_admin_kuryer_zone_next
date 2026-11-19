@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { demoIssuePlan, demoSalesSheet } from "@/lib/demo/mock/sales-sheet.fixture";
 
+import { groupSheetByRegion } from "../regions";
 import { mapIssuePlan, mapSalesSheet } from "../types";
 import { IssuePlanBody } from "./issue-plan-view";
 import { SalesSheetBody } from "./sales-sheet-view";
@@ -112,6 +113,52 @@ describe("sotuv jadvali — server render", () => {
     const range = { dateFrom: "2026-11-16", dateTo: "2026-11-16" };
     expect(() => html(createElement(SalesSheetBody, { sheet: mapSalesSheet({}), range, onOpenDay: () => undefined }))).not.toThrow();
     expect(() => html(createElement(SalesSheetBody, { sheet: mapSalesSheet({ couriers: [{}] }), range, onOpenDay: () => undefined }))).not.toThrow();
+  });
+});
+
+describe("sotuv jadvali — viloyatlar kesimi (egasi, 2026-11-19)", () => {
+  const LIST = new Map<number, string | null>([
+    [31, "toshkent"],
+    [32, "samarqand"],
+    [33, "toshkent"],
+  ]);
+  const LABELS: Record<string, string> = { toshkent: "Toshkent viloyati", samarqand: "Samarqand viloyati" };
+
+  function groupedHtml(dateFrom: string, dateTo = dateFrom): string {
+    const range = { dateFrom, dateTo };
+    const sheet = mapSalesSheet(demoSalesSheet({ ...range, courierId: null, withDays: dateFrom !== dateTo }, TODAY));
+    const regions = groupSheetByRegion(sheet, LIST, (code) => LABELS[code] ?? code);
+    return html(createElement(SalesSheetBody, { sheet, range, regions, onOpenDay: () => undefined }));
+  }
+
+  it("bitta kun: viloyat sarlavhasi → kuryerlari → «viloyat jami», oxirida JAMI", () => {
+    const out = text(groupedHtml("2026-11-16"));
+    const order = ["Samarqand viloyati 1 ta kuryer", "Xayrullo aka", "Samarqand viloyati jami", "Toshkent viloyati 2 ta kuryer", "Bahtiyor aka", "Muhammadqul aka", "Toshkent viloyati jami", "JAMI"];
+    const positions = order.map((label) => out.indexOf(label));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // Toshkent jami: naqd 12 060 000 + 5 850 000; kassaga 15 635 000.
+    expect(out).toContain("17 910 000");
+    expect(out).toContain("15 635 000");
+    // Kuryer xizmati maydonlari — faqat kuryer bloklarida.
+    expect(groupedHtml("2026-11-16").match(/<input/g)).toHaveLength(3);
+  });
+
+  it("hafta / oy / oraliq: kuryer bloklarisiz — har viloyat bitta blok va JAMI", () => {
+    const markup = groupedHtml("2026-11-16", "2026-11-19");
+    const out = text(markup);
+    expect(out).toContain("Viloyat");
+    for (const name of ["Bahtiyor aka", "Xayrullo aka", "Zakazlarini ochish", "Kunma-kun", " jami"]) expect(out).not.toContain(name);
+    expect(out.indexOf("Samarqand viloyati")).toBeLessThan(out.indexOf("Toshkent viloyati"));
+    expect(out).toContain("JAMI");
+    expect(markup).not.toContain("<input");
+  });
+
+  it("yangi ustunlar: Skidka va Topshirdi («Pul olish» bloki kelmasa — «—»)", () => {
+    const out = text(groupedHtml("2026-11-16"));
+    expect(out).toContain("Skidka");
+    expect(out).toContain("Topshirdi");
+    expect(out).not.toContain("kerak —");
   });
 });
 

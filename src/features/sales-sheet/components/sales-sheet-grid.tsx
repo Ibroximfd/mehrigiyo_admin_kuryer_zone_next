@@ -2,16 +2,18 @@
 
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { oneOffHref } from "@/lib/filter-memory";
 import { groupThousands } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+import type { CourierCash } from "../cash";
 import { cellText, fullDate, moneyText, shortDate } from "../display";
 import { isSingleDay } from "../period";
 import type { SheetRange } from "../period";
+import type { RegionGroup } from "../regions";
 import { cellOf, hasCells, isZeroCell } from "../types";
 import type { CourierFee, CourierSheet, SalesSheet, SheetDay, SheetFigures, SheetFlow, SheetProduct } from "../types";
 import { CourierFeeEditor } from "./courier-fee-editor";
@@ -43,36 +45,86 @@ function givenTitle(figures: SheetFigures, product: SheetProduct): string | unde
   return `Boshida ${cellText(opening, product)} + berildi ${cellText(issued, product)}`;
 }
 
+/** O'ngdagi pul va son ustunlari soni (`MoneyCells`) — viloyat sarlavhasi butun qatorga cho'zilishi uchun. */
+const MONEY_COLUMNS = 8;
+
 /**
  * Kunlik sotuv jadvali (hujjat 83 §1–§2): har kuryer — blok, mahsulot — ustun.
- * O'ngda pul, manzillar, kuryer xizmati va kassaga topshiriladigan naqd.
- * Hamma son serverdan — bu yerda faqat chiziladi. Kuryer xizmati bitta kun
- * ochiq bo'lsa tahrirlanadi; oraliqda — yig'indi (kunma-kun yoziladi).
+ * O'ngda pul, manzillar, kuryer xizmati, kassaga topshiriladigan naqd va
+ * kuryer topshirgani. Hamma son serverdan — bu yerda faqat chiziladi. Kuryer
+ * xizmati bitta kun ochiq bo'lsa tahrirlanadi; oraliqda — yig'indi.
+ *
+ * Viloyatlar kesimi (egasi, 2026-11-19; `regions` — `useSheetRegions`):
+ *   • bitta kun — viloyat sarlavhasi, uning kuryerlari, «{viloyat} jami», oxirida «JAMI»;
+ *   • hafta / oy / oraliq — kuryer bloklarisiz: har viloyat bitta blok, oxirida «JAMI».
+ * `regions: null` (viloyat hali aniqlanmagan) — avvalgidek, kuryerlar guruhsiz.
  */
-export function SalesSheetGrid({ sheet, range, onOpenDay }: { sheet: SalesSheet; range: SheetRange; onOpenDay: (day: string) => void }) {
+export function SalesSheetGrid({
+  sheet,
+  range,
+  onOpenDay,
+  regions = null,
+}: {
+  sheet: SalesSheet;
+  range: SheetRange;
+  onOpenDay: (day: string) => void;
+  regions?: readonly RegionGroup[] | null;
+}) {
+  const single = isSingleDay(range);
+  const columns = 2 + sheet.products.length + MONEY_COLUMNS;
+  // Davr almashsa blok yangidan quriladi — tahrirdagi summa boshqa kunga o'tib ketmaydi.
+  const courierBlock = (courier: CourierSheet) => (
+    <CourierBlock key={`${courier.courier.id}:${range.dateFrom}:${range.dateTo}`} courier={courier} products={sheet.products} range={range} onOpenDay={onOpenDay} />
+  );
   return (
     <SheetScroll label="Sotuv jadvali">
       <thead>
         <tr>
-          <LeadHeads lead="Kuryer" label="Qator" />
+          <LeadHeads lead={regions && !single ? "Viloyat" : "Kuryer"} label="Qator" />
           <ProductHeads products={sheet.products} />
           <HeadCell align="right" className="min-w-28">Naqd</HeadCell>
           <HeadCell align="right" className="min-w-28">Onlayn (ilova)</HeadCell>
+          <HeadCell align="right" className="min-w-24">Skidka</HeadCell>
           <HeadCell className="min-w-16">Manzil soni</HeadCell>
           <HeadCell className="min-w-16">Borganda atkaz</HeadCell>
           <HeadCell align="right" className="min-w-36">Kuryer xizmati (qo&apos;lda)</HeadCell>
           <HeadCell align="right" className="min-w-32">Topshiradi (naqd − xizmat)</HeadCell>
+          <HeadCell align="right" className="min-w-28">Topshirdi</HeadCell>
         </tr>
       </thead>
-      {sheet.couriers.map((courier) => (
-        // Davr almashsa blok yangidan quriladi — tahrirdagi summa boshqa kunga o'tib ketmaydi.
-        <CourierBlock key={`${courier.courier.id}:${range.dateFrom}:${range.dateTo}`} courier={courier} products={sheet.products} range={range} onOpenDay={onOpenDay} />
-      ))}
+      {regions === null
+        ? sheet.couriers.map(courierBlock)
+        : regions.map((region) =>
+            single ? (
+              <Fragment key={region.code ?? ""}>
+                <RegionHead region={region} columns={columns} />
+                {region.couriers.map(courierBlock)}
+                <tbody>
+                  <FigureRows
+                    figures={region.totals}
+                    products={sheet.products}
+                    variant="region"
+                    lead={<RegionLead title={`${region.name} jami`} couriers={region.couriers.length} />}
+                    fee={<FeeSum fee={region.totals.fee} hint="qo'lda yozilgan" />}
+                  />
+                </tbody>
+              </Fragment>
+            ) : (
+              <tbody key={region.code ?? ""}>
+                <FigureRows
+                  figures={region.totals}
+                  products={sheet.products}
+                  lead={<RegionLead title={region.name} couriers={region.couriers.length} />}
+                  fee={<FeeSum fee={region.totals.fee} hint="kunma-kun yoziladi" />}
+                />
+              </tbody>
+            ),
+          )}
       <tfoot>
         <FigureRows
           figures={sheet.totals}
           products={sheet.products}
-          total
+          variant="total"
           lead={
             <>
               <span className="text-ink block text-title">JAMI</span>
@@ -83,6 +135,35 @@ export function SalesSheetGrid({ sheet, range, onOpenDay }: { sheet: SalesSheet;
         />
       </tfoot>
     </SheetScroll>
+  );
+}
+
+/**
+ * Viloyat sarlavhasi (bitta kun) — butun qatorga cho'zilgan; nom chapda
+ * yopishgan: jadval yonga siljiganda ham ko'rinib turadi.
+ */
+function RegionHead({ region, columns }: { region: RegionGroup; columns: number }) {
+  return (
+    <tbody>
+      <tr>
+        <th scope="rowgroup" colSpan={columns} className={cn("border-line bg-surface-3 border-b px-3 py-2 text-left font-normal", BLOCK_START)}>
+          <span className="sticky left-3 inline-flex items-baseline gap-2">
+            <span className="text-ink text-body font-bold">{region.name}</span>
+            <span className="text-ink-muted text-meta">{`${region.couriers.length} ta kuryer`}</span>
+          </span>
+        </th>
+      </tr>
+    </tbody>
+  );
+}
+
+/** Viloyat bloki boshi: nomi (yoki «… jami») va kuryerlar soni. Nom DOM'da tarjima qilinadi (lug'atdagi viloyat). */
+function RegionLead({ title, couriers }: { title: string; couriers: number }) {
+  return (
+    <>
+      <span className="text-ink block text-body font-bold">{title}</span>
+      <span className="text-ink-muted block text-fine">{`${couriers} ta kuryer`}</span>
+    </>
   );
 }
 
@@ -144,19 +225,22 @@ function CourierBlock({
   );
 }
 
+/** Blok turi: kuryer (yoki oraliqda viloyat) — oddiy; viloyat jami va «JAMI» — xira fonli yig'indi. */
+type BlockVariant = "plain" | "region" | "total";
+
 /** Bitta blok qatorlari: chapda blok boshi, o'rtada mahsulot qatorlari, o'ngda pul kataklari (hamma qatorga cho'zilgan). */
 function FigureRows({
   figures,
   products,
   lead,
   fee,
-  total = false,
+  variant = "plain",
 }: {
   figures: SheetFigures;
   products: readonly SheetProduct[];
   lead: React.ReactNode;
   fee: React.ReactNode;
-  total?: boolean;
+  variant?: BlockVariant;
 }) {
   const rows = rowsOf(figures);
   return (
@@ -164,7 +248,7 @@ function FigureRows({
       {rows.map((row, index) => (
         <tr key={row.flow}>
           {index === 0 ? (
-            <LeadCell rowSpan={rows.length} className={total ? "bg-subtle" : undefined}>
+            <LeadCell rowSpan={rows.length} className={variant === "plain" ? undefined : "bg-subtle"}>
               {lead}
             </LeadCell>
           ) : null}
@@ -180,7 +264,7 @@ function FigureRows({
             start={index === 0}
             titleOf={row.flow === "given" ? (product) => givenTitle(figures, product) : undefined}
           />
-          {index === 0 ? <MoneyCells figures={figures} rowSpan={rows.length} fee={fee} total={total} /> : null}
+          {index === 0 ? <MoneyCells figures={figures} rowSpan={rows.length} fee={fee} variant={variant} /> : null}
         </tr>
       ))}
     </>
@@ -189,8 +273,9 @@ function FigureRows({
 
 const MONEY = cn(CELL, BLOCK_START);
 
-function MoneyCells({ figures, rowSpan, fee, total }: { figures: SheetFigures; rowSpan: number; fee: React.ReactNode; total: boolean }) {
-  const surface = total ? "bg-subtle" : "bg-surface";
+function MoneyCells({ figures, rowSpan, fee, variant }: { figures: SheetFigures; rowSpan: number; fee: React.ReactNode; variant: BlockVariant }) {
+  const surface = variant === "plain" ? "bg-surface" : "bg-subtle";
+  const total = variant === "total";
   return (
     <>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
@@ -198,6 +283,9 @@ function MoneyCells({ figures, rowSpan, fee, total }: { figures: SheetFigures; r
       </td>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
         <Amount value={figures.onlineAmount} hint="Click · Payme" />
+      </td>
+      <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
+        <Amount value={figures.discountAmount} hint="ball + qo'lda" />
       </td>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-ink tabular text-center text-lg2 font-semibold")}>
         {groupThousands(figures.addresses)}
@@ -215,6 +303,24 @@ function MoneyCells({ figures, rowSpan, fee, total }: { figures: SheetFigures; r
         <span className="tabular block text-body font-bold whitespace-nowrap">{moneyText(figures.handoverDue)}</span>
         <span className="block text-fine">{total ? "kassaga topshiriladi" : "kassaga"}</span>
       </td>
+      <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
+        <Handed cash={figures.cash} />
+      </td>
+    </>
+  );
+}
+
+/**
+ * «Topshirdi» — «Pul olish»da kuryerdan olingan pul (`cash.received`), ostida
+ * «kerak» — olinishi kerak (`cash.due_total`, o'tgan qarz bilan). Blok kelmasa — «—».
+ */
+function Handed({ cash }: { cash: CourierCash | null }) {
+  return (
+    <>
+      <span className={cn("tabular block text-body font-semibold whitespace-nowrap", cash?.received ? "text-ink" : "text-ink-faint")}>
+        {moneyText(cash?.received ?? null)}
+      </span>
+      {cash ? <span className="text-ink-faint block text-fine whitespace-nowrap">{`kerak ${moneyText(cash.dueTotal)}`}</span> : null}
     </>
   );
 }
@@ -262,10 +368,12 @@ function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly S
       <QtyCells cells={day.sold} products={products} tone="ok" />
       <td className={cn(DAY_CELL, "text-right")}>{moneyText(day.cashAmount)}</td>
       <td className={cn(DAY_CELL, "text-right")}>{moneyText(day.onlineAmount)}</td>
+      <td className={cn(DAY_CELL, "text-right")}>{moneyText(day.discountAmount)}</td>
       <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.addresses)}</td>
       <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.refusedAddresses)}</td>
       <td className={cn(DAY_CELL, "text-right")}>{moneyText(day.fee?.amount ?? null)}</td>
       <td className={cn(DAY_CELL, "text-brand text-right font-semibold")}>{moneyText(day.handoverDue)}</td>
+      <td className={cn(DAY_CELL, "text-right")}>{moneyText(day.cash?.received ?? null)}</td>
     </tr>
   );
 }

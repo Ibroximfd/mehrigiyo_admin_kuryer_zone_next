@@ -64,6 +64,27 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
     expect(sheet.totals).toMatchObject({ cashAmount: 12_060_000, fee: { amount: 1_495_000, note: "" }, handoverDue: 10_565_000 });
   });
 
+  it("viloyat (hujjat 96 §6): kalit yo'q — `null` (noma'lum); `region: null` — viloyatsiz; `regions[]` ixtiyoriy", () => {
+    const sheet = mapSalesSheet(SHEET);
+    expect(sheet.couriers[0]!.region).toBeNull();
+    expect(sheet.regions).toBeNull();
+    const withRegions = mapSalesSheet({
+      couriers: [
+        { courier: { id: 31, full_name: "Bahtiyor", region: "toshkent", region_name: "Toshkent viloyati" } },
+        { courier: { id: 32, full_name: "Xayrullo", region: null, region_name: "Viloyatsiz" } },
+      ],
+      regions: [{ region: "toshkent", region_name: "Toshkent viloyati", courier_ids: [31, "32"], cash_amount: 500, handover_due: 400 }, {}],
+    });
+    expect(withRegions.couriers.map((row) => row.region)).toEqual([
+      { code: "toshkent", name: "Toshkent viloyati" },
+      { code: null, name: "Viloyatsiz" },
+    ]);
+    expect(withRegions.regions).toMatchObject([
+      { code: "toshkent", name: "Toshkent viloyati", courierIds: [31, 32], cashAmount: 500, handoverDue: 400, cash: null },
+      { code: null, name: "", courierIds: [], cashAmount: 0, handoverDue: null },
+    ]);
+  });
+
   it("yo'q kalit = nol katak; nol kelgan katak ham saqlanmaydi (§2.1)", () => {
     const [bahtiyor] = mapSalesSheet(SHEET).couriers;
     expect(cellOf(bahtiyor!.gift, 6)).toBe(EMPTY_CELL);
@@ -97,6 +118,14 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
     expect(sheet.totals).toMatchObject({ cashAmount: 0, fee: null, handoverDue: null });
     expect(mapSalesSheet(null).couriers).toEqual([]);
     expect(mapSalesSheet("xato").totals.handoverDue).toBeNull();
+  });
+
+  it("tasdiqlanmagan sotuv (97 §3): `totals.pending_*`; yo'q yoki 0 — `null`", () => {
+    const withPending = mapSalesSheet({ totals: { pending_sales_amount: 1_250_000, pending_cash_amount: 400_000 } });
+    expect(withPending.pending).toEqual({ salesAmount: 1_250_000, cashAmount: 400_000 });
+    expect(mapSalesSheet({ totals: { pending_sales_amount: 0, pending_cash_amount: 0 } }).pending).toBeNull();
+    expect(mapSalesSheet({ totals: {} }).pending).toBeNull();
+    expect(mapSalesSheet(null).pending).toBeNull();
   });
 
   it("`fee: null` va summasiz `fee` — yozilmagan", () => {

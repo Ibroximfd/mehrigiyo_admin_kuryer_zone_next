@@ -22,7 +22,8 @@ topshiriladigan naqd»dan serverda ayiriladi (`handover_due`); frontend pulni ha
 - `/report` Moliya — `chief/finance/` (filial, kuryer va mahsulot kesimi)
 - `/sheet` Sotuv jadvali (hujjat 83; menyuda `secondary` — telefon pastki panelida yo'q) — kunlik «SOTUV» jadvali
   `chief/report/sales-sheet/` (+ `fee/` kuryer xizmati, `export/` Excel), «Pul olish» (hujjat 85 §2: `cash` bloki,
-  `discount/`, `receipts/`) va «Berish rejasi» `chief/report/issue-plan/`
+  `discount/`, `receipts/`) va «Berish rejasi» `chief/report/issue-plan/`. Jadval viloyat kesimida (hujjat 96 §6:
+  `regions[]`, bo'lmasa kuryer viloyati `chief/couriers/` dan, jami `features/sales-sheet/regions.ts` da) va «Telegram matni»
 
 Butun sayt `ChiefSiteGate` bilan: `GET /chief/me/` 200 bo'lmasa — «Bu sayt bosh kuryerlar uchun».
 

@@ -119,10 +119,28 @@ export type SheetFigures = Record<SheetFlow, CellMap> & {
 
 export type SheetDay = SheetFigures & { date: string };
 
+/**
+ * Kuryer viloyati (hujjat 96 §6): `code: null` — viloyatsiz kuryer. Server
+ * `courier.region` kalitini umuman bermasa — `CourierSheet.region` ning o'zi `null`
+ * (noma'lum: viloyat kuryerlar ro'yxatidan olinadi).
+ */
+export type SheetCourierRegion = { code: string | null; name: string };
+
 export type CourierSheet = SheetFigures & {
   courier: CourierRef;
+  region: SheetCourierRegion | null;
   /** Kunma-kun qatorlar (`days=1`); bitta kun so'ralsa bo'sh. */
   days: SheetDay[];
+};
+
+/**
+ * Viloyat bloki (hujjat 96 §6, `regions[]`): `totals` bilan bir xil kalitlar —
+ * shu viloyat kuryerlarining yig'indisi serverda. `code: null` — «Viloyatsiz» (oxirida).
+ */
+export type SheetRegion = SheetFigures & {
+  code: string | null;
+  name: string;
+  courierIds: number[];
 };
 
 /** Daftar sotuvi zakazlar sotuvidan farq qilgan qator (§2.10) — odatda bo'lmaydi. */
@@ -141,9 +159,19 @@ export type SalesSheet = {
   products: SheetProduct[];
   /** Davrda harakati bo'lgan kuryerlar — nol kuryer kelmaydi (§2.12). */
   couriers: CourierSheet[];
+  /** Viloyatlar kesimi; server hali bermasa `null` — guruhlash frontendda (`regions.ts`). */
+  regions: SheetRegion[] | null;
   totals: SheetFigures;
+  /** Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan (hujjat 97 §3); yo'q yoki 0 — `null`. */
+  pending: SheetPending | null;
   checks: SheetCheck[];
 };
+
+/**
+ * Tasdiqlanmagan sotuv (97 §3): sotilgan/sovg'a sonlari uni o'z ichiga oladi
+ * (kuryer bosgan kunda), pul bloklari esa yo'q — pul logist tasdig'idan keyin.
+ */
+export type SheetPending = { salesAmount: number; cashAmount: number };
 
 function mapFee(raw: unknown): CourierFee | null {
   if (!isRecord(raw)) return null;
@@ -174,13 +202,38 @@ function mapFigures(raw: unknown): SheetFigures {
   };
 }
 
+/** `courier.region` kaliti bo'lmasa — `null` (noma'lum); `region: null` — viloyatsiz. */
+function mapCourierRegion(raw: unknown): SheetCourierRegion | null {
+  const json = asRecord(raw);
+  if (!("region" in json)) return null;
+  return { code: asOptionalString(json.region), name: asString(json.region_name) };
+}
+
+function mapRegion(raw: unknown): SheetRegion {
+  const json = asRecord(raw);
+  return {
+    ...mapFigures(json),
+    code: asOptionalString(json.region),
+    name: asString(json.region_name),
+    courierIds: asArray(json.courier_ids).map((id) => asInt(id)),
+  };
+}
+
 function mapCourierSheet(raw: unknown): CourierSheet {
   const json = asRecord(raw);
   return {
     ...mapFigures(json),
     courier: mapCourierRef(json.courier),
+    region: mapCourierRegion(json.courier),
     days: asArray(json.days).map((day) => ({ ...mapFigures(day), date: asString(asRecord(day).date) })),
   };
+}
+
+function mapPending(raw: unknown): SheetPending | null {
+  const json = asRecord(raw);
+  const salesAmount = asOptionalNumber(json.pending_sales_amount) ?? 0;
+  const cashAmount = asOptionalNumber(json.pending_cash_amount) ?? 0;
+  return salesAmount > 0 || cashAmount > 0 ? { salesAmount, cashAmount } : null;
 }
 
 function mapCheck(raw: unknown): SheetCheck {
@@ -204,7 +257,9 @@ export function mapSalesSheet(raw: unknown): SalesSheet {
     dateTo: asString(json.date_to),
     products: mapProducts(json.products),
     couriers: asArray(json.couriers).map(mapCourierSheet),
+    regions: Array.isArray(json.regions) ? json.regions.map(mapRegion) : null,
     totals: mapFigures(json.totals),
+    pending: mapPending(json.totals),
     checks: asArray(json.checks).map(mapCheck),
   };
 }

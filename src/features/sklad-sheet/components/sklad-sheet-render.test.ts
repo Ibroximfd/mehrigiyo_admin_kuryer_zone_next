@@ -156,7 +156,7 @@ describe("sanadan sanagacha — server render", () => {
 });
 
 describe("hozirgi qoldiq — server render", () => {
-  it("jadval: Omborda · Kuryerlarda · Jami, rang — sariq/qizil; asosiy raqamlar", () => {
+  it("jadval: Jami · Kuryerlarda · Omborda, rang — sariq/qizil; asosiy raqamlar", () => {
     const sheet = mapSkladSheet({
       products: PRODUCTS.slice(0, 4),
       current: {

@@ -26,8 +26,9 @@ const ACTIONS = "border-l pr-4 lg:sticky lg:right-0 lg:z-10";
  * Kuryerlar ombori — jadval (egasi so'rovi 2026-11-18, Google Sheet kabi): kim
  * qaysi mahsulotdan qancha ushlab turgani bir qarashda, amallar shu qatorda.
  * Telefonda ham jadval bo'lib qoladi — karta ichida ikki tomonga siljiydi,
- * sarlavha va kuryer ustuni joyida turadi. `onAction: null` — `can_write` yo'q:
- * «Amallar» ustuni umuman chizilmaydi.
+ * sarlavha va kuryer ustuni joyida turadi. Qatorlar: «Jami» (faqat kuryerlar) →
+ * kuryerlar → «Omborim». `onAction: null` — `can_write` yo'q: «Amallar» ustuni
+ * umuman chizilmaydi.
  */
 export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMatrix; onAction: CourierStockAction | null }) {
   return (
@@ -59,21 +60,15 @@ export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMa
             </tr>
           </thead>
           <tbody>
-            {matrix.store ? (
-              <tr className="bg-brand-soft">
-                <th scope="row" className={cn(LEAD, "bg-brand-soft")}>
-                  <span className="text-ink flex items-center gap-1.5 font-semibold">
-                    <Warehouse aria-hidden className="text-brand size-4 shrink-0" />
-                    Omborim
-                  </span>
-                  <span className="text-ink-muted text-meta">
-                    {matrix.store.kinds > 0 ? `${matrix.store.kinds} xil mahsulot` : "Skladda mahsulot yo'q"}
-                  </span>
-                </th>
-                <QuantityCells line={matrix.store} products={matrix.products} />
-                {onAction ? <td className={cn(CELL, ACTIONS, "bg-brand-soft")} /> : null}
-              </tr>
-            ) : null}
+            {/* «Jami» tepada (egasi, 2026-11-19): avval kuryerlardagi umumiy son, keyin kim qancha ushlab turgani. */}
+            <tr className="bg-subtle">
+              <th scope="row" className={cn(LEAD, "bg-subtle")}>
+                <span className="text-ink block font-semibold">Jami</span>
+                <span className="text-ink-faint text-meta">Kuryerlarda</span>
+              </th>
+              <QuantityCells line={matrix.totals} products={matrix.products} className="font-semibold" />
+              {onAction ? <td className={cn(CELL, ACTIONS, "bg-subtle")} /> : null}
+            </tr>
             {matrix.rows.map((row) => (
               <tr key={row.stock.courier.id} className="group hover:bg-subtle">
                 <th scope="row" className={cn(LEAD, "bg-surface group-hover:bg-subtle")}>
@@ -90,17 +85,23 @@ export function CourierStockTable({ matrix, onAction }: { matrix: CourierStockMa
                 ) : null}
               </tr>
             ))}
+            {/* Ombordagi qoldiq — eng pastda: «Jami» unga kirmaydi (faqat kuryerlar). */}
+            {matrix.store ? (
+              <tr className="bg-brand-soft">
+                <th scope="row" className={cn(LEAD, "bg-brand-soft border-b-0")}>
+                  <span className="text-ink flex items-center gap-1.5 font-semibold">
+                    <Warehouse aria-hidden className="text-brand size-4 shrink-0" />
+                    Omborim
+                  </span>
+                  <span className="text-ink-muted text-meta">
+                    {matrix.store.kinds > 0 ? `${matrix.store.kinds} xil mahsulot` : "Skladda mahsulot yo'q"}
+                  </span>
+                </th>
+                <QuantityCells line={matrix.store} products={matrix.products} className="border-b-0" />
+                {onAction ? <td className={cn(CELL, ACTIONS, "bg-brand-soft border-b-0")} /> : null}
+              </tr>
+            ) : null}
           </tbody>
-          <tfoot>
-            <tr className="bg-subtle">
-              <th scope="row" className={cn(LEAD, "bg-subtle border-b-0")}>
-                <span className="text-ink block font-semibold">Jami</span>
-                <span className="text-ink-faint text-meta">Kuryerlarda</span>
-              </th>
-              <QuantityCells line={matrix.totals} products={matrix.products} className="border-b-0 font-semibold" />
-              {onAction ? <td className={cn(CELL, ACTIONS, "bg-subtle border-b-0")} /> : null}
-            </tr>
-          </tfoot>
         </table>
       </div>
     </>
@@ -157,7 +158,7 @@ function Quantity({ value }: { value: number }) {
 function RowActions({ row, onAction }: { row: CourierStockLine; onAction: CourierStockAction }) {
   const { stock } = row;
   const name = stock.courier.fullName;
-  // Yig'indi emas, xil soni: +3 va −3 yig'indisi 0, lekin minus katak baribir tuzatilishi kerak.
+  // Qabul — faqat qo'lida mol bo'lsa. Yig'indi emas, xil soni: +3 va −3 yig'indisi 0, lekin mol bor.
   const holdsNothing = row.kinds === 0;
   return (
     <span className="flex justify-end gap-1.5">
@@ -169,7 +170,8 @@ function RowActions({ row, onAction }: { row: CourierStockLine; onAction: Courie
         <ArrowDownToLine />
         <span className="hidden 2xl:inline">Qabul</span>
       </Button>
-      <Button size="sm" variant="ghost" aria-label={`${name}: tuzatish`} title="Tuzatish" disabled={holdsNothing} onClick={() => onAction("adjustment", stock)}>
+      {/* Tuzatish qo'lida hech narsa yo'q kuryerda ham ochiq: sanaganda chiqqan molni 0 dan yozish mumkin. */}
+      <Button size="sm" variant="ghost" aria-label={`${name}: tuzatish`} title="Tuzatish" onClick={() => onAction("adjustment", stock)}>
         <SlidersHorizontal />
         <span className="hidden 2xl:inline">Tuzatish</span>
       </Button>

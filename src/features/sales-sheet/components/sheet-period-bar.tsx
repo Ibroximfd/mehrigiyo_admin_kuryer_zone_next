@@ -68,7 +68,7 @@ export function SheetPeriodBar({
         </span>
       )}
 
-      {children ? <div className="ml-auto flex items-center gap-2">{children}</div> : null}
+      {children ? <div className="ml-auto flex flex-wrap items-center gap-2">{children}</div> : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import type { SkladCurrent, SkladProduct } from "./types";
 
 /**
  * «Hozirgi qoldiq» jadvali (hujjat 85 §1.1): ustun — mahsulot, qator —
- * Omborda · Kuryerlarda · Jami. Manba — javobdagi `current` bloki; u hali
+ * Jami · Kuryerlarda · Omborda (egasi, 2026-11-19: jami tepada, ombor qoldig'i pastda). Manba — javobdagi `current` bloki; u hali
  * kelmasa (endpoint yo'q, eski server) — sahifa allaqachon yuklagan sklad
  * qoldig'i (`sklad/stock` + `sklad/couriers`), yangi son o'ylab topilmaydi.
  * Minimaldan kam — sariq, tugagan yoki minus — qizil (ombor va jami qatorida).
@@ -115,9 +115,9 @@ export function buildCurrentStock(lines: readonly StockLine[]): CurrentStockMode
   return {
     columns: lines.map((line) => line.column),
     rows: [
-      { key: "store", label: "Omborda", cells: store, total: sumOf(store) },
-      { key: "couriers", label: "Kuryerlarda", cells: couriers, total: sumOf(couriers) },
       { key: "total", label: "Jami", cells: total, total: sumOf(total) },
+      { key: "couriers", label: "Kuryerlarda", cells: couriers, total: sumOf(couriers) },
+      { key: "store", label: "Omborda", cells: store, total: sumOf(store) },
     ],
     storeTotal: sumOf(store),
     couriersTotal: sumOf(couriers),
