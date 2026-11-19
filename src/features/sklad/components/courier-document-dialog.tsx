@@ -64,7 +64,8 @@ export function CourierDocumentDialog({
   const copy = COPY[mode];
   const rows: Row[] =
     mode === "courier_load"
-      ? stock.filter((row) => row.inSklad > 0).map((row) => ({ item: row.item, available: shownQuantity(row.item, row.inSklad) }))
+      ? // Hujjat 90: skladda 0 yoki minus bo'lsa ham berish mumkin — sklad minusga tushadi.
+        stock.map((row) => ({ item: row.item, available: shownQuantity(row.item, row.inSklad) }))
       : courier.items
           // Qabulda faqat qo'lidagi (musbat) mol; tuzatishda minus qator ham — sanab tenglashtiriladi.
           .filter((entry) => mode === "adjustment" || entry.quantity > 0)
@@ -80,6 +81,7 @@ export function CourierDocumentDialog({
   const lines = rows
     .map((row) => ({ row, qty: value(row.item.id) }))
     .filter(({ row, qty }) => (mode === "adjustment" ? qty !== row.available : qty > 0));
+  /** Bordan ko'p — saqlanadi, qoldiq minusga tushadi (hujjat 90): faqat ogohlantirish. */
   const overLimit = mode !== "adjustment" && lines.some(({ row, qty }) => qty > row.available);
   /** Server birligidagi qatorlar; butun karobka chiqmagan qator yuborilmaydi (tugma yopiq). */
   const sendable = lines.flatMap(({ row, qty }) => {
@@ -97,7 +99,14 @@ export function CourierDocumentDialog({
         ? createCourierDocument({ type: mode, locationId: store!.id, courierId: courier.courier.id, lines: sendable })
         : createCourierDocument({ type: mode, locationId: store!.id, courierId: courier.courier.id, lines: all ? null : sendable });
     },
-    onSuccess: () => {
+    onSuccess: (negative) => {
+      for (const cell of negative) {
+        const row = rows.find((entry) => entry.item.id === cell.itemId);
+        const amount = row ? shownQuantity(row.item, cell.onHand) : cell.onHand;
+        toast.warning(`${row?.item.name ?? `#${cell.itemId}`} qoldig'i ${groupThousands(amount)} bo'ldi`, {
+          description: "Qoldiq minusga tushdi — sanab, tuzatish bilan to'g'rilang.",
+        });
+      }
       toast.success(`${copy.title} saqlandi`);
       void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
       onClose();
@@ -141,14 +150,16 @@ export function CourierDocumentDialog({
                   className={cn(
                     inputClass,
                     "tabular h-9 w-20 text-right",
-                    ((mode !== "adjustment" && value(item.id) > available) || stockQuantityOf(item, value(item.id)) === null) && "border-danger",
+                    stockQuantityOf(item, value(item.id)) === null
+                      ? "border-danger"
+                      : mode !== "adjustment" && value(item.id) > available && "border-warn",
                   )}
                 />
               </li>
             ))}
           </ul>
         )}
-        {overLimit ? <p className="text-danger mt-2 text-meta">Son mavjud qoldiqdan oshmasin.</p> : null}
+        {overLimit ? <p className="text-warn mt-2 text-meta">Ba&apos;zi qatorda bordan ko&apos;p — saqlanadi, qoldiq minusga tushadi.</p> : null}
         {notWhole ? <p className="text-danger mt-2 text-meta">Karobkada turgan mahsulotda son butun karobkaga teng bo&apos;lsin.</p> : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -160,7 +171,7 @@ export function CourierDocumentDialog({
               Hammasini qabul qilish
             </Button>
           ) : null}
-          <Button type="button" disabled={needsStore || lines.length === 0 || overLimit || notWhole || save.isPending} onClick={() => save.mutate(false)}>
+          <Button type="button" disabled={needsStore || lines.length === 0 || notWhole || save.isPending} onClick={() => save.mutate(false)}>
             {save.isPending ? <LoaderCircle className="animate-spin" /> : null}
             {copy.submit}
           </Button>

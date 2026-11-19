@@ -1,6 +1,7 @@
 import { api } from "@/lib/api-client";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
+import { asArray, asInt, asRecord } from "@/lib/parse";
 
 import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, skladStockRows, skladStore } from "./types";
 import type { PackedQuantity } from "./packaging";
@@ -55,7 +56,10 @@ export type CourierDocumentInput =
   /** Tuzatish: `actual_qty` — «sanaganda shuncha chiqdi», qoldiq shunga tenglashadi. */
   | { type: "adjustment"; courierId: number; lines: Array<{ itemId: number; actualQty: number }> };
 
-export async function createCourierDocument(input: CourierDocumentInput): Promise<void> {
+/** Hujjatdan keyin minusga tushgan katak (hujjat 90) — ogohlantirish, xato emas. */
+export type NegativeStockCell = { locationId: number; itemId: number; onHand: number };
+
+export async function createCourierDocument(input: CourierDocumentInput): Promise<NegativeStockCell[]> {
   const json =
     input.type === "adjustment"
       ? {
@@ -70,7 +74,11 @@ export async function createCourierDocument(input: CourierDocumentInput): Promis
           courier_id: input.courierId,
           ...(input.lines ? { lines: input.lines.map((line) => ({ item_id: line.itemId, quantity: line.quantity })) } : {}),
         };
-  await api.post<unknown>(ENDPOINTS.skladDocuments, { json, fallbackError: "Hujjatni saqlab bo'lmadi" });
+  const raw = await api.post<unknown>(ENDPOINTS.skladDocuments, { json, fallbackError: "Hujjatni saqlab bo'lmadi" });
+  return asArray(asRecord(raw).negative_stock).map((entry) => {
+    const row = asRecord(entry);
+    return { locationId: asInt(row.location_id), itemId: asInt(row.item_id), onHand: asInt(row.on_hand) };
+  });
 }
 
 export async function fetchLoadRequests(status: LoadRequestStatus, signal?: AbortSignal): Promise<LoadRequest[]> {
