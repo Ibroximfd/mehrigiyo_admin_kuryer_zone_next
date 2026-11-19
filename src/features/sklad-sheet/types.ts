@@ -5,7 +5,8 @@ import type { CellUnit, QtyCell } from "@/lib/qty-cell";
 /**
  * Sklad jadvali (hujjat 85 §1) — `GET chief/report/sklad-sheet/`: egasining
  * Google Sheet'idagi kunlik va davr jadvali. Hisob faqat serverda: tenglama
- * `closing = opening + from_company − sold − gift − to_company + other`,
+ * `closing = opening + from_company − sold − gift − to_company − write_off + other`
+ * (hujjat 92 §3: chiqim alohida blok, `other` — faqat tuzatish va boshqa),
  * `sold`/`gift` jamilari, `current.total`, summalar — javobdan o'qiladi;
  * frontend qo'shmaydi va ayirmaydi, faqat formatlaydi.
  *
@@ -71,6 +72,8 @@ export type SkladSheet = {
   sold: SkladFlow | null;
   gift: SkladFlow | null;
   toCompany: SkladFlow | null;
+  /** Chiqim (spisaniye) — musbat son (hujjat 92 §3); eski serverda chiqim `other` ichida, blok yo'q — `null`. */
+  writeOff: SkladFlow | null;
   /** Tuzatish va boshqa harakatlar — ishorali; noldan farqli bo'lsa ogohlantiriladi. */
   other: SkladFlow | null;
   closing: SkladFlow | null;
@@ -172,6 +175,7 @@ export function mapSkladSheet(raw: unknown): SkladSheet {
     sold: mapFlow(json.sold),
     gift: mapFlow(json.gift),
     toCompany: mapFlow(json.to_company),
+    writeOff: mapFlow(json.write_off),
     other: mapFlow(json.other),
     closing: mapFlow(json.closing),
     days: asArray(json.days).map(mapDay),

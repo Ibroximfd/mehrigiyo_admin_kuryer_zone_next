@@ -128,6 +128,16 @@ describe("kunlik jadval qatorlari (§1, egasi sheet'i 17.11)", () => {
     expect(buildDaySheet({ ...sheet, other: null }, "2026-11-17").hasAdjustment).toBe(false);
   });
 
+  it("hujjat 92: «Chiqim» — alohida qator korxonaga qaytdidan keyin, ogohlantirishsiz", () => {
+    const withWriteOff = buildDaySheet({ ...sheet, writeOff: { items: { "7": { qty: 3, pieces: 0 } }, amount: 600_000 } }, "2026-11-17");
+    expect(withWriteOff.tail.map((line) => (line.kind === "total" ? line.key : ""))).toEqual(["sold", "gift", "to-company", "write-off", "closing"]);
+    expect(withWriteOff.tail.find((line) => line.key === "write-off")).toMatchObject({ label: "− Chiqim (spisaniye)", tone: "danger", signed: false });
+    expect(withWriteOff.hasAdjustment).toBe(false);
+    // Eski server (blok yo'q) yoki nol — qator chiqmaydi.
+    expect(buildDaySheet({ ...sheet, writeOff: null }, "2026-11-17").tail.some((line) => line.key === "write-off")).toBe(false);
+    expect(buildDaySheet(sheet, "2026-11-17").tail.some((line) => line.key === "write-off")).toBe(false);
+  });
+
   it("oy chegarasida ertangi kun yorlig'i — so'ralgan kundan", () => {
     expect(buildDaySheet(mapSkladSheet({}), "2026-11-30").tail.at(-1)).toMatchObject({ label: "01.12 kun boshiga qoldiq", flow: null });
   });

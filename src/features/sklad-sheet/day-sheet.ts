@@ -7,8 +7,10 @@ import type { SkladFlow, SkladSheet } from "./types";
 /**
  * Kunlik jadval qatorlari (hujjat 85 §1, egasi sheet'i 17.11.2026) tartibi:
  * kun boshiga qoldiq → korxonadan keldi → hudud × kuryer (sotuv, sovg'a) →
- * JAMI sotuv, sovg'a → korxonaga qaytdi → tuzatish (faqat bo'lsa) → ertangi
- * kun boshiga qoldiq. Har son — serverdan, bu yerda faqat tartib va yorliq.
+ * JAMI sotuv, sovg'a → korxonaga qaytdi → chiqim (faqat bo'lsa) → tuzatish
+ * (faqat bo'lsa) → ertangi kun boshiga qoldiq. Har son — serverdan, bu yerda
+ * faqat tartib va yorliq. Ogohlantirish faqat tuzatishga (`other`) — chiqim
+ * oddiy harakat (hujjat 92 §3).
  */
 
 /** Qator rangi — ma'nosi yorliqda ham yozilgan (rang yagona signal emas). */
@@ -75,6 +77,7 @@ export function buildDaySheet(sheet: SkladSheet, day: string): DaySheetModel {
       total("sold", "JAMI · sotuv", "okStrong", sheet.sold),
       total("gift", "JAMI · sovg'a", "giftStrong", sheet.gift),
       total("to-company", "− Korxonaga qaytdi", "danger", sheet.toCompany),
+      ...(isEmptyFlow(sheet.writeOff) ? [] : [total("write-off", "− Chiqim (spisaniye)", "danger", sheet.writeOff)]),
       ...(hasAdjustment ? [total("other", "Tuzatish", "warn", sheet.other, "blank", true)] : []),
       total("closing", `${shortDate(nextDay)} kun boshiga qoldiq`, "stock", sheet.closing, "show"),
     ],

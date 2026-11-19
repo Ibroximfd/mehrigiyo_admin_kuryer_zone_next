@@ -36,7 +36,7 @@ export function SkladDayView({ fallback }: { fallback: readonly SkladStockFallba
         </div>
       </div>
       <CurrentStockPanel model={selectCurrentStock(sheet, fallback)} />
-      <Section title={`${fullDate(period.day)} — kunlik harakat`} description="Kun boshi + korxonadan − sotuv − sovg'a − korxonaga = kun oxiri">
+      <Section title={`${fullDate(period.day)} — kunlik harakat`} description="Kun boshi + korxonadan − sotuv − sovg'a − korxonaga − chiqim ± tuzatish = kun oxiri">
         <QueryStateView
           query={sheet}
           deniedTitle="Sklad jadvali sizga ochilmagan"
@@ -97,6 +97,10 @@ function DaySheetLegend() {
       <li>
         <strong className="text-ink font-semibold">Korxonadan keldi / korxonaga qaytdi</strong>
         <span> — sklad kirim va qaytarishlaridan</span>
+      </li>
+      <li>
+        <strong className="text-danger font-semibold">Chiqim</strong>
+        <span> — yaroqsiz yoki yo&apos;qolgan mol hisobdan chiqarilgani (faqat bo&apos;lsa)</span>
       </li>
       <li>Donalab sotiladigan mahsulot — faqat donada</li>
     </ul>

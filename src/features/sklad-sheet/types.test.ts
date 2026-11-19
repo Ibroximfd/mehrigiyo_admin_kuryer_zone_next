@@ -57,6 +57,12 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
     expect(isEmptyFlow(sheet.other)).toBe(true);
   });
 
+  it("hujjat 92 §3: `write_off` — alohida blok, musbat son", () => {
+    const sheet = mapSkladSheet({ ...CONTRACT, write_off: { items: { "6": { qty: 2, pieces: 0, amount: 1_100_000 } }, amount: 1_100_000 } });
+    expect(sheet.writeOff).toEqual({ items: { "6": { qty: 2, pieces: 0 } }, amount: 1_100_000 });
+    expect(mapSkladSheet(CONTRACT).writeOff).toBeNull();
+  });
+
   it("bo'sh javob — yiqilmaydi: bloklar `null`, ro'yxatlar bo'sh, son o'ylab topilmaydi", () => {
     const sheet = mapSkladSheet({});
     expect(sheet).toEqual({
@@ -70,6 +76,7 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
       sold: null,
       gift: null,
       toCompany: null,
+      writeOff: null,
       other: null,
       closing: null,
       days: [],

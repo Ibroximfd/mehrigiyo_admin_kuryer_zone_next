@@ -20,8 +20,8 @@ export const SKLAD_SHEET: Dictionary = {
 
   // ── Kunlik ──────────────────────────────────────────────────────────────
   "{x} — kunlik harakat": "{x} — движение за день",
-  "Kun boshi + korxonadan − sotuv − sovg'a − korxonaga = kun oxiri":
-    "Начало дня + от компании − продажа − подарок − в компанию = конец дня",
+  "Kun boshi + korxonadan − sotuv − sovg'a − korxonaga − chiqim ± tuzatish = kun oxiri":
+    "Начало дня + от компании − продажа − подарок − в компанию − списание ± корректировка = конец дня",
   "Kunlik harakat": "Движение за день",
   Hudud: "Регион",
   "Kun boshiga qoldiq": "Остаток на начало дня",
@@ -29,6 +29,9 @@ export const SKLAD_SHEET: Dictionary = {
   "JAMI · sotuv": "ИТОГО · продажа",
   "JAMI · sovg'a": "ИТОГО · подарок",
   "− Korxonaga qaytdi": "− Возвращено в компанию",
+  "− Chiqim (spisaniye)": "− Списание",
+  Chiqim: "Списание",
+  "— yaroqsiz yoki yo'qolgan mol hisobdan chiqarilgani (faqat bo'lsa)": "— негодный или утерянный товар, списанный с учёта (только если есть)",
   Tuzatish: "Корректировка",
   "{x} kun boshiga qoldiq": "Остаток на начало дня {x}",
   sotuv: "продажа",

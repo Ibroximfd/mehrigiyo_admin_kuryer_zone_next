@@ -84,6 +84,13 @@ describe("kunlik jadval — server render", () => {
     expect(text(withOther)).toContain("−400 000");
   });
 
+  it("hujjat 92: chiqim — alohida qator, «tuzatish bor» ogohlantirishi chiqmaydi", () => {
+    const withWriteOff = html(createElement(DaySheetBody, { sheet: mapSkladSheet({ ...DAY, write_off: flow([0, 0, 0, 3, 0, 0, 0, 0, 0, 0], 600_000) }), day: "2026-11-17" }));
+    expect(withWriteOff).toContain("− Chiqim (spisaniye)");
+    expect(withWriteOff).not.toContain("Bu kunda tuzatish bor");
+    expect(text(withWriteOff)).toContain("600 000");
+  });
+
   it("javobda yo'q blok — «—», son o'ylab topilmaydi; mahsulot yo'q — bo'sh holat", () => {
     const partial = html(createElement(DaySheetBody, { sheet: mapSkladSheet({ ...DAY, closing: undefined }), day: "2026-11-17" }));
     expect(partial).toMatch(/bg-amber-line[^>]*>—<\/td>/);
