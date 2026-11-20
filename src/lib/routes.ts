@@ -10,7 +10,6 @@ export const ROUTES = {
   couriers: "/couriers",
   zones: "/zones",
   sklad: "/sklad",
-  cash: "/cash",
   report: "/report",
   sheet: "/sheet",
   ratings: "/ratings",

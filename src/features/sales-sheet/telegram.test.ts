@@ -102,6 +102,8 @@ describe("Telegram matni — oraliq va bitta viloyat", () => {
     const cash: CourierCash = {
       salesAmount: 1,
       onlineAmount: 0,
+      onlineSystem: null,
+      onlineManual: null,
       discountAmount: 0,
       discountSystem: null,
       discountManual: 0,
@@ -112,6 +114,7 @@ describe("Telegram matni — oraliq va bitta viloyat", () => {
       received: null,
       closingDebt: null,
       receipts: [],
+      since: null,
     };
     const text = salesSheetTelegram({ ...base, regions: null, totals: { ...base.totals, cash } });
     expect(text).toContain("💰 Topshirishi kerak: 10 565 000 · Topshirdi: —");

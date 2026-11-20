@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { mapChiefCash } from "@/features/cash/types";
 import { mapAutoAssignPreview, mapAutoAssignResult, mapChiefFilials, mapChiefMe, mapChiefOrderDetail } from "@/features/chief/types";
 import { mapCourier } from "@/features/couriers/types";
 import { mapLogistOrder } from "@/features/orders/types";
@@ -50,19 +49,6 @@ describe("demo rejim: backend v2 shakllari", () => {
     const courier = mapCourier((await patch("/operator/chief/couriers/501/", { is_active: false, zone_ids: [] })).data);
     expect(courier.isActive).toBe(false);
     expect(demoDb.orders.some((order) => order.status === "shipping" && order.courierId === 501)).toBe(false);
-  });
-
-  it("kassa: `delivered_by_method` (hujjat 79 §6) yig'indisi — davrda yetkazilganlar summasi", async () => {
-    const split = mapChiefCash((await get("/operator/chief/cash/", { date_from: "2000-01-01", date_to: "2999-12-31" })).data).deliveredByMethod;
-    const delivered = demoDb.orders.filter((order) => order.deliveredAt).reduce((sum, order) => sum + order.total, 0);
-    expect(split).not.toBeNull();
-    expect(split!.cash + split!.card + split!.online).toBe(delivered);
-    expect(split!.card).toBeGreaterThan(0);
-    expect(split!.online).toBeGreaterThan(0);
-    // 80-javob §5: jami va son serverdan — ajratma yig'indisiga teng.
-    const cash = mapChiefCash((await get("/operator/chief/cash/", { date_from: "2000-01-01", date_to: "2999-12-31" })).data);
-    expect(cash.deliveredAmount).toBe(delivered);
-    expect(cash.deliveredOrders).toBe(demoDb.orders.filter((order) => order.deliveredAt).length);
   });
 
   it("2-pog'ona: bir nechta filialda pul — `filial_required`, `filial_id` bilan — 201 va idempotent", async () => {

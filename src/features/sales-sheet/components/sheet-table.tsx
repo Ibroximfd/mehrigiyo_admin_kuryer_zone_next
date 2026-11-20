@@ -132,6 +132,11 @@ export function RowLabel({ tone, start = false, children }: { tone: RowTone; sta
   );
 }
 
+/** Mahsulot katagi klassi — `QtyCells` va tahrirlanadigan qator («Berish kerak») bir xil ko'rinsin. */
+export function qtyCellClass(tone: RowTone, start = false): string {
+  return cn(CELL, "tabular px-1.5 text-center whitespace-nowrap", ROW_TONE[tone], start && BLOCK_START);
+}
+
 /**
  * Bir qatorning mahsulot kataklari. `zero`: `blank` — nol katak bo'sh (berilgan,
  * sotilgan…), `show` — «0» (qoldiq: «hech narsa qolmadi» ham ma'lumot).
@@ -164,7 +169,7 @@ export function QtyCells({
           <td
             key={product.id}
             title={empty ? undefined : titleOf?.(product)}
-            className={cn(CELL, "tabular px-1.5 text-center whitespace-nowrap", ROW_TONE[tone], start && BLOCK_START)}
+            className={qtyCellClass(tone, start)}
           >
             {empty ? (zero === "show" ? "0" : null) : signed ? signedCellText(cell, product) : cellText(cell, product)}
           </td>

@@ -75,6 +75,8 @@ function sumCash(blocks: ReadonlyArray<CourierCash | null>): CourierCash | null 
   return {
     salesAmount: field((cash) => cash.salesAmount),
     onlineAmount: field((cash) => cash.onlineAmount),
+    onlineSystem: field((cash) => cash.onlineSystem),
+    onlineManual: field((cash) => cash.onlineManual),
     discountAmount: field((cash) => cash.discountAmount),
     discountSystem: field((cash) => cash.discountSystem),
     discountManual: field((cash) => cash.discountManual),
@@ -85,6 +87,7 @@ function sumCash(blocks: ReadonlyArray<CourierCash | null>): CourierCash | null 
     received: field((cash) => cash.received),
     closingDebt: field((cash) => cash.closingDebt),
     receipts: list.flatMap((cash) => cash.receipts),
+    since: list[0]?.since ?? null,
   };
 }
 

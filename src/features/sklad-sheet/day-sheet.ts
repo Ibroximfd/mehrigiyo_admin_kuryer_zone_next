@@ -1,8 +1,8 @@
 import { shiftIsoDay } from "@/lib/iso-day";
 
 import { shortDate } from "./period";
-import { isEmptyFlow } from "./types";
-import type { SkladFlow, SkladSheet } from "./types";
+import { cellOf, isEmptyFlow } from "./types";
+import type { SkladFlow, SkladProduct, SkladSheet } from "./types";
 
 /**
  * Kunlik jadval qatorlari (hujjat 85 §1, egasi sheet'i 17.11.2026) tartibi:
@@ -14,7 +14,7 @@ import type { SkladFlow, SkladSheet } from "./types";
  */
 
 /** Qator rangi — ma'nosi yorliqda ham yozilgan (rang yagona signal emas). */
-export type SheetTone = "stock" | "brand" | "ok" | "okStrong" | "gift" | "giftStrong" | "danger" | "warn";
+export type SheetTone = "stock" | "brand" | "ok" | "okStrong" | "gift" | "giftStrong" | "danger" | "warn" | "info";
 
 export type DaySheetLine =
   | {
@@ -55,8 +55,32 @@ function total(key: string, label: string, tone: SheetTone, flow: SkladFlow | nu
   return { kind: "total", key, label, tone, flow, zero, signed };
 }
 
-/** `day` — so'ralgan kun (URLdan): ertangi kun yorlig'i javobdagi sanaga bog'lanmaydi. */
-export function buildDaySheet(sheet: SkladSheet, day: string): DaySheetModel {
+/**
+ * Logist tasdiqlamagan sotuv (97 §3). Egasi (2026-11-20, hujjat 101 §6): bosh
+ * kuryerda u darhol hisoblanadi. Server shunday bersa (`pendingIncluded`) —
+ * u sotuv va «kun oxiri» ichida, bu yerda faqat «shundan» ma'lumot qatori.
+ * Eski serverda — alohida qatorlar, oxirida «hozirgi qoldiq» (`current.total`):
+ * tepadagi «Hozirgi qoldiq» Jamisi bilan bir xil son, ikkala jadval bog'lanadi.
+ */
+function pendingLines(sheet: SkladSheet, isToday: boolean): DaySheetLine[] {
+  const hasPending = !isEmptyFlow(sheet.soldPending) || !isEmptyFlow(sheet.giftPending);
+  if (!hasPending) return [];
+  if (sheet.pendingIncluded) {
+    return [
+      ...(isEmptyFlow(sheet.soldPending) ? [] : [total("sold-pending", "Shundan logist tasdiqlamagan · sotuv", "info", sheet.soldPending)]),
+      ...(isEmptyFlow(sheet.giftPending) ? [] : [total("gift-pending", "Shundan logist tasdiqlamagan · sovg'a", "info", sheet.giftPending)]),
+    ];
+  }
+  const now = isToday && sheet.current ? [total("now", "Hozirgi qoldiq (tasdiqlanmagani ayirilgan)", "stock", { items: sheet.current.total, amount: null }, "show")] : [];
+  return [
+    ...(isEmptyFlow(sheet.soldPending) ? [] : [total("sold-pending", "Logist tasdiqlamagan · sotuv", "info", sheet.soldPending)]),
+    ...(isEmptyFlow(sheet.giftPending) ? [] : [total("gift-pending", "Logist tasdiqlamagan · sovg'a", "info", sheet.giftPending)]),
+    ...now,
+  ];
+}
+
+/** `day` — so'ralgan kun (URLdan): ertangi kun yorlig'i javobdagi sanaga bog'lanmaydi. `isToday` — hozirgi qoldiq bilan bog'lash uchun. */
+export function buildDaySheet(sheet: SkladSheet, day: string, isToday = false): DaySheetModel {
   const hasAdjustment = !isEmptyFlow(sheet.other);
   const nextDay = shiftIsoDay(day, 1);
   const couriers = sheet.rows.flatMap((row, index): DaySheetLine[] => {
@@ -80,7 +104,27 @@ export function buildDaySheet(sheet: SkladSheet, day: string): DaySheetModel {
       ...(isEmptyFlow(sheet.writeOff) ? [] : [total("write-off", "− Chiqim (spisaniye)", "danger", sheet.writeOff)]),
       ...(hasAdjustment ? [total("other", "Tuzatish", "warn", sheet.other, "blank", true)] : []),
       total("closing", `${shortDate(nextDay)} kun boshiga qoldiq`, "stock", sheet.closing, "show"),
+      ...pendingLines(sheet, isToday),
     ],
     hasAdjustment,
   };
+}
+
+export type StockDrift = { product: SkladProduct; closing: number; now: number };
+
+/**
+ * Bugungi «kun oxiri» = hozirgi Jami bo'lishi shart — ikkalasi ham serverdan.
+ * Farq — ma'lumot xatosi: ochiq ko'rsatiladi (backend hujjat 101 §3). Eski
+ * serverda tasdiqlanmagan sotuv bo'lsa solishtirilmaydi — u alohida qatorda.
+ */
+export function stockDrift(sheet: SkladSheet, count: (cell: { qty: number; pieces: number; piecesTotal?: number } | undefined, product: SkladProduct) => number): StockDrift[] {
+  const current = sheet.current;
+  const closing = sheet.closing;
+  if (!current || !closing) return [];
+  // Tasdiqlanmagan sotuv «kun oxiri» ga kirmagan (eski server) — solishtirilmaydi, u alohida qatorlarda.
+  const pending = !isEmptyFlow(sheet.soldPending) || !isEmptyFlow(sheet.giftPending) || Object.keys(current.pending).length > 0;
+  if (pending && !sheet.pendingIncluded) return [];
+  return sheet.products
+    .map((product) => ({ product, closing: count(cellOf(closing.items, product.id), product), now: count(cellOf(current.total, product.id), product) }))
+    .filter((row) => row.closing !== row.now);
 }

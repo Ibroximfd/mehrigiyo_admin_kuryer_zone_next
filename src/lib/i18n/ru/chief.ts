@@ -780,4 +780,5 @@ export const CHIEF: Dictionary = {
   "{x}: berish": "{x}: выдать",
   "{x}: qabul": "{x}: принять",
   "{x}: tuzatish": "{x}: корректировка",
+  "Kuryer natijasi rad etildi — yana yo'lda": "Результат курьера отклонён — снова в пути",
 };

@@ -2,20 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { mapCourierCash } from "./cash";
 import type { CashReceipt } from "./cash";
-import { addressNote, canCancelReceipt, cashAction, cashStrip, discountHint, receiptHint, remainingDebt } from "./cash-view";
-
-/** «Pul olish» maketidagi jami (18.11.2026, uch kuryer) — server javobi, test ichida. */
-const TOTALS = mapCourierCash({
-  sales_amount: 54_400_000,
-  online_amount: 11_680_000,
-  discount_amount: 450_000,
-  gift_amount: 9_400_000,
-  fee_amount: 3_770_000,
-  opening_debt: 200_000,
-  due_total: 29_300_000,
-  received: 11_395_000,
-  closing_debt: 17_905_000,
-});
+import { canCancelReceipt, cashAction, cashWritable, discountHint, onlineHint, receiptHint, remainingDebt, sheetMoney } from "./cash-view";
+import { mapSalesSheet } from "./types";
 
 const withDebt = (closing: number | null) => mapCourierCash({ due_total: 12_985_000, received: 0, closing_debt: closing });
 
@@ -29,26 +17,7 @@ const receipt = (patch: Partial<CashReceipt>): CashReceipt => ({
   ...patch,
 });
 
-describe("pul olish — ko'rinish qoidalari", () => {
-  it("tenglama: yetti bo'lak — sovg'a kirmaydi (85-javob), qiymatlar serverdan", () => {
-    const strip = cashStrip(TOTALS, true);
-    expect(strip.map((item) => `${item.op}${item.label}`)).toEqual([
-      "Umumiy sotuv",
-      "−Onlayn",
-      "−Skidka",
-      "−Kuryer xizmati",
-      "+O'tgan qarz",
-      "=Olinishi kerak",
-      "−Olindi",
-    ]);
-    expect(strip.map((item) => item.value)).toEqual(["54 400 000", "11 680 000", "450 000", "3 770 000", "200 000", "29 300 000", "11 395 000"]);
-    expect(strip.filter((item) => item.result).map((item) => item.label)).toEqual(["Olinishi kerak"]);
-    // Oraliqda — davr boshidagi qarz; kelmagan raqam — «—».
-    const range = cashStrip(mapCourierCash({}), false);
-    expect(range[4]!.label).toBe("Davr boshidagi qarz");
-    expect(range.every((item) => item.value === "—")).toBe(true);
-  });
-
+describe("sotuv jadvalidagi pul — ko'rinish qoidalari", () => {
   it("amal: qarz bor — «Oldim» (bitta kun, dopusk bilan); qarz yo'q — «✓ olindi»; qolgan holatda hech narsa", () => {
     const open = { single: true, canAccept: true };
     expect(cashAction(withDebt(12_985_000), open)).toBe("take");
@@ -84,10 +53,46 @@ describe("pul olish — ko'rinish qoidalari", () => {
     expect(canCancelReceipt(receipt({ canDelete: true }), "2026-11-25")).toBe(true);
   });
 
-  it("kuryer izohi va skidka izohi", () => {
-    expect(addressNote(22, 1)).toBe("22 manzil · 1 atkaz");
-    expect(addressNote(23, 0)).toBe("23 manzil");
+  it("skidka va Click izohi: tizimdagi qismi bo'lsa — u ham ko'rinadi", () => {
+    expect(onlineHint(mapCourierCash({ online_system: 2_000_000, online_manual: 0 }))).toBe("+ ilovada 2 000 000");
+    expect(onlineHint(mapCourierCash({ online_amount: 300_000 }))).toBe("so'm, o'zingiz yozasiz");
     expect(discountHint(mapCourierCash({ discount_system: 150_000, discount_manual: 0 }))).toBe("+ tizimda 150 000 (ball)");
     expect(discountHint(mapCourierCash({ discount_amount: 300_000 }))).toBe("so'm, o'zingiz yozasiz");
+  });
+
+  it("Click qo'lda (hujjat 101 §1): server `online_manual` bermaguncha `null` — maydon chiqmaydi", () => {
+    expect(mapCourierCash({ online_amount: 500_000 })).toMatchObject({ onlineAmount: 500_000, onlineSystem: null, onlineManual: null });
+    expect(mapCourierCash({ online_amount: 700_000, online_system: 500_000, online_manual: 200_000 })).toMatchObject({ onlineSystem: 500_000, onlineManual: 200_000 });
+  });
+
+  it("jadval puli `cash` blokidan (sovg'asiz sotuv, Click va skidka qo'lda bilan); blok yo'q — umumiy kalitlar, noma'lum — `null`", () => {
+    const sheet = mapSalesSheet({
+      totals: {
+        sales_amount: 9_000_000,
+        online_amount: 100,
+        discount_amount: 50,
+        cash: { sales_amount: 9_000_000, online_amount: 2_000_000, discount_amount: 300_000, fee_amount: 150_000, opening_debt: 135_000, due_total: 6_685_000, received: 5_000_000, closing_debt: 1_685_000, gift_in_sales: false },
+      },
+    });
+    expect(sheetMoney(sheet.totals)).toEqual({
+      sales: 9_000_000,
+      online: 2_000_000,
+      discount: 300_000,
+      fee: 150_000,
+      due: 6_685_000,
+      received: 5_000_000,
+      debt: 1_685_000,
+      openingDebt: 135_000,
+    });
+    const old = mapSalesSheet({ totals: { sales_amount: 1_000, online_amount: 100, discount_amount: 50, fee: { amount: 20 } } });
+    expect(sheetMoney(old.totals)).toEqual({ sales: 1_000, online: 100, discount: 50, fee: 20, due: null, received: null, debt: null, openingDebt: null });
+  });
+
+  it("javob 104: pul zanjiri boshidan oldingi kunga yozilmaydi; boshi noma'lum — ochiq", () => {
+    expect(cashWritable("2026-11-20", "2026-11-21")).toBe(false);
+    expect(cashWritable("2026-11-21", "2026-11-21")).toBe(true);
+    expect(cashWritable("2026-11-20", null)).toBe(true);
+    expect(mapCourierCash({ since: "2026-11-21" }).since).toBe("2026-11-21");
+    expect(mapCourierCash({}).since).toBeNull();
   });
 });

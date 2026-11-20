@@ -56,6 +56,8 @@ export type SkladCurrent = {
   store: Readonly<Record<string, QtyCell>>;
   couriers: Readonly<Record<string, QtyCell>>;
   total: Readonly<Record<string, QtyCell>>;
+  /** Kuryer «yetkazdim» bosgan, logist tasdiqlamagan (97 §3) — `total` dan allaqachon ayirilgan. */
+  pending: Readonly<Record<string, QtyCell>>;
   min: Readonly<Record<string, number>>;
 };
 
@@ -71,6 +73,19 @@ export type SkladSheet = {
   rows: SkladRegionRow[];
   sold: SkladFlow | null;
   gift: SkladFlow | null;
+  /**
+   * Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan sotuv va sovg'a (97 §3):
+   * `sold`/`gift` va «kun oxiri» ga kirmagan, hozirgi qoldiqdan esa ayirilgan.
+   */
+  soldPending: SkladFlow | null;
+  giftPending: SkladFlow | null;
+  /**
+   * Tasdiqlanmagan sotuv `sold`/`gift`/`rows` va «kun oxiri» ga allaqachon kirgan
+   * (egasi, 2026-11-20; hujjat 101 §6 — bosh kuryerda hech narsa logist tasdig'ini
+   * kutmaydi). Server `pending_included: true` bersa — `soldPending`/`giftPending`
+   * faqat «shundan» ma'lumoti; bermasa (eski server) — alohida qatorlar.
+   */
+  pendingIncluded: boolean;
   toCompany: SkladFlow | null;
   /** Chiqim (spisaniye) — musbat son (hujjat 92 §3); eski serverda chiqim `other` ichida, blok yo'q — `null`. */
   writeOff: SkladFlow | null;
@@ -125,7 +140,7 @@ function mapCurrent(raw: unknown): SkladCurrent | null {
     const limit = asOptionalInt(value);
     if (limit !== null) min[productId] = limit;
   }
-  return { store: mapQtyCells(raw.store), couriers: mapQtyCells(raw.couriers), total: mapQtyCells(raw.total), min };
+  return { store: mapQtyCells(raw.store), couriers: mapQtyCells(raw.couriers), total: mapQtyCells(raw.total), pending: mapQtyCells(raw.pending), min };
 }
 
 function mapCourier(raw: unknown): CourierRef | null {
@@ -174,6 +189,9 @@ export function mapSkladSheet(raw: unknown): SkladSheet {
     rows: asArray(json.rows).map(mapRegionRow),
     sold: mapFlow(json.sold),
     gift: mapFlow(json.gift),
+    soldPending: mapFlow(json.sold_pending),
+    giftPending: mapFlow(json.gift_pending),
+    pendingIncluded: json.pending_included === true,
     toCompany: mapFlow(json.to_company),
     writeOff: mapFlow(json.write_off),
     other: mapFlow(json.other),

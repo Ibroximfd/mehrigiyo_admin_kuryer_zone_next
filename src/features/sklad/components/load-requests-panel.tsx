@@ -147,7 +147,11 @@ function LoadRequestCard({ request }: { request: LoadRequest }) {
     });
   };
 
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
+    // Tasdiqlangan so'rov — kuryerga berilgan mol: Sotuv jadvalidagi «Berilgan» ham o'zgaradi.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSalesSheets });
+  };
   const onError = (error: unknown) => {
     if (errorCode(error) === "insufficient_stock") {
       const shortages = error instanceof ApiError ? mapShortages(error.data) : [];

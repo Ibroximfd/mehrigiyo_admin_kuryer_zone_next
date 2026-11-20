@@ -122,7 +122,14 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
 
   it("tasdiqlanmagan sotuv (97 §3): `totals.pending_*`; yo'q yoki 0 — `null`", () => {
     const withPending = mapSalesSheet({ totals: { pending_sales_amount: 1_250_000, pending_cash_amount: 400_000 } });
-    expect(withPending.pending).toEqual({ salesAmount: 1_250_000, cashAmount: 400_000 });
+    expect(withPending.pending).toEqual({ salesAmount: 1_250_000, cashAmount: 400_000, moneyIncluded: false, addresses: 0, refusedAddresses: 0 });
+    // Hujjat 101 §6: pul darhol hisoblangan, manzillar tasdiqni kutmoqda.
+    const included = mapSalesSheet({
+      totals: { pending_sales_amount: 900_000, pending_cash_amount: 900_000, pending_in_cash: true, pending_addresses: 2, pending_refused_addresses: 1 },
+    });
+    expect(included.pending).toEqual({ salesAmount: 900_000, cashAmount: 900_000, moneyIncluded: true, addresses: 2, refusedAddresses: 1 });
+    // Faqat atkaz kutilayotgan bo'lsa ham izoh chiqadi.
+    expect(mapSalesSheet({ totals: { pending_refused_addresses: 1 } }).pending).toMatchObject({ salesAmount: 0, refusedAddresses: 1 });
     expect(mapSalesSheet({ totals: { pending_sales_amount: 0, pending_cash_amount: 0 } }).pending).toBeNull();
     expect(mapSalesSheet({ totals: {} }).pending).toBeNull();
     expect(mapSalesSheet(null).pending).toBeNull();
@@ -195,9 +202,11 @@ describe("berish rejasi — `mapIssuePlan` (hujjat 83 §4)", () => {
           required: { "6": { qty: 5, pieces: 0 } },
           to_issue: { "6": { qty: 2, pieces: 0 } },
           surplus: {},
+          pending: { "6": { qty: 1, pieces: 0 } },
+          issue_lines: [{ item_id: 6, quantity: 2 }, { item_id: 0, quantity: 5 }, { item_id: 7, quantity: 0 }],
         },
       ],
-      store: { on_hand: { "6": { qty: 20, pieces: 0 } }, to_issue: { "6": { qty: 7, pieces: 0 } }, shortage: {} },
+      store: { location_id: 61, on_hand: { "6": { qty: 20, pieces: 0 } }, to_issue: { "6": { qty: 7, pieces: 0 } }, shortage: {} },
     });
     // `unit_label` kelmasa — «dona».
     expect(plan.products).toEqual([{ id: 6, name: "Doctor Ali Tea", unitLabel: "dona", countsInDona: false, piecesPerBox: null }]);
@@ -209,12 +218,15 @@ describe("berish rejasi — `mapIssuePlan` (hujjat 83 §4)", () => {
       required: { "6": { qty: 5, pieces: 0 } },
       toIssue: { "6": { qty: 2, pieces: 0 } },
       surplus: {},
+      pending: { "6": { qty: 1, pieces: 0 } },
+      // Hujjat qatorlari — sklad birligida; id yoki son yo'q qator tashlanadi.
+      issueLines: [{ itemId: 6, quantity: 2 }],
     });
-    expect(plan.store).toEqual({ onHand: { "6": { qty: 20, pieces: 0 } }, toIssue: { "6": { qty: 7, pieces: 0 } }, shortage: {} });
+    expect(plan.store).toEqual({ locationId: 61, onHand: { "6": { qty: 20, pieces: 0 } }, toIssue: { "6": { qty: 7, pieces: 0 } }, shortage: {} });
   });
 
   it("bo'sh javob — bo'sh reja, yiqilmaydi", () => {
-    expect(mapIssuePlan({})).toEqual({ date: "", products: [], couriers: [], store: { onHand: {}, toIssue: {}, shortage: {} } });
+    expect(mapIssuePlan({})).toEqual({ date: "", products: [], couriers: [], store: { locationId: null, onHand: {}, toIssue: {}, shortage: {} } });
     expect(mapIssuePlan({ couriers: [{}] }).couriers[0]).toMatchObject({ carriedOrders: 0, newOrders: 0, toIssue: {} });
   });
 });

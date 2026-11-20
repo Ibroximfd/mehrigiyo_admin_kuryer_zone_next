@@ -1,11 +1,11 @@
-import { Hexagon, Receipt, Star, Table, Truck, Wallet, Warehouse, ChartColumnBig, type LucideIcon } from "lucide-react";
+import { Hexagon, Receipt, Star, Table, Truck, Warehouse, ChartColumnBig, type LucideIcon } from "lucide-react";
 
 import type { ChiefPermission } from "@/features/chief/types";
 import { ROUTES } from "@/lib/routes";
 
 /**
  * Bosh kuryer sayti bo'limlari (`21_TUZILMA_V2` §4.5), tartib ish oqimi bo'yicha:
- * zakaz → kuryer → zona → sklad → pul → hisobot → sotuv jadvali → reyting.
+ * zakaz → kuryer → zona → sklad → hisobot → sotuv jadvali → reyting.
  * Telefonning pastki panelida oltitadan oshmaydi — `secondary` bo'lim faqat
  * menyuda (yon panel).
  */
@@ -24,10 +24,10 @@ export const NAV: NavItem[] = [
   { href: ROUTES.couriers, label: "Kuryerlar", Icon: Truck },
   { href: ROUTES.zones, label: "Zonalar", Icon: Hexagon },
   { href: ROUTES.sklad, label: "Sklad", Icon: Warehouse, permission: "warehouse.view_courier_stores" },
-  { href: ROUTES.cash, label: "Kassa", Icon: Wallet },
   { href: ROUTES.report, label: "Moliya", Icon: ChartColumnBig, permission: "view.analytics" },
   // Sotuv jadvali (hujjat 83) — keng jadval, asosan kompyuterda. Bosh kuryerning kundalik
-  // ish quroli: Kassa kabi alohida dopusksiz (Moliya dopuskiga bog'lansa menyuda ko'rinmasdi).
+  // ish quroli (sotuv, pul olish, kuryerga berish): alohida dopusksiz (Moliya dopuskiga
+  // bog'lansa menyuda ko'rinmasdi). Kassa olib tashlandi (egasi, 2026-11-20).
   { href: ROUTES.sheet, label: "Sotuv jadvali", Icon: Table, secondary: true },
   { href: ROUTES.ratings, label: "Reytinglar", Icon: Star, secondary: true },
 ];

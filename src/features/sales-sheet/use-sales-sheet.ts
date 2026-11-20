@@ -2,69 +2,66 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { todayIso } from "@/lib/format";
+import { LIVE_REFETCH_MS } from "@/lib/live-refetch";
 import { queryKeys } from "@/lib/query-keys";
 
-import { addCashReceipt, cancelCashReceipt, fetchIssuePlan, fetchSalesSheet, salesSheetParams, saveCourierDiscount, saveCourierFee } from "./api";
+import { addCashReceipt, cancelCashReceipt, fetchIssuePlan, fetchSalesSheet, salesSheetParams, saveCourierDiscount, saveCourierFee, saveCourierOnline } from "./api";
 import type { SheetRange } from "./period";
 
 /**
  * Sotuv jadvali. Oldingi davr javobi yangi sana ostida ushlab turilmaydi
  * (`keepPreviousData` yo'q): pul jadvalida eski raqam yangi kun nomi bilan
- * ko'rinmasin — davr almashganda skelet chiqadi.
+ * ko'rinmasin — davr almashganda skelet chiqadi. Bugun kirgan davr — jonli.
  */
 export function useSalesSheet(range: SheetRange) {
   return useQuery({
     queryKey: queryKeys.chiefSalesSheet(salesSheetParams(range)),
     queryFn: ({ signal }) => fetchSalesSheet(range, signal),
+    refetchInterval: range.dateTo >= todayIso() ? LIVE_REFETCH_MS : false,
   });
 }
 
-export function useIssuePlan(date: string) {
+/** Berish rejasi — faqat bugun ochiq jadvalda kerak (`enabled`). */
+export function useIssuePlan(date: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.chiefIssuePlan(date),
     queryFn: ({ signal }) => fetchIssuePlan(date, signal),
+    enabled,
+    refetchInterval: enabled ? LIVE_REFETCH_MS : false,
   });
 }
 
 /**
- * Kuryer xizmatini saqlash. «Topshiradi» va jami serverda hisoblanadi —
- * jadval qayta so'raladi; mutatsiya yangi raqamlar kelguncha «saqlanmoqda»
- * holatida turadi (`onSuccess` va'dasi kutiladi).
+ * Jadvaldagi qo'lda yoziladigan pul (kuryer xizmati, skidka, Click) va «Oldim».
+ * «Topshirishi kerak», qarz va ertangi o'tgan qarz serverda qayta hisoblanadi —
+ * jadval qayta so'raladi, mutatsiya yangi raqamlar kelguncha «saqlanmoqda»
+ * turadi (`onSuccess` va'dasi kutiladi).
  */
-export function useSaveCourierFee() {
+function useSheetMutation<TInput>(mutationFn: (input: TInput) => Promise<void>) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: saveCourierFee,
+    mutationFn,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.chiefSalesSheets }),
   });
 }
 
-/**
- * Kuryerdan pul olish (hujjat 85 §2): skidka, «Oldim» va uni bekor qilish.
- * «Olinishi kerak», qarz va ertangi o'tgan qarz serverda qayta hisoblanadi —
- * jadval qayta so'raladi va mutatsiya yangi raqamlar kelguncha «saqlanmoqda»
- * turadi. Kassa jadvali ham yangilanadi: filial naqdi — kuryerlardan olingan pul (§3).
- */
-function useCashMutation<TInput>(mutationFn: (input: TInput) => Promise<void>) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.chiefSalesSheets }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.chiefCashSheets }),
-      ]),
-  });
+export function useSaveCourierFee() {
+  return useSheetMutation(saveCourierFee);
 }
 
 export function useSaveCourierDiscount() {
-  return useCashMutation(saveCourierDiscount);
+  return useSheetMutation(saveCourierDiscount);
+}
+
+export function useSaveCourierOnline() {
+  return useSheetMutation(saveCourierOnline);
 }
 
 export function useAddCashReceipt() {
-  return useCashMutation(addCashReceipt);
+  return useSheetMutation(addCashReceipt);
 }
 
 export function useCancelCashReceipt() {
-  return useCashMutation(cancelCashReceipt);
+  return useSheetMutation(cancelCashReceipt);
 }

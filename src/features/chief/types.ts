@@ -226,6 +226,8 @@ export const HISTORY_LABELS: Record<string, string> = {
   courier_assigned: "Kuryerga berildi",
   courier_unassigned: "Kuryerdan olindi",
   delivered: "Yetkazildi",
+  // Javob 100: logist kuryer natijasini rad etdi — zakaz yana yo'lda.
+  outcome_rejected: "Kuryer natijasi rad etildi — yana yo'lda",
   cash_accepted: "Pul qabul qilindi",
   cash_handed: "Pul filialga topshirildi",
   address_changed: "Manzil o'zgardi",

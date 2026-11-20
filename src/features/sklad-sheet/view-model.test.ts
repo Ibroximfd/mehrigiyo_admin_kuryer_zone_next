@@ -3,9 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { ItemRef } from "@/lib/item-ref";
 
 import { buildCurrentStock, linesFromCurrent, linesFromSklad, toneOf } from "./current-stock";
-import { buildDaySheet } from "./day-sheet";
-import { monthRange, resolveDay, resolveRange, weekRange } from "./period";
-import { buildRangeSheet, regionOptions } from "./range-sheet";
+import { buildDaySheet, stockDrift } from "./day-sheet";
+import { resolveDay } from "./period";
 import { mapSkladSheet } from "./types";
 
 const PRODUCTS = [
@@ -145,50 +144,72 @@ describe("kunlik jadval qatorlari (§1, egasi sheet'i 17.11)", () => {
   });
 });
 
-describe("sanadan sanagacha (§1.5)", () => {
-  it("kunlar `days[]` va `address_rows[]` birlashmasi, tartib bilan; yo'q blok — `null`", () => {
-    const model = buildRangeSheet(
-      mapSkladSheet({
-        sold: flow({ "7": 87 }, 127_640_000),
-        gift: flow({ "7": 32 }, 26_200_000),
-        days: [
-          { date: "2026-11-10", sold: flow({ "7": 87 }, 26_500_000), gift: flow({ "7": 32 }, 6_400_000) },
-          { date: "2026-11-09", sold: flow({ "7": 48 }, 25_075_000), gift: flow({ "7": 22 }, 4_400_000) },
-        ],
-        address_rows: [
-          { date: "2026-11-09", addresses: 40, refused_addresses: 2, rate: 51_000, fee: 2_150_000 },
-          { date: "2026-11-11", addresses: 27, refused_addresses: 0, rate: 50_000, fee: null },
-        ],
-      }),
-    );
-    expect(model.days.map((day) => [day.date, day.sold?.amount ?? null, day.address?.fee ?? null])).toEqual([
-      ["2026-11-09", 25_075_000, 2_150_000],
-      ["2026-11-10", 26_500_000, null],
-      ["2026-11-11", null, null],
-    ]);
-    expect(model.days[1]?.address).toBeNull();
-    expect(model.totals.sold?.amount).toBe(127_640_000);
-    expect(model.totals).toMatchObject({ addresses: 67, refusedAddresses: 2 });
+describe("bugun: kunlik harakat = hozirgi qoldiq (egasi, 2026-11-20; 97 §3)", () => {
+  const current = (total: Record<string, number>, pending: Record<string, number> = {}) => ({
+    store: cells({}),
+    couriers: cells({}),
+    total: cells(total),
+    pending: cells(pending),
+    min: {},
+  });
+  const count = (cell: { qty: number } | undefined) => cell?.qty ?? 0;
+
+  it("logist tasdiqlamagan sotuv — alohida qatorlar, oxirida hozirgi qoldiq (tasdiqlanmagani ayirilgan)", () => {
+    const sheet = mapSkladSheet({
+      products: PRODUCTS,
+      closing: flow({ "7": 1117 }, 0),
+      sold_pending: flow({ "7": 3 }, 600_000),
+      gift_pending: flow({ "7": 1 }, 0),
+      current: current({ "7": 1113 }, { "7": 4 }),
+    });
+    const tail = buildDaySheet(sheet, "2026-11-20", true).tail;
+    expect(tail.slice(-4).map((line) => line.key)).toEqual(["closing", "sold-pending", "gift-pending", "now"]);
+    expect(tail.at(-1)).toMatchObject({ label: "Hozirgi qoldiq (tasdiqlanmagani ayirilgan)", flow: { items: { "7": { qty: 1113, pieces: 0 } }, amount: null } });
+    // O'tgan kunda «hozir» qatori yo'q — u faqat bugunga tegishli.
+    expect(buildDaySheet(sheet, "2026-11-19", false).tail.some((line) => line.key === "now")).toBe(false);
+    // Tasdiqlanmagan bor — solishtirilmaydi (farq shu qatorlarda ko'rinadi).
+    expect(stockDrift(sheet, count)).toEqual([]);
   });
 
-  it("birorta kunda son kelmagan yoki qator yo'q — jami `null` (to'liq bo'lmagan jami chiqmaydi)", () => {
-    const partial = buildRangeSheet(mapSkladSheet({ address_rows: [{ date: "2026-11-09", addresses: 40 }] }));
-    expect(partial.totals).toMatchObject({ addresses: 40, refusedAddresses: null, sold: null, gift: null });
-    expect(buildRangeSheet(mapSkladSheet({})).totals).toMatchObject({ addresses: null, refusedAddresses: null });
+  it("tasdiqlanmagan yo'q: kun oxiri ≠ hozirgi Jami — farq ochiq ko'rsatiladi; teng bo'lsa — jim", () => {
+    const drift = stockDrift(mapSkladSheet({ products: PRODUCTS, closing: flow({ "7": 1117, "6": 10 }, 0), current: current({ "7": 1113, "6": 10 }) }), count);
+    expect(drift.map((row) => [row.product.id, row.closing, row.now])).toEqual([[7, 1117, 1113]]);
+    expect(stockDrift(mapSkladSheet({ products: PRODUCTS, closing: flow({ "7": 5 }, 0), current: current({ "7": 5 }) }), count)).toEqual([]);
+    // Blok kelmagan (eski server) — solishtirilmaydi.
+    expect(stockDrift(mapSkladSheet({ products: PRODUCTS, closing: flow({ "7": 5 }, 0) }), count)).toEqual([]);
+    expect(buildDaySheet(mapSkladSheet({ products: PRODUCTS }), "2026-11-20", true).tail.some((line) => line.key === "now")).toBe(false);
+  });
+});
+
+describe("hujjat 101 §6: bosh kuryerda tasdiqlanmagan sotuv darhol hisoblanadi (`pending_included`)", () => {
+  const current = (total: Record<string, number>, pending: Record<string, number> = {}) => ({
+    store: cells({}),
+    couriers: cells({}),
+    total: cells(total),
+    pending: cells(pending),
+    min: {},
+  });
+  const count = (cell: { qty: number } | undefined) => cell?.qty ?? 0;
+  const sheet = (closing: number) =>
+    mapSkladSheet({
+      products: PRODUCTS,
+      pending_included: true,
+      closing: flow({ "7": closing }, 0),
+      sold_pending: flow({ "7": 3 }, 600_000),
+      current: current({ "7": 1113 }, { "7": 3 }),
+    });
+
+  it("tasdiqlanmagani sotuv ichida — «shundan» qatori, «hozirgi qoldiq» qatori kerak emas", () => {
+    const tail = buildDaySheet(sheet(1113), "2026-11-20", true).tail;
+    expect(tail.slice(-2).map((line) => [line.key, line.kind === "total" ? line.label : ""])).toEqual([
+      ["closing", "21.11 kun boshiga qoldiq"],
+      ["sold-pending", "Shundan logist tasdiqlamagan · sotuv"],
+    ]);
   });
 
-  it("hudud tanlovi: sklad viloyatlari + javobdagilar (server nomi ustun) + tanlangan", () => {
-    const rows = mapSkladSheet({ rows: [{ region: "fargona", region_name: "Farg'ona" }] }).rows;
-    expect(
-      regionOptions(rows, [
-        { value: "fargona", label: "Farg'ona viloyati" },
-        { value: "namangan", label: "Namangan viloyati" },
-      ], "jizzax"),
-    ).toEqual([
-      { value: "fargona", label: "Farg'ona" },
-      { value: "namangan", label: "Namangan viloyati" },
-      { value: "jizzax", label: "jizzax" },
-    ]);
+  it("kun oxiri = hozirgi Jami tasdiqlanmagan bo'lsa ham tekshiriladi", () => {
+    expect(stockDrift(sheet(1113), count)).toEqual([]);
+    expect(stockDrift(sheet(1117), count).map((row) => [row.closing, row.now])).toEqual([[1117, 1113]]);
   });
 });
 
@@ -200,16 +221,5 @@ describe("davr", () => {
     expect(resolveDay(null, today)).toBe(today);
     expect(resolveDay("17.11.2026", today)).toBe(today);
     expect(resolveDay("2026-11-30", today)).toBe(today);
-  });
-
-  it("oraliq: sukut — shu hafta; `to` yo'q — bugungacha; teskari — almashadi; 93 kundan uzuni qisqaradi", () => {
-    expect(weekRange(today)).toEqual({ dateFrom: "2026-11-16", dateTo: today });
-    expect(monthRange(today)).toEqual({ dateFrom: "2026-11-01", dateTo: today });
-    expect(resolveRange({ from: null, to: null }, today)).toEqual(weekRange(today));
-    expect(resolveRange({ from: "2026-11-09", to: "2026-11-14" }, today)).toEqual({ dateFrom: "2026-11-09", dateTo: "2026-11-14" });
-    expect(resolveRange({ from: "2026-11-09", to: null }, today)).toEqual({ dateFrom: "2026-11-09", dateTo: today });
-    expect(resolveRange({ from: "2026-11-14", to: "2026-11-09" }, today)).toEqual({ dateFrom: "2026-11-09", dateTo: "2026-11-14" });
-    expect(resolveRange({ from: "2026-11-09", to: "2026-12-30" }, today)).toEqual({ dateFrom: "2026-11-09", dateTo: today });
-    expect(resolveRange({ from: "2026-01-01", to: "2026-11-14" }, today)).toEqual({ dateFrom: "2026-08-14", dateTo: "2026-11-14" });
   });
 });

@@ -144,6 +144,8 @@ describe("yig'indi qoidalari", () => {
   const cash = (patch: Partial<CourierCash>): CourierCash => ({
     salesAmount: 100,
     onlineAmount: 10,
+    onlineSystem: null,
+    onlineManual: null,
     discountAmount: 5,
     discountSystem: null,
     discountManual: 5,
@@ -154,6 +156,7 @@ describe("yig'indi qoidalari", () => {
     received: 60,
     closingDebt: 5,
     receipts: [],
+    since: null,
     ...patch,
   });
   const figures = (patch: Partial<SheetFigures>): SheetFigures => ({

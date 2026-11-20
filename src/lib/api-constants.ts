@@ -81,19 +81,16 @@ export const ENDPOINTS = {
   chiefSalesSheetFee: "/operator/chief/report/sales-sheet/fee/",
   /** Sotuv jadvali Excel'i (§5) — fayl serverda yasaladi. */
   chiefSalesSheetExport: "/operator/chief/report/sales-sheet/export/",
-  /** Berish rejasi (§4): qo'lida, zakazlarga kerak, yana berish kerak. */
+  /** Berish rejasi (§4): qo'lida, zakazlarga kerak, yana berish kerak — Sotuv jadvalidagi «Berish kerak». */
   chiefIssuePlan: "/operator/chief/report/issue-plan/",
   /** Kuryerdan pul olish (hujjat 85 §2): skidka — `PUT {courier_id, date, amount, note?}`, `0` — o'chirish. */
   chiefSalesSheetDiscount: "/operator/chief/report/sales-sheet/discount/",
   /** «Oldim» — `POST {courier_id, date, amount, note?}`; bir kunda bir nechta (yig'iladi). */
   chiefSalesSheetReceipts: "/operator/chief/report/sales-sheet/receipts/",
+  /** Click/onlayn — bosh kuryer qo'lda yozadi (hujjat 101 §1): `PUT {courier_id, date, amount, note?}`, `0` — o'chirish. */
+  chiefSalesSheetOnline: "/operator/chief/report/sales-sheet/online/",
   /** «Oldim» ni bekor qilish — faqat o'sha kuni, o'zi yozgan. */
   chiefSalesSheetReceipt: (id: number) => `/operator/chief/report/sales-sheet/receipts/${id}/`,
-  /** Kassa — filialga topshirish jadvali (hujjat 85 §3): nima sotildi va har filial puli. */
-  chiefCashSheet: "/operator/chief/report/cash-sheet/",
-  /** Kassa: holat, tarix va filialga topshirish (§5.2–5.3; «Topshirdim» — o'zgarishsiz, 85 §3). */
-  chiefCash: "/operator/chief/cash/",
-  chiefCashHandover: "/operator/chief/cash/handover/",
   /**
    * Sklad (bosh kuryerga faqat o'qish, V7/V8): `sklads/` — faqat o'z skladi,
    * `stock/` — o'z skladi omborlari va kuryerlari ombori, `couriers/` — o'z kuryerlari.

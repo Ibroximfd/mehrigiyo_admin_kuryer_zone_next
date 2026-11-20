@@ -41,6 +41,7 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
       store: { "6": { qty: 52, pieces: 0 } },
       couriers: { "6": { qty: 24, pieces: 0 } },
       total: { "6": { qty: 76, pieces: 0 } },
+      pending: {},
       min: { "6": 30 },
     });
     expect(sheet.opening).toEqual({ items: { "6": { qty: 76, pieces: 0 } }, amount: 442_590_000 });
@@ -75,6 +76,9 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
       rows: [],
       sold: null,
       gift: null,
+      soldPending: null,
+      giftPending: null,
+      pendingIncluded: false,
       toCompany: null,
       writeOff: null,
       other: null,
@@ -92,7 +96,7 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
 
   it("`current` — uchala blok bo'lmasa `null` (yarim blokdan son yasalmaydi); `min` yo'q — chegara yo'q", () => {
     expect(mapSkladSheet({ current: { store: {}, couriers: {} } }).current).toBeNull();
-    expect(mapSkladSheet({ current: { store: {}, couriers: {}, total: {} } }).current).toEqual({ store: {}, couriers: {}, total: {}, min: {} });
+    expect(mapSkladSheet({ current: { store: {}, couriers: {}, total: {} } }).current).toEqual({ store: {}, couriers: {}, total: {}, pending: {}, min: {} });
   });
 
   it("donada yuritiladigan karobkali mahsulot va `pieces_total` (hujjat 84)", () => {
@@ -122,5 +126,16 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
       { date: "2026-11-09", addresses: 40, refusedAddresses: 2, rate: 51_000, fee: 2_150_000 },
       { date: "2026-11-10", addresses: 42, refusedAddresses: null, rate: null, fee: null },
     ]);
+  });
+
+  it("tasdiqlanmagan sotuv (97 §3): `sold_pending`, `gift_pending`, `current.pending` — bo'lsa o'qiladi", () => {
+    const sheet = mapSkladSheet({
+      sold_pending: { items: { "6": { qty: 3, pieces: 0 } }, amount: 600_000 },
+      gift_pending: { items: { "6": { qty: 1, pieces: 0 } }, amount: 0 },
+      current: { store: {}, couriers: {}, total: { "6": { qty: 72, pieces: 0 } }, pending: { "6": { qty: 4, pieces: 0 } } },
+    });
+    expect(sheet.soldPending).toEqual({ items: { "6": { qty: 3, pieces: 0 } }, amount: 600_000 });
+    expect(sheet.giftPending?.items).toEqual({ "6": { qty: 1, pieces: 0 } });
+    expect(sheet.current?.pending).toEqual({ "6": { qty: 4, pieces: 0 } });
   });
 });

@@ -1,5 +1,6 @@
 import { resolveMediaUrl } from "@/lib/api-constants";
 import { asCountUnit, boxesToDona, countsInDona, donaToBoxes, piecesPerBoxOf } from "@/lib/dona";
+import type { CountUnit } from "@/lib/dona";
 import { asInt, asOptionalString, asRecord, asString } from "@/lib/parse";
 
 /** Qoldiq birligi sukut bo'yicha — server `unit_label` bermasa. */
@@ -25,6 +26,14 @@ export type ItemRef = {
    * qolganida (va karobkadagi dona kelmasa) 1 — son serverdagidek.
    */
   stockFactor: number;
+  /**
+   * Sklad soni qaysi birlikda (`stock_unit`): `piece` — donada, `box` — karobkada;
+   * kelmasa — kalit yo'q. Sotuv jadvalidagi son (katalog birligi) ni hujjat birligiga
+   * aylantirish uchun (`sales-sheet/issue-draft.ts`).
+   */
+  stockUnit?: CountUnit;
+  /** 1 karobkadagi dona (`pieces_per_box`); kelmasa — kalit yo'q. */
+  piecesPerBox?: number;
 };
 
 export function mapItemRef(raw: unknown): ItemRef {
@@ -40,6 +49,9 @@ export function mapItemRef(raw: unknown): ItemRef {
     unitLabel: asOptionalString(json.unit_label) ?? PIECE_UNIT,
     countsInDona: inDona,
     stockFactor: inDona && boxedStock && piecesPerBox !== null ? piecesPerBox : 1,
+    // Faqat server bersa — eski javobda kalit umuman yo'q (taxmin qilinmaydi).
+    stockUnit: asCountUnit(json.stock_unit) ?? undefined,
+    piecesPerBox: piecesPerBox ?? undefined,
   };
 }
 

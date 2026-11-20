@@ -84,7 +84,7 @@ describe("pul olish — xato matni", () => {
     expect(cashErrorText(new ApiError("x", 404, { code: "courier_not_found" }, "courier_not_found"), TEXTS)).toBe("Kuryer topilmadi — jadvalni yangilang");
     expect(cashErrorText(new ApiError("x", 404, { code: "not_found" }, "not_found"), TEXTS)).toBe("Yozuv topilmadi — jadvalni yangilang");
     expect(cashErrorText(new ApiError("x", 403, { code: "forbidden" }, "forbidden"), TEXTS)).toBe("Bu kuryer sizga biriktirilmagan");
-    expect(cashErrorText(new ApiError("x", 404, {}), TEXTS)).toBe("Pul olish serverda hali yoqilmagan");
+    expect(cashErrorText(new ApiError("x", 404, {}), TEXTS)).toBe("Bu amal serverda hali yoqilmagan");
     expect(cashErrorText("nimadir", TEXTS)).toBe("Pulni yozib bo'lmadi");
   });
 });

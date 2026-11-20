@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ApiError, errorCode, errorMessage } from "@/lib/api-client";
 import { groupThousands } from "@/lib/format";
-import { shownQuantity, stockQuantityOf } from "@/lib/item-ref";
+import { shownQuantity, shownUnit, stockQuantityOf } from "@/lib/item-ref";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ const COPY: Record<CourierDocumentMode, { title: string; hint: string; submit: s
 };
 
 /** Hujjat xatosi — o'qiladigan matn (403 ruxsat, 409 qoldiq yetmaydi). */
-function documentError(error: unknown): string {
+export function documentError(error: unknown): string {
   if (errorCode(error) === "insufficient_stock" && error instanceof ApiError) {
     const shortages = mapShortages(error.data);
     return shortages.length
@@ -46,6 +46,8 @@ function documentError(error: unknown): string {
  * oldinda (`documentRows`). Tuzatishda `actual_qty`, faqat o'zgargan qator yuboriladi.
  * Son ekrandagi birlikda kiritiladi (donada yuritiladigan mahsulot — donada, hujjat 84 §3);
  * skladda hali karobkada turgan bunday mahsulot serverga butun karobka bo'lib aniq aylantiriladi.
+ *
+ * Saqlangach sklad, berish rejasi va Sotuv jadvali qayta so'raladi.
  */
 export function CourierDocumentDialog({
   mode,
@@ -86,6 +88,7 @@ export function CourierDocumentDialog({
       }
       toast.success(`${copy.title} saqlandi`);
       void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSalesSheets });
       onClose();
     },
     onError: (error) => toast.error(documentError(error)),
@@ -123,7 +126,10 @@ export function CourierDocumentDialog({
                   <ProductThumb src={item.image} name={item.name} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="text-ink block truncate text-dense font-medium" data-no-translit>{item.name}</span>
-                    <span className="text-ink-faint text-meta">{`${mode === "courier_load" ? "Skladda" : "Kuryerda"}: ${groupThousands(available)}`}</span>
+                    <span className="text-ink-faint text-meta">
+                      {/* Birlik doim yoziladi: jadvalda karobka ustuni bo'lsa ham bu yerda son sklad birligida bo'lishi mumkin. */}
+                      {`${mode === "courier_load" ? "Skladda" : "Kuryerda"}: ${groupThousands(available)}`} <span>{shownUnit(item)}</span>
+                    </span>
                     {item.stockFactor > 1 ? <span className="text-ink-faint ml-1.5 text-meta">{`· 1 kar. = ${item.stockFactor} dona`}</span> : null}
                   </span>
                   <input

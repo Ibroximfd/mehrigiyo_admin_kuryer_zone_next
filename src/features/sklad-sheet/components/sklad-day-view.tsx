@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlert, Warehouse } from "lucide-react";
+import { OctagonAlert, TriangleAlert, Warehouse } from "lucide-react";
 
 import { DayStepper } from "@/components/kit/day-stepper";
 import { Section } from "@/components/kit/key-figures";
@@ -9,23 +9,27 @@ import { EmptyView } from "@/components/kit/state-views";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import type { SkladStockFallback } from "../current-stock";
-import { buildDaySheet } from "../day-sheet";
+import { buildDaySheet, stockDrift } from "../day-sheet";
+import type { StockDrift } from "../day-sheet";
 import { fullDate } from "../period";
 import type { SkladSheet } from "../types";
 import { useSkladSheet, useSkladSheetPeriod } from "../use-sklad-sheet";
+import { groupThousands } from "@/lib/format";
+import { qtyCount } from "@/lib/qty-cell";
 import { CurrentStockPanel, selectCurrentStock } from "./current-stock-panel";
 import { DaySheetTable } from "./day-sheet-table";
 import { SkladSheetExcelButton } from "./sklad-sheet-excel-button";
 
 /**
- * «Kunlik» ko'rinish (hujjat 85 §1, egasi maketi SkladKun): kun tanlash,
- * hozirgi qoldiq va kunlik harakat jadvali — bitta so'rov
- * (`date_from = date_to`). Sukut — bugun.
+ * Sklad sahifasi (hujjat 85 §1, egasi maketi SkladKun): kun tanlash, hozirgi
+ * qoldiq va kunlik harakat jadvali — bitta so'rov (`date_from = date_to`).
+ * Sukut — bugun; bugun ochiq bo'lsa jadval o'zi yangilanib turadi.
  */
 export function SkladDayView({ fallback }: { fallback: readonly SkladStockFallback[] }) {
   const period = useSkladSheetPeriod();
   const query = { dateFrom: period.day, dateTo: period.day, region: null };
-  const sheet = useSkladSheet(query);
+  const isToday = period.day === period.today;
+  const sheet = useSkladSheet(query, isToday);
 
   return (
     <div className="flex flex-col gap-4">
@@ -43,15 +47,15 @@ export function SkladDayView({ fallback }: { fallback: readonly SkladStockFallba
           missingTitle="Sklad jadvali — server hali chiqarmagan"
           skeleton={<Skeleton className="h-96 rounded-2xl" aria-label="Yuklanmoqda" />}
         >
-          {(data) => <DaySheetBody sheet={data} day={period.day} />}
+          {(data) => <DaySheetBody sheet={data} day={period.day} isToday={isToday} />}
         </QueryStateView>
       </Section>
     </div>
   );
 }
 
-/** Tayyor holat: tuzatish ogohlantirishi, jadval va qatorlar izohi. */
-export function DaySheetBody({ sheet, day }: { sheet: SkladSheet; day: string }) {
+/** Tayyor holat: farq va tuzatish ogohlantirishi, jadval va qatorlar izohi. */
+export function DaySheetBody({ sheet, day, isToday = false }: { sheet: SkladSheet; day: string; isToday?: boolean }) {
   if (sheet.products.length === 0) {
     return (
       <EmptyView
@@ -62,9 +66,11 @@ export function DaySheetBody({ sheet, day }: { sheet: SkladSheet; day: string })
       />
     );
   }
-  const model = buildDaySheet(sheet, day);
+  const model = buildDaySheet(sheet, day, isToday);
+  const drift = isToday ? stockDrift(sheet, (cell, product) => (cell ? qtyCount(cell, product) : 0)) : [];
   return (
     <>
+      <DriftNote drift={drift} />
       {model.hasAdjustment ? (
         <p role="status" className="bg-warn-soft text-warn flex items-start gap-2 rounded-2xl px-4 py-3 text-dense">
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -77,6 +83,29 @@ export function DaySheetBody({ sheet, day }: { sheet: SkladSheet; day: string })
       <DaySheetTable model={model} products={sheet.products} />
       <DaySheetLegend />
     </>
+  );
+}
+
+/** Bugungi «kun oxiri» hozirgi Jamidan farq qiladi — server ma'lumotida xato; yashirilmaydi. */
+function DriftNote({ drift }: { drift: readonly StockDrift[] }) {
+  if (drift.length === 0) return null;
+  return (
+    <div role="alert" className="border-danger bg-danger-soft text-danger flex items-start gap-2 rounded-2xl border px-4 py-3 text-dense">
+      <OctagonAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="font-semibold">Kun oxiri hozirgi qoldiqdan farq qiladi — bosh logistga ayting</p>
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {drift.map((row) => (
+            <li key={row.product.id}>
+              <span className="font-semibold" data-no-translit>
+                {row.product.name}
+              </span>
+              {`: kun oxiri ${groupThousands(row.closing)}, hozir ${groupThousands(row.now)}`}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -97,6 +126,10 @@ function DaySheetLegend() {
       <li>
         <strong className="text-ink font-semibold">Korxonadan keldi / korxonaga qaytdi</strong>
         <span> — sklad kirim va qaytarishlaridan</span>
+      </li>
+      <li>
+        <strong className="text-info font-semibold">Logist tasdiqlamagan</strong>
+        <span> — kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan (faqat bo&apos;lsa); hozirgi qoldiqdan allaqachon ayirilgan</span>
       </li>
       <li>
         <strong className="text-danger font-semibold">Chiqim</strong>

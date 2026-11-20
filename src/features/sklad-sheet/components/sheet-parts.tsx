@@ -23,6 +23,7 @@ export const ROW_TONE: Record<SheetTone, string> = {
   giftStrong: "bg-gold-soft text-gold font-bold",
   danger: "bg-danger-soft text-danger",
   warn: "bg-warn-soft text-warn font-bold",
+  info: "bg-info-soft text-info",
 };
 
 /** Blok boshi — qalin chiziq (hudud × kuryer, kun, jami). */

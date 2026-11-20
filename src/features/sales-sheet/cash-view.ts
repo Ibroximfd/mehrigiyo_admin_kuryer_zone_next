@@ -1,40 +1,14 @@
 import { groupThousands, toIsoDay } from "@/lib/format";
 
 import type { CashReceipt, CourierCash } from "./cash";
-import { moneyText } from "./display";
+import type { SheetFigures } from "./types";
 
 /**
- * «Pul olish» ekranining ko'rinish qoidalari (hujjat 85 §2) — sof funksiyalar.
- * Hisob emas: raqamlar serverdan, bu yerda faqat qaysi biri qayerda va qanday
+ * Sotuv jadvalidagi pul kataklarining ko'rinish qoidalari (hujjat 85 §2; egasi,
+ * 2026-11-20 — «Pul olish» tabi jadvalga qo'shildi) — sof funksiyalar. Hisob
+ * emas: raqamlar serverdan, bu yerda faqat qaysi biri qayerda va qanday
  * ko'rinishi hal qilinadi.
  */
-
-export type StripItem = {
-  /** Oldingi bo'lak bilan amal: birinchisida yo'q. */
-  op: "" | "−" | "+" | "=";
-  label: string;
-  value: string;
-  /** «Olinishi kerak» — natija, ajralib turadi. */
-  result: boolean;
-};
-
-/**
- * Tenglama qatori: Umumiy sotuv − Onlayn − Skidka − Kuryer xizmati + O'tgan
- * qarz = Olinishi kerak − Olindi. Sovg'a umumiy sotuvga kirmaydi (sovg'a qatori
- * 0 so'm — backend 85-javob), shuning uchun tenglamada yo'q; jadvalda ma'lumot
- * uchun turadi. Oraliqda o'tgan qarz — davr boshidagi.
- */
-export function cashStrip(cash: CourierCash, single: boolean): StripItem[] {
-  return [
-    { op: "", label: "Umumiy sotuv", value: moneyText(cash.salesAmount), result: false },
-    { op: "−", label: "Onlayn", value: moneyText(cash.onlineAmount), result: false },
-    { op: "−", label: "Skidka", value: moneyText(cash.discountAmount), result: false },
-    { op: "−", label: "Kuryer xizmati", value: moneyText(cash.feeAmount), result: false },
-    { op: "+", label: single ? "O'tgan qarz" : "Davr boshidagi qarz", value: moneyText(cash.openingDebt), result: false },
-    { op: "=", label: "Olinishi kerak", value: moneyText(cash.dueTotal), result: true },
-    { op: "−", label: "Olindi", value: moneyText(cash.received), result: false },
-  ];
-}
 
 /**
  * Qatordagi amal: `take` — «Oldim» tugmasi (qarz bor, bitta kun, dopusk bor);
@@ -69,11 +43,6 @@ export function canCancelReceipt(receipt: CashReceipt, today: string): boolean {
   return receipt.at !== null && toIsoDay(receipt.at) === today;
 }
 
-/** Kuryer ostidagi izoh: «22 manzil · 1 atkaz»; atkaz bo'lmasa — «23 manzil». */
-export function addressNote(addresses: number, refused: number): string {
-  return refused > 0 ? `${groupThousands(addresses)} manzil · ${groupThousands(refused)} atkaz` : `${groupThousands(addresses)} manzil`;
-}
-
 /** «Oldim» maydoniga qo'yiladigan summa — qolgan qarz; qarz yo'q yoki ortiqcha olingan — bo'sh (`0`). */
 export function remainingDebt(cash: CourierCash): number {
   return cash.closingDebt !== null && cash.closingDebt > 0 ? cash.closingDebt : 0;
@@ -84,4 +53,48 @@ export function discountHint(cash: CourierCash): string {
   return cash.discountSystem !== null && cash.discountSystem > 0
     ? `+ tizimda ${groupThousands(cash.discountSystem)} (ball)`
     : "so'm, o'zingiz yozasiz";
+}
+
+/** Click/onlayn maydoni ostidagi izoh: ilovada oldindan to'langani bo'lsa — u ham ko'rinsin (jamiga server qo'shadi). */
+export function onlineHint(cash: CourierCash): string {
+  return cash.onlineSystem !== null && cash.onlineSystem > 0
+    ? `+ ilovada ${groupThousands(cash.onlineSystem)}`
+    : "so'm, o'zingiz yozasiz";
+}
+
+/** Jadval va asosiy raqamlardagi pul — `cash` blokidan; u kelmasa (eski server) — umumiy kalitlardan, yo'q bo'lsa `null` («—»). */
+export type SheetMoney = {
+  /** Umumiy sotuv — sovg'asiz (`gift_in_sales: false`). */
+  sales: number;
+  online: number;
+  discount: number;
+  fee: number | null;
+  /** Kuryer topshirishi kerak (o'tgan qarz bilan). */
+  due: number | null;
+  received: number | null;
+  /** Qolgan qarz — ertaga o'tadi. */
+  debt: number | null;
+  openingDebt: number | null;
+};
+
+export function sheetMoney(figures: SheetFigures): SheetMoney {
+  const cash = figures.cash;
+  return {
+    sales: cash?.salesAmount ?? figures.salesAmount,
+    online: cash?.onlineAmount ?? figures.onlineAmount,
+    discount: cash?.discountAmount ?? figures.discountAmount,
+    fee: cash?.feeAmount ?? figures.fee?.amount ?? null,
+    due: cash?.dueTotal ?? null,
+    received: cash?.received ?? null,
+    debt: cash?.closingDebt ?? null,
+    openingDebt: cash?.openingDebt ?? null,
+  };
+}
+
+/**
+ * Bu kunga pul yozuvi (Click, skidka, «Oldim») ochiqmi: pul zanjiri boshidan
+ * (javob 104 §5) oldingi kunga server yozdirmaydi. Boshi noma'lum — ochiq.
+ */
+export function cashWritable(date: string, since: string | null): boolean {
+  return since === null || date >= since;
 }

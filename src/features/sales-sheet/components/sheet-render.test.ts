@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { demoIssuePlan, demoSalesSheet } from "@/lib/demo/mock/sales-sheet.fixture";
 
+import type { ChiefSklad } from "@/features/sklad/types";
+
 import { groupSheetByRegion } from "../regions";
 import { mapIssuePlan, mapSalesSheet } from "../types";
-import { IssuePlanBody } from "./issue-plan-view";
 import { SalesSheetBody } from "./sales-sheet-view";
 
 /**
@@ -33,7 +34,8 @@ const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/g,
 describe("sotuv jadvali — server render", () => {
   it("16.11.2026: jami raqamlar, kuryer bloki va tahrirlanadigan kuryer xizmati", () => {
     const out = sheetHtml("2026-11-16");
-    for (const figure of ["31 080 000", "11 680 000", "3 770 000", "27 310 000", "10 565 000"]) expect(out).toContain(figure);
+    // Umumiy summa (naqd + onlayn, sovg'asiz), onlayn, kuryer xizmati; Bahtiyor — 12 060 000 + 5 010 000.
+    for (const figure of ["42 760 000", "11 680 000", "3 770 000", "17 070 000"]) expect(out).toContain(figure);
     for (const name of ["Bahtiyor aka", "Xayrullo aka", "Muhammadqul aka", "Tea (ipak choy)", "JAMI"]) expect(out).toContain(name);
     // Bitta kun — xizmat maydonda, serverdagi summa bilan.
     expect(out).toContain('value="1 495 000"');
@@ -67,12 +69,33 @@ describe("sotuv jadvali — server render", () => {
     expect(out).toContain('title="Boshida 3 + berildi 1"');
   });
 
-  it("17.11: qaytarish bo'lgan kuryerda «Tuzatish / qaytarish» qatori va ogohlantirish", () => {
+  it("qaytarish va tuzatish alohida qator emas (egasi, 2026-11-20): «Berilgan» — sof, tafsiloti izohda", () => {
+    const sheet = mapSalesSheet({
+      date_from: "2026-11-20",
+      date_to: "2026-11-20",
+      products: [{ id: 14, name_uz: "Alatoo bals", count_unit: "piece", pieces_per_box: 1 }],
+      couriers: [
+        {
+          courier: { id: 27, full_name: "Test Kuryer" },
+          opening: { "14": { qty: 2, pieces: 0 } },
+          issued: { "14": { qty: 2, pieces: 0 } },
+          given: { "14": { qty: 4, pieces: 0 } },
+          other: { "14": { qty: -1, pieces: 0 } },
+          closing: { "14": { qty: 3, pieces: 0 } },
+        },
+      ],
+    });
+    const out = html(createElement(SalesSheetBody, { sheet, range: { dateFrom: "2026-11-20", dateTo: "2026-11-20" }, onOpenDay: () => undefined }));
+    expect(out).not.toContain("Tuzatish / qaytarish");
+    expect(out).not.toContain("Bu davrda tuzatish yoki qaytarish bor");
+    // Berilgan 4 − qaytarildi 1 = 3; Qolgan ham 3 — tenglama ko'zga yopiladi.
+    expect(out).toContain('title="Boshida 2 + berildi 2, qaytarish va tuzatish −1"');
+    expect(out).toMatch(/title="Boshida 2[^"]*"[^>]*>3<\/td>/);
+  });
+
+  it("17.11: kuryer xizmati hali yozilmagan — maydon bo'sh, jami «—»", () => {
     const out = sheetHtml("2026-11-17");
-    expect(out).toContain("Bu davrda tuzatish yoki qaytarish bor");
-    expect(out).toContain("Tuzatish / qaytarish");
-    expect(text(out)).toContain("−3");
-    expect(text(out)).toContain("−2");
+    expect(out).not.toContain("Tuzatish / qaytarish");
     // Xizmat hali yozilmagan — maydon bo'sh, jami «—».
     expect(out.match(/value=""/g)).toHaveLength(3);
     expect(text(out)).toContain("Kuryer xizmati —");
@@ -84,8 +107,8 @@ describe("sotuv jadvali — server render", () => {
     expect(out).toContain("kunma-kun yoziladi");
     expect(out).toContain("Kunma-kun");
     expect(out).toContain('aria-expanded="false"');
-    // Ikki kun naqdi: 31 080 000 + 31 610 000.
-    expect(out).toContain("62 690 000");
+    // Ikki kun onlayni: 11 680 000 + 10 750 000.
+    expect(out).toContain("22 430 000");
   });
 
   it("farq (`checks[]`), karobka + dona katagi va kelmagan `handover_due`", () => {
@@ -104,9 +127,8 @@ describe("sotuv jadvali — server render", () => {
     expect(out).toContain("5 dona");
     // Sklad birligi «dona» emas — ustun sarlavhasida yoziladi.
     expect(out).toContain("karobka");
-    // `handover_due` kelmadi — hisoblanmaydi, «—».
-    expect(text(out)).toContain("— kassaga");
-    expect(text(out)).not.toContain("500 000 kassaga");
+    // Pul bloki (`cash`) kelmadi — «Topshirishi kerak» hisoblanmaydi, «—».
+    expect(text(out)).toContain("— kuryer topshiradi");
   });
 
   it("bo'sh server javobi — yiqilmaydi", () => {
@@ -137,9 +159,9 @@ describe("sotuv jadvali — viloyatlar kesimi (egasi, 2026-11-19)", () => {
     const positions = order.map((label) => out.indexOf(label));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    // Toshkent jami: naqd 12 060 000 + 5 850 000; kassaga 15 635 000.
-    expect(out).toContain("17 910 000");
-    expect(out).toContain("15 635 000");
+    // Toshkent jami: umumiy summa 17 070 000 + 8 800 000, onlayn 5 010 000 + 2 950 000.
+    expect(out).toContain("25 870 000");
+    expect(out).toContain("7 960 000");
     // Kuryer xizmati maydonlari — faqat kuryer bloklarida.
     expect(groupedHtml("2026-11-16").match(/<input/g)).toHaveLength(3);
   });
@@ -154,53 +176,72 @@ describe("sotuv jadvali — viloyatlar kesimi (egasi, 2026-11-19)", () => {
     expect(markup).not.toContain("<input");
   });
 
-  it("yangi ustunlar: Skidka va Topshirdi («Pul olish» bloki kelmasa — «—»)", () => {
+  it("pul ustunlari: Topshirishi kerak va Topshirdi (pul bloki kelmasa — «—», o'ylab topilgan 0 emas)", () => {
     const out = text(groupedHtml("2026-11-16"));
-    expect(out).toContain("Skidka");
-    expect(out).toContain("Topshirdi");
-    expect(out).not.toContain("kerak —");
+    for (const label of ["Umumiy summa", "Click / onlayn (qo&#x27;lda)", "Skidka (qo&#x27;lda)", "Topshirishi kerak", "Topshirdi"]) expect(out).toContain(label);
+    expect(out).toContain("Topshirishi kerak — kuryerlar topshiradigan pul");
+    expect(out).not.toContain("Topshirishi kerak 0");
   });
 });
 
-describe("berish rejasi — server render", () => {
+describe("bugun: berish kerak va kuryerga berish — Sotuv jadvalida (egasi, 2026-11-20)", () => {
+  const range = { dateFrom: "2026-11-17", dateTo: "2026-11-17" };
+  const sheet = mapSalesSheet(demoSalesSheet({ ...range, courierId: null, withDays: false }, "2026-11-17"));
   const plan = mapIssuePlan(demoIssuePlan("2026-11-17"));
+  const sklad: Extract<ChiefSklad, { kind: "ready" }> = {
+    kind: "ready",
+    sklad: { id: 1, name: "Vodiy skladi", regions: [], chiefs: [] },
+    stock: [],
+    couriers: [],
+    canWrite: true,
+    store: { id: 7, name: "Vodiy ombori" },
+  };
+  const body = (today: { plan: typeof plan | null; sklad: typeof sklad | null } | null) =>
+    html(createElement(SalesSheetBody, { sheet, range, onOpenDay: () => undefined, canAccept: true, today }));
 
-  it("reja kuni, zakaz sonlari, yetmaydigan mahsulot va jami", () => {
-    const out = html(createElement(IssuePlanBody, { plan, canOpenSklad: true }));
-    expect(out).toContain("Berish rejasi — 17.11.2026 · seshanba");
-    // Kechadan o'tgan 9 + 6 + 11, yangi 21 + 24 + 9.
-    expect(text(out)).toContain("Kechadan o&#x27;tgan zakazlar 26");
-    expect(text(out)).toContain("Yangi biriktirilgan 54");
-    expect(out).toContain("Omborda yetmaydi");
+  it("har kuryerda «Berish kerak» qatori, JAMI da — omborimdan; yetmaydigan mahsulot ogohlantiriladi", () => {
+    const out = body({ plan, sklad: null });
+    expect(out.match(/>Berish kerak</g)?.length).toBeGreaterThanOrEqual(2);
+    expect(out).toContain("Omboringizda yetmaydi");
     expect(text(out)).toContain("Rayhon — 122 berish kerak, omboringizda 90, 32 yetmaydi");
-    // Donada yuritiladigan karobkali mahsulot — donada (hujjat 84).
     expect(text(out)).toContain("Doctor Ali Kremi — 12 berish kerak, omboringizda 10, 2 yetmaydi");
-    for (const label of ["Qo&#x27;lida (qoldiq)", "Zakazlarga kerak", "Yana berish kerak", "Ortiqcha", "Omboringizda bor", "Yetmaydi", "JAMI"]) expect(out).toContain(label);
-    expect(out).toContain("Kechadan o&#x27;tgan: 9 ta zakaz");
-    expect(out).toContain("Yangi biriktirilgan: 21 ta zakaz");
-    // Muhammadqul: Elixir 5 ta qo'lida, 2 ta kerak — 3 ta ortiqcha (sariq qator).
-    expect(out).toMatch(/bg-gold-soft[^>]*>3<\/td>/);
+    // Sklad yuklanmagan yoki dopusk yo'q — hujjat tugmalari yo'q.
+    expect(out).not.toContain(": berish");
   });
 
-  it("«Skladda berish» — faqat sklad dopuski bo'lsa; zakazlar havolasi doim", () => {
-    const allowed = html(createElement(IssuePlanBody, { plan, canOpenSklad: true }));
-    expect(allowed.match(/href="\/sklad"/g)).toHaveLength(3);
-    const viewOnly = html(createElement(IssuePlanBody, { plan, canOpenSklad: false }));
-    expect(viewOnly).not.toContain('href="/sklad"');
-    expect(viewOnly).toContain('href="/?scope=active&amp;courier=31&amp;once=1"');
+  it("sklad yozish huquqi bor — har kuryerda «Berish», «Qabul», «Tuzatish»; kuryer so'rovlari bo'limi", () => {
+    const out = body({ plan, sklad });
+    expect(out).toContain('aria-label="Bahtiyor aka: berish"');
+    expect(out).toContain('aria-label="Bahtiyor aka: qabul"');
+    expect(out).toContain('aria-label="Bahtiyor aka: tuzatish"');
+    expect(out).toContain("Kuryerlarning mol so&#x27;rovlari");
+    // Huquq yo'q — faqat ko'rish.
+    expect(body({ plan, sklad: { ...sklad, canWrite: false } })).not.toContain(": berish");
   });
 
-  it("berish kerak bo'lmagan kuryer va bo'sh javob", () => {
-    const calm = mapIssuePlan({
-      date: "2026-11-17",
-      products: [{ id: 6, name: "Tea" }],
-      couriers: [{ courier: { id: 31, full_name: "Bahtiyor" }, on_hand: { "6": { qty: 3, pieces: 0 } }, required: { "6": { qty: 3, pieces: 0 } } }],
-      store: { on_hand: { "6": { qty: 20, pieces: 0 } } },
+  it("bugun harakati yo'q, lekin zakazi bor kuryer ham jadvalda — unga ham berib bo'ladi", () => {
+    const withIdle = mapIssuePlan({
+      ...demoIssuePlan("2026-11-17"),
+      couriers: [{ courier: { id: 99, full_name: "Yangi kuryer" }, new_orders: 3, required: { "6": { qty: 2, pieces: 0 } }, to_issue: { "6": { qty: 2, pieces: 0 } } }],
     });
-    const out = html(createElement(IssuePlanBody, { plan: calm, canOpenSklad: true }));
-    expect(out).toContain("Berish shart emas");
-    expect(out).not.toContain('href="/sklad"');
-    expect(out).not.toContain('role="status"');
-    expect(() => html(createElement(IssuePlanBody, { plan: mapIssuePlan({}), canOpenSklad: true }))).not.toThrow();
+    const out = body({ plan: withIdle, sklad });
+    expect(out).toContain("Bugun harakati yo&#x27;q kuryerlar");
+    expect(out).toContain('aria-label="Yangi kuryer: berish"');
+    expect(text(out)).toContain("3 ta zakaz · 3 ta yangi");
+  });
+
+  it("hujjat 104: harakati ham, zakazi ham yo'q kuryer ham jadvalda — ertalab sanab «Tuzatish» qilish uchun", () => {
+    const counted = { ...sklad, couriers: [{ courier: { id: 77, fullName: "Sanoq kuryer", onShift: false }, onHand: 0, items: [] }] };
+    const out = body({ plan, sklad: counted });
+    expect(out).toContain("Bugun harakati yo&#x27;q kuryerlar");
+    expect(out).toContain('aria-label="Sanoq kuryer: tuzatish"');
+    expect(out).toContain('aria-label="Sanoq kuryer: berish"');
+  });
+
+  it("o'tgan kun yoki reja yo'q — «Berish kerak» va sklad amallari chiqmaydi", () => {
+    const out = body(null);
+    expect(out).not.toContain(">Berish kerak<");
+    expect(out).not.toContain(": berish");
+    expect(out).not.toContain("Kuryerlarning mol so");
   });
 });

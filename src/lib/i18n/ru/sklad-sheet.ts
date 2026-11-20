@@ -75,4 +75,16 @@ export const SKLAD_SHEET: Dictionary = {
   "Sklad jadvalini yuklashda xatolik": "Ошибка загрузки таблицы склада",
   "Sklad jadvali sizga ochilmagan": "Таблица склада вам не открыта",
   "Sklad jadvali — server hali chiqarmagan": "Таблица склада — сервер ещё не выпустил",
+
+  // ── Kunlik harakat = hozirgi qoldiq (egasi, 2026-11-20; 97 §3) ──────────
+  "Kun oxiri hozirgi qoldiqdan farq qiladi — bosh logistga ayting": "Остаток на конец дня отличается от текущего — сообщите главному логисту",
+  ": kun oxiri {x}, hozir {x}": ": на конец дня {x}, сейчас {x}",
+  "Logist tasdiqlamagan": "Не подтверждено логистом",
+  "— kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan (faqat bo'lsa); hozirgi qoldiqdan allaqachon ayirilgan":
+    "— курьер нажал «доставил», логист ещё не подтвердил (только если есть); уже вычтено из текущего остатка",
+  "Hozirgi qoldiq (tasdiqlanmagani ayirilgan)": "Текущий остаток (неподтверждённое вычтено)",
+  "Logist tasdiqlamagan · sotuv": "Не подтверждено логистом · продажа",
+  "Logist tasdiqlamagan · sovg'a": "Не подтверждено логистом · подарок",
+  "Shundan logist tasdiqlamagan · sotuv": "Из них не подтверждено логистом · продажа",
+  "Shundan logist tasdiqlamagan · sovg'a": "Из них не подтверждено логистом · подарок",
 };

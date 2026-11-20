@@ -171,7 +171,20 @@ export type SalesSheet = {
  * Tasdiqlanmagan sotuv (97 §3): sotilgan/sovg'a sonlari uni o'z ichiga oladi
  * (kuryer bosgan kunda), pul bloklari esa yo'q — pul logist tasdig'idan keyin.
  */
-export type SheetPending = { salesAmount: number; cashAmount: number };
+export type SheetPending = {
+  salesAmount: number;
+  cashAmount: number;
+  /**
+   * Pul allaqachon hisoblangan (egasi, 2026-11-20; hujjat 101 §6): bosh kuryerda
+   * hech narsa logist tasdig'ini kutmaydi — server `pending_in_cash: true` bersa,
+   * tasdiqlanmagan sotuv summasi va «Topshirishi kerak» ga kirgan. Bermasa
+   * (eski server) — pul tasdiqdan keyin qo'shiladi.
+   */
+  moneyIncluded: boolean;
+  /** Logist tasdig'ini kutayotgan manzillar — manzil soni faqat tasdiqdan keyin qo'shiladi. */
+  addresses: number;
+  refusedAddresses: number;
+};
 
 function mapFee(raw: unknown): CourierFee | null {
   if (!isRecord(raw)) return null;
@@ -233,7 +246,10 @@ function mapPending(raw: unknown): SheetPending | null {
   const json = asRecord(raw);
   const salesAmount = asOptionalNumber(json.pending_sales_amount) ?? 0;
   const cashAmount = asOptionalNumber(json.pending_cash_amount) ?? 0;
-  return salesAmount > 0 || cashAmount > 0 ? { salesAmount, cashAmount } : null;
+  const addresses = asOptionalInt(json.pending_addresses) ?? 0;
+  const refusedAddresses = asOptionalInt(json.pending_refused_addresses) ?? 0;
+  if (salesAmount <= 0 && cashAmount <= 0 && addresses <= 0 && refusedAddresses <= 0) return null;
+  return { salesAmount, cashAmount, moneyIncluded: json.pending_in_cash === true, addresses, refusedAddresses };
 }
 
 function mapCheck(raw: unknown): SheetCheck {
@@ -264,7 +280,7 @@ export function mapSalesSheet(raw: unknown): SalesSheet {
   };
 }
 
-// ── §4. Berish rejasi — `chief/report/issue-plan/` ──────────────────────────
+// ── §4. Berish rejasi — `chief/report/issue-plan/` (Sotuv jadvalida «Berish kerak») ─
 
 export type PlanCourier = {
   courier: CourierRef;
@@ -274,20 +290,39 @@ export type PlanCourier = {
   newOrders: number;
   /** Kuryer skladining hozirgi qoldig'i. */
   onHand: CellMap;
+  /** Kuryer «yetkazdim» bosgan, logist tasdiqlamagan (97 §3). */
+  pending: CellMap;
   /** Yetkazilmagan hamma zakazlardagi mahsulot. */
   required: CellMap;
   /** `max(required − on_hand, 0)` — donaga keltirib, serverda hisoblangan. */
   toIssue: CellMap;
   surplus: CellMap;
+  /**
+   * `to_issue` sklad birligida — «Berish» hujjati qatorlari (`courier_load` ga
+   * o'zgartirmasdan yuboriladi). Server bermasa — bo'sh: oyna bo'sh ochiladi.
+   */
+  issueLines: IssueLine[];
 };
+
+/** Hujjat qatori: `item_id` + sklad birligidagi son (`quantity`). */
+export type IssueLine = { itemId: number; quantity: number };
 
 export type IssuePlan = {
   date: string;
   products: SheetProduct[];
   couriers: PlanCourier[];
-  /** Bosh kuryer ombori: bor, hamma kuryerga berish kerak, yetmaydi. */
-  store: { onHand: CellMap; toIssue: CellMap; shortage: CellMap };
+  /** Bosh kuryer ombori: bor, hamma kuryerga berish kerak, yetmaydi; `locationId` — mol shu ombordan beriladi. */
+  store: { locationId: number | null; onHand: CellMap; toIssue: CellMap; shortage: CellMap };
 };
+
+function mapIssueLines(raw: unknown): IssueLine[] {
+  return asArray(raw)
+    .map((entry) => {
+      const json = asRecord(entry);
+      return { itemId: asInt(json.item_id), quantity: asInt(json.quantity) };
+    })
+    .filter((line) => line.itemId > 0 && line.quantity > 0);
+}
 
 function mapPlanCourier(raw: unknown): PlanCourier {
   const json = asRecord(raw);
@@ -296,9 +331,11 @@ function mapPlanCourier(raw: unknown): PlanCourier {
     carriedOrders: asInt(json.carried_orders),
     newOrders: asInt(json.new_orders),
     onHand: mapCells(json.on_hand),
+    pending: mapCells(json.pending),
     required: mapCells(json.required),
     toIssue: mapCells(json.to_issue),
     surplus: mapCells(json.surplus),
+    issueLines: mapIssueLines(json.issue_lines),
   };
 }
 
@@ -310,6 +347,7 @@ export function mapIssuePlan(raw: unknown): IssuePlan {
     products: mapProducts(json.products),
     couriers: asArray(json.couriers).map(mapPlanCourier),
     store: {
+      locationId: asOptionalInt(store.location_id),
       onHand: mapCells(store.on_hand),
       toIssue: mapCells(store.to_issue),
       shortage: mapCells(store.shortage),

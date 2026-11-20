@@ -41,16 +41,9 @@ export const queryKeys = {
   chiefSkladSheet: (params: Record<string, unknown>) => ["chief", "sklad", "sheet", params] as const,
   /** Kuryer baholari — filtr va sahifa bo'yicha (kuryerlar sahifasi filtrsiz 1-sahifani bo'lishadi). */
   chiefRatings: (filters: Record<string, unknown>) => ["chief", "ratings", filters] as const,
-  /** Kassa — `chief/cash/` (filial kesimi va topshiriqlar). Sukut davr — topshirish shu bilan. */
-  chiefCash: ["chief", "cash"] as const,
-  /** Kassa tarixi tanlangan davrda (faqat ko'rish). */
-  chiefCashPeriod: (range: { from: string; to: string }) => ["chief", "cash", "period", range] as const,
-  /** Filialga topshirish jadvali (hujjat 85 §3) — `chiefCash` ostida: topshirilsa yoki kuryerdan pul olinsa yangilanadi. */
-  chiefCashSheets: ["chief", "cash", "sheet"] as const,
-  chiefCashSheet: (params: Record<string, unknown>) => ["chief", "cash", "sheet", params] as const,
   /** Moliya va hisobot (davr bo'yicha). */
   chiefReport: (range: { from: string; to: string }) => ["chief", "report", range] as const,
-  /** Sotuv jadvali (hujjat 83) — ildiz: kuryer xizmati, skidka yoki «Oldim» saqlansa hamma davr qayta so'raladi. */
+  /** Sotuv jadvali (hujjat 83) — ildiz: kuryer xizmati, skidka, Click, «Oldim» yoki kuryerga mol berilsa hamma davr qayta so'raladi. */
   chiefSalesSheets: ["chief", "sales-sheet"] as const,
   chiefSalesSheet: (params: Record<string, unknown>) => ["chief", "sales-sheet", params] as const,
   /** Berish rejasi — `chiefSklad` ostida: kuryerga mol berilsa (sklad hujjati) reja ham yangilanadi. */

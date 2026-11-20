@@ -70,6 +70,15 @@ export async function saveCourierDiscount(input: CourierCashInput): Promise<void
   await api.put<unknown>(ENDPOINTS.chiefSalesSheetDiscount, { json: cashBody(input), fallbackError: "Skidkani saqlab bo'lmadi" });
 }
 
+/**
+ * Click/onlayn — bosh kuryer qo'lda yozadi (egasi, 2026-11-20; hujjat 101 §1):
+ * skidka bilan bir xil qoida — bir kuryer + kun = bitta yozuv, `0` — o'chirish.
+ * «Topshirishi kerak» serverda qayta hisoblanadi, jadval qayta so'raladi.
+ */
+export async function saveCourierOnline(input: CourierCashInput): Promise<void> {
+  await api.put<unknown>(ENDPOINTS.chiefSalesSheetOnline, { json: cashBody(input), fallbackError: "Click summasini saqlab bo'lmadi" });
+}
+
 /** «Oldim» (§2): kuryerdan olingan summa; bir kunda bir nechta yozuv yig'iladi. */
 export async function addCashReceipt(input: CourierCashInput): Promise<void> {
   await api.post<unknown>(ENDPOINTS.chiefSalesSheetReceipts, { json: cashBody(input), fallbackError: "Pulni yozib bo'lmadi" });
@@ -80,7 +89,7 @@ export async function cancelCashReceipt(receiptId: number): Promise<void> {
   await api.delete<unknown>(ENDPOINTS.chiefSalesSheetReceipt(receiptId), { fallbackError: "Yozuvni bekor qilib bo'lmadi" });
 }
 
-/** Berish rejasi (§4): `date` — reja kuni. */
+/** Berish rejasi (§4): `date` — reja kuni (Sotuv jadvalida — bugun). */
 export async function fetchIssuePlan(date: string, signal?: AbortSignal): Promise<IssuePlan> {
   return mapIssuePlan(
     await api.get<unknown>(ENDPOINTS.chiefIssuePlan, {

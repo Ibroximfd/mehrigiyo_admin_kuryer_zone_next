@@ -162,4 +162,61 @@ export const SALES_SHEET: Dictionary = {
   "— kechadan o'tgan va yangi biriktirilgan zakazlardagi mahsulotlar": "— товары из заказов, перешедших со вчера и назначенных заново",
   "= kerak − qo'lida (manfiy bo'lmaydi)": "= нужно − на руках (не бывает отрицательным)",
   "— zakazlarga kerak bo'lmagani, omborga qaytadi yoki turadi": "— то, что не нужно для заказов: возвращается на склад или остаётся",
+
+  // ── Yagona ish joyi (egasi, 2026-11-20): pul olish va berish jadvalda ──
+  "Har kuryer: berildi → sotildi → sovg'a → qoldi, berish kerak; pul — topshirishi kerak va topshirdi. Qoldiq ertangi kunga o'zi o'tadi.":
+    "По каждому курьеру: выдано → продано → подарок → осталось, нужно выдать; деньги — нужно сдать и сдал. Остаток сам переходит на следующий день.",
+  "Umumiy summa": "Общая сумма",
+  "Click / onlayn": "Click / онлайн",
+  "Click / onlayn (qo'lda)": "Click / онлайн (вручную)",
+  "Skidka (qo'lda)": "Скидка (вручную)",
+  "sovg'asiz": "без подарков",
+  "sovg'a qo'shilmaydi": "подарки не входят",
+  "qo'lda + ilovada oldindan": "вручную + предоплата в приложении",
+  "kuryerlar topshiradigan pul": "деньги, которые сдают курьеры",
+  "kuryerlardan olingan": "получено от курьеров",
+  "kuryer topshiradi": "сдаёт курьер",
+  "o'tgan qarz {x} bilan": "с прошлым долгом {x}",
+  "to'liq": "полностью",
+  "{x}: pul oldim": "{x}: деньги получил",
+  "+ ilovada {x}": "+ в приложении {x}",
+  "{x}: Click, so'm": "{x}: Click, сум",
+  "Click summasini saqlab bo'lmadi": "Не удалось сохранить сумму Click",
+  "Bu amal serverda hali yoqilmagan": "Это действие на сервере ещё не включено",
+  "Berish kerak": "Нужно выдать",
+  "Zakazlarga kerak {x}, qo'lida {x}": "Нужно для заказов {x}, на руках {x}",
+  "Omboringizda {x}": "На вашем складе {x}",
+  "Bugun harakati yo'q kuryerlar": "Курьеры без движения сегодня",
+  "harakat yo'q": "нет движения",
+  "{x}: jadvalda {x}, qo'lida {x}": "{x}: в таблице {x}, на руках {x}",
+  "Qoldiq skladdan farq qiladi: {x} ta": "Остаток отличается от склада: {x}",
+  "Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Pul — logist tasdiqlagandan keyin «Topshirishi kerak»ga qo'shiladi.":
+    "В проданное вошло в день, когда курьер нажал «доставил». Деньги добавятся в «Нужно сдать» после подтверждения логиста.",
+  "Omboringizda yetmaydi — logistdan mol so'rang": "На вашем складе не хватает — запросите товар у логиста",
+  "Kuryerlarning mol so'rovlari": "Заявки курьеров на товар",
+  "kutilayotgani yo'q": "ожидающих нет",
+  "— sovg'a qilib berilgan; pulga qo'shilmaydi": "— отдано в подарок; в деньги не входит",
+  "= zakazlarga kerak − qo'lida; «Berish» bosilsa shu sonlar bilan ochiladi, o'zgartirsa bo'ladi":
+    "= нужно для заказов − на руках; «Выдать» открывается с этими числами, их можно изменить",
+  "= umumiy summa − Click − skidka − kuryer xizmati + o'tgan qarz": "= общая сумма − Click − скидка − курьерская услуга + прошлый долг",
+  "— «Oldim» bilan kuryerdan olingan; qolgani ertangi kunga qarz bo'lib o'tadi":
+    "— получено от курьера через «Получил»; остаток переходит долгом на следующий день",
+  "Boshida {x} + berildi {x2}, qaytarish va tuzatish {x3}": "На начало {x} + выдано {x2}, возврат и корректировка {x3}",
+  "= davr boshidagi qoldiq + davrda berilgan − kuryerdan qaytarilgan ± tuzatish (katak ustida — tafsiloti)":
+    "= остаток на начало + выдано за период − возвращено курьером ± корректировка (подробно — при наведении на ячейку)",
+  "{x}: mol berildi": "{x}: товар выдан",
+  "Omborda qoldiq minusga tushdi — logistdan mol so'rang": "Остаток на складе ушёл в минус — запросите товар у логиста",
+  "= zakazlarga kerak − qo'lida; sonni o'zgartirsa bo'ladi, «Berish» bosilsa darhol beriladi":
+    "= нужно для заказов − на руках; число можно изменить, по «Выдать» товар выдаётся сразу",
+  "Logist tasdig'ini kutayotgan manzillar bor": "Есть адреса, ожидающие подтверждения логиста",
+  "Kutilmoqda: {x} ta yetkazilgan manzil, {x2} ta borganda atkaz": "Ожидают: доставленных адресов — {x}, отказов на месте — {x2}",
+  "Sotuv va pul kuryer «yetkazdim» bosgan zahoti hisoblangan. Manzil soni va borganda atkaz — logist tasdiqlagandan keyin qo'shiladi.":
+    "Продажа и деньги учтены сразу, как курьер нажал «доставил». Число адресов и отказы на месте добавятся после подтверждения логиста.",
+  "Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Pul — server yangilanmaguncha logist tasdiqlagandan keyin «Topshirishi kerak»ga qo'shiladi.":
+    "В проданное вошло в день, когда курьер нажал «доставил». Деньги — пока сервер не обновлён — добавятся в «Нужно сдать» после подтверждения логиста.",
+  "Manzil soni / borganda atkaz": "Число адресов / отказ на месте",
+  "— logist tasdiqlagandan keyin qo'shiladi; sotuv va pul — kuryer «yetkazdim» bosgan zahoti":
+    "— добавляются после подтверждения логиста; продажа и деньги — сразу, как курьер нажал «доставил»",
+  "Pul hisobi {x} dan yangidan boshlangan — bu kunga Click, skidka va «Oldim» yozilmaydi.":
+    "Денежный учёт начат заново с {x} — за этот день Click, скидку и «Получил» не записать.",
 };

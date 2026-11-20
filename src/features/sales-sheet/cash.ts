@@ -7,7 +7,8 @@ import { asArray, asInt, asOptionalBool, asOptionalNumber, asOptionalString, asR
 /**
  * Kuryerdan pul olish (hujjat 85 §2) — `sales-sheet` javobidagi har kuryer va
  * `totals` dagi `cash` bloki. Hisob faqat serverda:
- * `due_total = sales − online − discount − fee + opening_debt` (sovg'a ayirilmaydi),
+ * `due_total = sales − online − discount − fee + opening_debt` (sovg'a sotuvga kirmaydi:
+ * `gift_in_sales: false`), onlayn va skidka — tizimdagi + bosh kuryer qo'lda yozgani,
  * `closing_debt = due_total − received`; kam olingan pul ertaga `opening_debt`
  * bo'lib o'tadi. Frontend qo'shmaydi va ayirmaydi — kelmagan maydon ekranda «—».
  */
@@ -31,8 +32,16 @@ export type CashReceipt = {
 export type CourierCash = {
   /** Umumiy sotuv — sovg'a qatorlari ham katalog narxida (shuning uchun sovg'a ayiriladi). */
   salesAmount: number | null;
-  /** Ilovada oldindan va eshikda Click/Payme. */
+  /** Onlayn jami: tizimdagi (ilovada oldindan) + bosh kuryer qo'lda yozgan Click. */
   onlineAmount: number | null;
+  /** Tizim bilgan onlayn to'lov; server ajratmasa `null`. */
+  onlineSystem: number | null;
+  /**
+   * Bosh kuryer qo'lda yozgan Click/onlayn (egasi, 2026-11-20; hujjat 101 §1) —
+   * maydonda tahrirlanadigan qiymat. Server `online_manual` bermaguncha `null`:
+   * maydon chiqmaydi, tizim summasi o'qish uchun ko'rinadi.
+   */
+  onlineManual: number | null;
   /** Skidka jami: tizimdagi (ball) + bosh kuryer yozgani. */
   discountAmount: number | null;
   /** Tizimdagi chegirma; server ajratmasa `null`. */
@@ -54,6 +63,12 @@ export type CourierCash = {
   /** Qarz (ertaga o'tadi). */
   closingDebt: number | null;
   receipts: CashReceipt[];
+  /**
+   * Pul zanjiri shu kundan (javob 104 §5: toza boshlash 21.11). Undan oldingi
+   * kunga Click, skidka va «Oldim» yozilmaydi (server `400`). Server odatda
+   * faqat `totals.cash` da beradi; yo'q — `null`.
+   */
+  since: string | null;
 };
 
 function mapReceipt(raw: unknown): CashReceipt | null {
@@ -77,6 +92,8 @@ export function mapCourierCash(raw: unknown): CourierCash {
   return {
     salesAmount: asOptionalNumber(json.sales_amount),
     onlineAmount: asOptionalNumber(json.online_amount),
+    onlineSystem: asOptionalNumber(json.online_system),
+    onlineManual: asOptionalNumber(json.online_manual),
     discountAmount,
     discountSystem,
     discountManual: asOptionalNumber(json.discount_manual) ?? (discountSystem === null ? discountAmount : null),
@@ -89,10 +106,11 @@ export function mapCourierCash(raw: unknown): CourierCash {
     receipts: asArray(json.receipts)
       .map(mapReceipt)
       .filter((receipt): receipt is CashReceipt => receipt !== null),
+    since: asOptionalString(json.since),
   };
 }
 
-/** Blok yo'q (server hali chiqarmagan) — `null`: «Pul olish» tabi buni ochiq aytadi, jadval yiqilmaydi. */
+/** Blok yo'q (server hali chiqarmagan) — `null`: pul kataklari «—», jadval yiqilmaydi. */
 export function mapOptionalCash(raw: unknown): CourierCash | null {
   return isRecord(raw) ? mapCourierCash(raw) : null;
 }
@@ -107,7 +125,7 @@ export function cashErrorText(error: unknown, texts: { fallback: string; forbidd
     const fields = fieldErrors(error.data, ["amount", "date", "courier_id", "note"] as const);
     const field = fields.amount ?? fields.date ?? fields.courier_id ?? fields.note;
     if (field) return field;
-    if (isEndpointMissing(error)) return "Pul olish serverda hali yoqilmagan";
+    if (isEndpointMissing(error)) return "Bu amal serverda hali yoqilmagan";
     if (error.code === "courier_not_found") return "Kuryer topilmadi — jadvalni yangilang";
     if (error.status === 404) return "Yozuv topilmadi — jadvalni yangilang";
     if (error.status === 403) return texts.forbidden;

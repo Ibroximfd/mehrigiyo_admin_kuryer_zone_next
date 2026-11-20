@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { handoverTiming, mapChiefCash } from "@/features/cash/types";
 import { courierOptions, planFromPreview, readyRows } from "@/features/chief/auto-plan";
 import { isOpenOrder, productsPreview } from "@/features/chief/order-view";
 import { formatDeliveryAddress } from "@/features/orders/address";
@@ -197,14 +196,6 @@ describe("haqiqiy javoblar (test server, 2026-10-31)", () => {
       { courier: { id: 27, fullName: "Test Kuryer" }, delivered: 0, addresses: 0, cashWithCourier: 0, cashHanded: 0, products: [] },
     ]);
     expect(isEmptyReport(finance)).toBe(true);
-  });
-
-  it("chief/cash — topshiriladigan pul yo'q, muddat «topshirilgan»", () => {
-    const cash = mapChiefCash(LIVE.cash);
-    expect(cash).toMatchObject({ outstanding: 0, outstandingDays: [], byFilial: [], handovers: [] });
-    expect(handoverTiming(cash.outstandingDays, new Date()).timing).toBe("settled");
-    // `delivered_by_method` (hujjat 79 §6) hali yo'q — ajratma chizilmaydi.
-    expect(cash.deliveredByMethod).toBeNull();
   });
 
   it("chief/filials (V14) va auto-assign/preview — bo'sh reja (V5)", () => {
@@ -490,17 +481,6 @@ describe("ma'lumoti bor bosh kuryer (Vodiy, test server)", () => {
     expect(finance.byCourier[0]).toMatchObject({ cashWithCourier: 427222, cashHanded: 1000 });
     expect(productTotals(finance.byCourier)[0]).toEqual({ item: { id: 11, name: "Qora sedana yog'i, 100 ml", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 }, quantity: 4 });
     expect(isEmptyReport(finance)).toBe(false);
-  });
-
-  it("kassa — topshiriqlar holati va kamomad, `oldest_day: null`", () => {
-    const cash = mapChiefCash(VODIY.cash);
-    expect(cash.handovers.map((row) => [row.status, row.shortage])).toEqual([
-      ["pending", null],
-      ["disputed", 15000],
-    ]);
-    expect(cash.handovers[1]!.logistName).toBe("V2 Oddiy logist (kassa dopuski)");
-    expect(cash.byFilial[0]!.oldestDay).toBeNull();
-    expect(handoverTiming(cash.outstandingDays, new Date(2026, 9, 31)).timing).toBe("on_time");
   });
 
   it("sklad — o'z skladi, sahifali qoldiq (`next` bor), kuryer ombori", () => {
