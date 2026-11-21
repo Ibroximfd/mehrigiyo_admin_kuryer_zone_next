@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { documentError } from "@/features/sklad/components/courier-document-dialog";
 import type { SkladStockRow } from "@/features/sklad/types";
 import { groupThousands } from "@/lib/format";
+import { shownQuantity } from "@/lib/item-ref";
 import { cn } from "@/lib/utils";
 
 import { cellText } from "../display";
@@ -26,9 +27,11 @@ export type GiveSource = { locationId: number; stock: readonly SkladStockRow[] }
  * mahsulotda zakazlarga yetishi uchun yana nechta berish kerakligi (serverning
  * `to_issue` i) maydonda yozilgan. «Berish» — hammasi shu sonlar bilan darhol
  * beriladi; birining sonini o'zgartirib (yoki o'chirib, yoki yangisini yozib)
- * bosilsa — o'shancha. Omborda yetmasa ham beriladi (hujjat 90), maydon sariq.
+ * bosilsa — o'shancha. Omborda yetmasa ham beriladi (hujjat 90).
  * Qator va tugma har doim ochiq (egasi, 2026-11-21): hamma son 0 bo'lsa ham
  * bosh kuryer kerakli sonni yozib beradi; son yozilmagan bo'lsa — eslatma.
+ * «Berish kerak» dan ko'p berish cheklanmaydi (kuryer qo'lida zaxira yuradi) —
+ * maydon faqat skladda (omborda) qoldiq yetmasa qizil bo'ladi.
  */
 export function IssueRowCells({
   courier,
@@ -96,8 +99,12 @@ export function IssueRowCells({
         const short = !invalid && quantity !== null && row !== undefined && quantity > row.inSklad;
         const required = issue ? cellText(cellOf(issue.required, product.id), product) : "0";
         const onHand = issue ? cellText(cellOf(issue.onHand, product.id), product) : "0";
+        const hint =
+          short && row
+            ? `Zakazlarga kerak ${required}, qo'lida ${onHand}, omborda ${groupThousands(shownQuantity(row.item, row.inSklad))} — yetmaydi`
+            : `Zakazlarga kerak ${required}, qo'lida ${onHand}`;
         return (
-          <td key={product.id} className={cn(qtyCellClass("brand", start), "px-1 py-1.5")} title={`Zakazlarga kerak ${required}, qo'lida ${onHand}`}>
+          <td key={product.id} className={cn(qtyCellClass("brand", start), "px-1 py-1.5")} title={hint}>
             <input
               inputMode="numeric"
               autoComplete="off"
@@ -111,7 +118,7 @@ export function IssueRowCells({
               onKeyDown={(event) => {
                 if (event.key === "Enter") submit();
               }}
-              className={cn(inputClass, "tabular h-8 w-14 px-1 text-center font-semibold", invalid ? "border-danger" : short && "border-warn")}
+              className={cn(inputClass, "tabular h-8 w-14 px-1 text-center font-semibold", (invalid || short) && "border-danger")}
             />
           </td>
         );

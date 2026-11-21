@@ -185,6 +185,7 @@ export const SALES_SHEET: Dictionary = {
   "Bu amal serverda hali yoqilmagan": "Это действие на сервере ещё не включено",
   "Berish kerak": "Нужно выдать",
   "Zakazlarga kerak {x}, qo'lida {x}": "Нужно для заказов {x}, на руках {x}",
+  "Zakazlarga kerak {x}, qo'lida {x}, omborda {x} — yetmaydi": "Нужно для заказов {x}, на руках {x}, на складе {x} — не хватает",
   "Omboringizda {x}": "На вашем складе {x}",
   "Bugun harakati yo'q kuryerlar": "Курьеры без движения сегодня",
   "harakat yo'q": "нет движения",

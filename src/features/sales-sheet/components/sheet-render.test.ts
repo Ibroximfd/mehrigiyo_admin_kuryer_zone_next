@@ -264,6 +264,34 @@ describe("bugun: berish kerak va kuryerga berish — Sotuv jadvalida (egasi, 202
     expect(button).not.toMatch(/\sdisabled(=""|\s|>)/);
   });
 
+  it("«Berish kerak» dan ko'p berish cheklanmaydi — maydon faqat omborda yetmasa qizil", () => {
+    const fresh = mapSalesSheet({ date_from: range.dateFrom, date_to: range.dateTo, products: [], couriers: [{ courier: { id: 5, full_name: "Toza kuryer" } }] });
+    const choy = mapItemRef({ id: 1, name: "Shifo choy", unit_label: "dona", count_unit: "piece", stock_unit: "piece", pieces_per_box: 1 });
+    const needs = mapIssuePlan({
+      date: range.dateFrom,
+      products: [{ id: 1, name_uz: "Shifo choy", count_unit: "piece", unit_label: "dona", pieces_per_box: 1 }],
+      couriers: [{ courier: { id: 5, full_name: "Toza kuryer" }, to_issue: { "1": { qty: 8, pieces: 0, pieces_total: 8 } } }],
+      store: { location_id: 7 },
+    });
+    const field = (inSklad: number) => {
+      const out = html(
+        createElement(SalesSheetBody, {
+          sheet: fresh,
+          range,
+          onOpenDay: () => undefined,
+          today: { plan: needs, sklad: { ...sklad, stock: [{ item: choy, inSklad, withCouriers: 0, minQuantity: 0, isLow: false }] } },
+        }),
+      );
+      return out.match(/<input[^>]*aria-label="Toza kuryer: Shifo choy, berish"[^>]*>/)?.[0] ?? "";
+    };
+    // Faqat o'zi qo'shadigan klass: `aria-invalid:border-danger` kabi umumiy variantlar hisobga olinmaydi.
+    const red = (markup: string) => /class="[^"]*(?:^|\s)border-danger(?:\s|")/.test(markup);
+    expect(field(20)).toContain('value="8"');
+    expect(red(field(20))).toBe(false);
+    expect(field(20)).not.toMatch(/(?:^|\s)border-warn(?:\s|")/);
+    expect(red(field(3))).toBe(true);
+  });
+
   it("o'tgan kun yoki reja yo'q — «Berish kerak» va sklad amallari chiqmaydi", () => {
     const out = body(null);
     expect(out).not.toContain(">Berish kerak<");
