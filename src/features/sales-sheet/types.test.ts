@@ -122,17 +122,38 @@ describe("sotuv jadvali — `mapSalesSheet` (hujjat 83 §2)", () => {
 
   it("tasdiqlanmagan sotuv (97 §3): `totals.pending_*`; yo'q yoki 0 — `null`", () => {
     const withPending = mapSalesSheet({ totals: { pending_sales_amount: 1_250_000, pending_cash_amount: 400_000 } });
-    expect(withPending.pending).toEqual({ salesAmount: 1_250_000, cashAmount: 400_000, moneyIncluded: false, addresses: 0, refusedAddresses: 0 });
+    expect(withPending.pending).toEqual({ salesAmount: 1_250_000, cashAmount: 400_000, moneyIncluded: false, addresses: 0, addressesIncluded: false, refusedAddresses: 0 });
     // Hujjat 101 §6: pul darhol hisoblangan, manzillar tasdiqni kutmoqda.
     const included = mapSalesSheet({
       totals: { pending_sales_amount: 900_000, pending_cash_amount: 900_000, pending_in_cash: true, pending_addresses: 2, pending_refused_addresses: 1 },
     });
-    expect(included.pending).toEqual({ salesAmount: 900_000, cashAmount: 900_000, moneyIncluded: true, addresses: 2, refusedAddresses: 1 });
+    expect(included.pending).toEqual({ salesAmount: 900_000, cashAmount: 900_000, moneyIncluded: true, addresses: 2, addressesIncluded: false, refusedAddresses: 1 });
     // Faqat atkaz kutilayotgan bo'lsa ham izoh chiqadi.
     expect(mapSalesSheet({ totals: { pending_refused_addresses: 1 } }).pending).toMatchObject({ salesAmount: 0, refusedAddresses: 1 });
     expect(mapSalesSheet({ totals: { pending_sales_amount: 0, pending_cash_amount: 0 } }).pending).toBeNull();
     expect(mapSalesSheet({ totals: {} }).pending).toBeNull();
     expect(mapSalesSheet(null).pending).toBeNull();
+  });
+
+  it("manzil soni darhol (hujjat 108): `pending_in_addresses` har blokda — «shundan N» faqat shu belgi bilan", () => {
+    const figures = { addresses: 3, pending_addresses: 1, refused_addresses: 0, pending_refused_addresses: 1, pending_in_addresses: true };
+    const sheet = mapSalesSheet({
+      couriers: [{ courier: { id: 31, full_name: "Bahtiyor", region: "fergana" }, ...figures, days: [{ date: "2026-11-21", ...figures }] }],
+      regions: [{ region: "fergana", region_name: "Farg'ona", courier_ids: [31], ...figures }],
+      totals: { ...figures, pending_cash_amount: 0, pending_in_cash: true },
+    });
+    expect(sheet.addressesOnPress).toBe(true);
+    expect(sheet.totals).toMatchObject({ addresses: 3, pendingAddresses: 1 });
+    expect(sheet.couriers[0]).toMatchObject({ addresses: 3, pendingAddresses: 1 });
+    expect(sheet.couriers[0]?.days[0]).toMatchObject({ addresses: 3, pendingAddresses: 1 });
+    expect(sheet.regions?.[0]).toMatchObject({ addresses: 3, pendingAddresses: 1 });
+    expect(sheet.pending).toMatchObject({ addresses: 1, addressesIncluded: true, refusedAddresses: 1 });
+
+    // Eski server: `pending_addresses` manzil soniga KIRMAGAN — «shundan» deyilmaydi.
+    const old = mapSalesSheet({ totals: { addresses: 3, pending_addresses: 2 } });
+    expect(old.addressesOnPress).toBe(false);
+    expect(old.totals.pendingAddresses).toBe(0);
+    expect(old.pending).toMatchObject({ addresses: 2, addressesIncluded: false });
   });
 
   it("`fee: null` va summasiz `fee` — yozilmagan", () => {

@@ -80,6 +80,19 @@ describe("Telegram matni — bitta kun", () => {
   });
 });
 
+describe("Telegram matni — tasdiqlanmagan manzil (hujjat 108)", () => {
+  it("jami manzil soni yonida «shundan N tasdiqlanmagan»; belgisiz eski serverda yo'q", () => {
+    const build = (totals: Record<string, unknown>) => {
+      const sheet = mapSalesSheet({ date_from: "2026-11-21", date_to: "2026-11-21", products: [], couriers: [], totals });
+      return salesSheetTelegram({ title: "Filial", range: { dateFrom: "2026-11-21", dateTo: "2026-11-21" }, products: [], couriers: [], totals: sheet.totals, regions: null });
+    };
+    expect(build({ addresses: 3, pending_addresses: 1, refused_addresses: 0, pending_in_addresses: true })).toContain(
+      "🚚 Manzil soni: 3 (shundan 1 tasdiqlanmagan) · Borganda atkaz: 0",
+    );
+    expect(build({ addresses: 3, pending_addresses: 1, refused_addresses: 0 })).toContain("🚚 Manzil soni: 3 · Borganda atkaz: 0");
+  });
+});
+
 describe("Telegram matni — oraliq va bitta viloyat", () => {
   it("hafta / oy / oraliq: davr, kuryersiz — har viloyat bitta blok", () => {
     const text = salesSheetTelegram(input("2026-11-16", "2026-11-19"));

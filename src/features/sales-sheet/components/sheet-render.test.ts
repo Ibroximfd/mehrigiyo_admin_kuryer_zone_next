@@ -94,6 +94,37 @@ describe("sotuv jadvali — server render", () => {
     expect(out).toMatch(/title="Boshida 2[^"]*"[^>]*>3<\/td>/);
   });
 
+  it("manzil soni darhol (hujjat 108): katakda «shundan N tasdiqlanmagan», izoh va ma'no yangi qoidada", () => {
+    const figures = { addresses: 3, pending_addresses: 1, refused_addresses: 0, pending_refused_addresses: 0, pending_in_addresses: true };
+    const sheet = mapSalesSheet({
+      date_from: "2026-11-21",
+      date_to: "2026-11-21",
+      products: [],
+      couriers: [{ courier: { id: 27, full_name: "Test Kuryer" }, ...figures }],
+      totals: { ...figures, pending_in_cash: true },
+    });
+    const plain = (markup: string) => text(markup).replaceAll("&#x27;", "'");
+    const out = plain(html(createElement(SalesSheetBody, { sheet, range: { dateFrom: "2026-11-21", dateTo: "2026-11-21" }, onOpenDay: () => undefined })));
+    expect(out).toContain("3 shundan 1 tasdiqlanmagan");
+    expect(out).toContain("Tasdiqlanmagan: 1 ta yetkazilgan manzil (soniga kirgan), 0 ta borganda atkaz");
+    expect(out).toContain("manzil soni logist tasdig'ida aniqlashadi");
+    expect(out).toContain("manzil kuryer «yetkazdim» bosgan zahoti 1 bo'lib qo'shiladi");
+    expect(out).not.toContain("Manzil soni va borganda atkaz — logist tasdiqlagandan keyin qo'shiladi");
+
+    // Eski server (belgisiz): manzil hali kirmagan — «shundan» yo'q, eski izoh.
+    const old = mapSalesSheet({
+      date_from: "2026-11-21",
+      date_to: "2026-11-21",
+      products: [],
+      couriers: [{ courier: { id: 27, full_name: "Test Kuryer" }, addresses: 2 }],
+      totals: { addresses: 2, pending_addresses: 1, pending_in_cash: true },
+    });
+    const oldOut = plain(html(createElement(SalesSheetBody, { sheet: old, range: { dateFrom: "2026-11-21", dateTo: "2026-11-21" }, onOpenDay: () => undefined })));
+    expect(oldOut).not.toContain("tasdiqlanmagan");
+    expect(oldOut).toContain("Kutilmoqda: 1 ta yetkazilgan manzil, 0 ta borganda atkaz");
+    expect(oldOut).toContain("logist tasdiqlagandan keyin qo'shiladi; sotuv va pul");
+  });
+
   it("17.11: kuryer xizmati hali yozilmagan — maydon bo'sh, jami «—»", () => {
     const out = sheetHtml("2026-11-17");
     expect(out).not.toContain("Tuzatish / qaytarish");

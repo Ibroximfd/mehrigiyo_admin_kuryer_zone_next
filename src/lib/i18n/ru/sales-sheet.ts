@@ -222,4 +222,14 @@ export const SALES_SHEET: Dictionary = {
     "— добавляются после подтверждения логиста; продажа и деньги — сразу, как курьер нажал «доставил»",
   "Pul hisobi {x} dan yangidan boshlangan — bu kunga Click, skidka va «Oldim» yozilmaydi.":
     "Денежный учёт начат заново с {x} — за этот день Click, скидку и «Получил» не записать.",
+  // Hujjat 108: manzil soni kuryer bosgan zahoti (sukut 1), logist tasdig'ida aniqlashadi.
+  "shundan {x} tasdiqlanmagan": "из них {x} не подтверждено",
+  "— manzil kuryer «yetkazdim» bosgan zahoti 1 bo'lib qo'shiladi, logist tasdiqlaganda o'z soniga almashadi; borganda atkaz — logist tasdiqlagandan keyin":
+    "— адрес добавляется как 1, как только курьер нажал «доставил», при подтверждении логиста заменяется его числом; отказ на месте — после подтверждения логиста",
+  "Manzil kuryer bosgan zahoti hisoblangan, logist tasdig'ida aniqlashadi":
+    "Адрес засчитан, как только курьер нажал «доставил»; уточнится при подтверждении логиста",
+  "Tasdiqlanmagan: {x} ta yetkazilgan manzil (soniga kirgan), {x2} ta borganda atkaz":
+    "Не подтверждено: доставленных адресов — {x} (уже в счёте), отказов на месте — {x2}",
+  "Sotuv, pul va manzil soni kuryer «yetkazdim» bosgan zahoti hisoblangan — manzil soni logist tasdig'ida aniqlashadi. Borganda atkaz — logist tasdiqlagandan keyin qo'shiladi.":
+    "Продажа, деньги и число адресов засчитаны, как только курьер нажал «доставил» — число адресов уточнится при подтверждении логиста. Отказ на месте — добавляется после подтверждения логиста.",
 };

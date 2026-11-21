@@ -56,6 +56,7 @@ export function idleCourierSheet(courier: CourierRef): CourierSheet {
     onlineAmount: 0,
     discountAmount: 0,
     addresses: 0,
+    pendingAddresses: 0,
     refusedAddresses: 0,
     openOrders: 0,
     fee: null,

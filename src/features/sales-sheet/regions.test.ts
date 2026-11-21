@@ -177,3 +177,13 @@ describe("yig'indi qoidalari", () => {
     expect(sumFigures([figures({ fee: null })], []).fee).toBeNull();
   });
 });
+
+describe("sumFigures — tasdiqlanmagan manzil (hujjat 108)", () => {
+  it("«shundan tasdiqlanmagan» ham yig'iladi — frontend guruhlaganda viloyat jamisida yo'qolmaydi", () => {
+    const block = (addresses: number, pending: number) =>
+      mapSalesSheet({ totals: { addresses, pending_addresses: pending, pending_in_addresses: true } }).totals;
+    const sum = sumFigures([block(3, 1), block(5, 2)], []);
+    expect(sum.addresses).toBe(8);
+    expect(sum.pendingAddresses).toBe(3);
+  });
+});

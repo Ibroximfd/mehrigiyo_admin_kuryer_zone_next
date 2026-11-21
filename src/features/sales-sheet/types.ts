@@ -103,8 +103,17 @@ export type SheetFigures = Record<SheetFlow, CellMap> & {
   /** Ilovada oldindan va eshikda Click/Payme. */
   onlineAmount: number;
   discountAmount: number;
-  /** Yetkazilgan manzillar (to'xtashlar). */
+  /**
+   * Yetkazilgan manzillar (to'xtashlar). Hujjat 108: kuryer «yetkazdim» bosgan
+   * zahoti sukut 1 bilan kiradi, logist tasdiqlaganda o'z soni bilan almashadi.
+   */
   addresses: number;
+  /**
+   * Shundan logist hali tasdiqlamagani (108) — `addresses` ichida, jamiga qayta
+   * qo'shilmaydi. Server `pending_in_addresses: true` bermasa (eski server:
+   * manzil tasdiqni kutgan) — 0, «shundan» deyish noto'g'ri bo'lardi.
+   */
+  pendingAddresses: number;
   /** Kuryer borgan, mijoz rad etgan manzillar. */
   refusedAddresses: number;
   /** Davr oxirida kuryerda yetkazilmay qolgan zakazlar. */
@@ -164,6 +173,11 @@ export type SalesSheet = {
   totals: SheetFigures;
   /** Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan (hujjat 97 §3); yo'q yoki 0 — `null`. */
   pending: SheetPending | null;
+  /**
+   * Manzil soni kuryer bosgan zahoti hisoblanadi (hujjat 108, `totals.pending_in_addresses`);
+   * `false` — eski server: manzil logist tasdig'idan keyin qo'shiladi.
+   */
+  addressesOnPress: boolean;
   checks: SheetCheck[];
 };
 
@@ -181,8 +195,14 @@ export type SheetPending = {
    * (eski server) — pul tasdiqdan keyin qo'shiladi.
    */
   moneyIncluded: boolean;
-  /** Logist tasdig'ini kutayotgan manzillar — manzil soni faqat tasdiqdan keyin qo'shiladi. */
+  /** Logist tasdig'ini kutayotgan yetkazilgan manzillar. */
   addresses: number;
+  /**
+   * `true` (hujjat 108) — ular manzil soniga kuryer bosgan zahoti kirgan, logist
+   * tasdig'ida aniqlashadi; `false` (eski server) — tasdiqdan keyin qo'shiladi.
+   */
+  addressesIncluded: boolean;
+  /** Borganda atkaz — manzil soni logist qaroriga bog'liq, tasdiqdan keyin qo'shiladi (108 ham). */
   refusedAddresses: number;
 };
 
@@ -207,6 +227,7 @@ function mapFigures(raw: unknown): SheetFigures {
     onlineAmount: asNumber(json.online_amount),
     discountAmount: asNumber(json.discount_amount),
     addresses: asInt(json.addresses),
+    pendingAddresses: json.pending_in_addresses === true ? asInt(json.pending_addresses) : 0,
     refusedAddresses: asInt(json.refused_addresses),
     openOrders: asInt(json.open_orders),
     fee: mapFee(json.fee),
@@ -249,7 +270,14 @@ function mapPending(raw: unknown): SheetPending | null {
   const addresses = asOptionalInt(json.pending_addresses) ?? 0;
   const refusedAddresses = asOptionalInt(json.pending_refused_addresses) ?? 0;
   if (salesAmount <= 0 && cashAmount <= 0 && addresses <= 0 && refusedAddresses <= 0) return null;
-  return { salesAmount, cashAmount, moneyIncluded: json.pending_in_cash === true, addresses, refusedAddresses };
+  return {
+    salesAmount,
+    cashAmount,
+    moneyIncluded: json.pending_in_cash === true,
+    addresses,
+    addressesIncluded: json.pending_in_addresses === true,
+    refusedAddresses,
+  };
 }
 
 function mapCheck(raw: unknown): SheetCheck {
@@ -276,6 +304,7 @@ export function mapSalesSheet(raw: unknown): SalesSheet {
     regions: Array.isArray(json.regions) ? json.regions.map(mapRegion) : null,
     totals: mapFigures(json.totals),
     pending: mapPending(json.totals),
+    addressesOnPress: asRecord(json.totals).pending_in_addresses === true,
     checks: asArray(json.checks).map(mapCheck),
   };
 }

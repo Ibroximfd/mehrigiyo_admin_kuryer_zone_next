@@ -62,9 +62,14 @@ function figureLines(figures: SheetFigures, products: readonly SheetProduct[], t
     ...itemLines(figures.gift, products, t),
     ...moneyLines(figures, t),
     ...(withAddresses
-      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)} · ${t("Borganda atkaz")}: ${groupThousands(figures.refusedAddresses)}`]
+      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(figures.refusedAddresses)}`]
       : []),
   ];
+}
+
+/** Hujjat 108: manzil soniga kirgan, logist hali tasdiqlamagani — « (shundan N tasdiqlanmagan)». */
+function pendingAddressText(figures: SheetFigures, t: Translate): string {
+  return figures.pendingAddresses > 0 ? ` (${t(`shundan ${groupThousands(figures.pendingAddresses)} tasdiqlanmagan`)})` : "";
 }
 
 /** Kuryerlar qisqacha — orasida bo'sh qator. */

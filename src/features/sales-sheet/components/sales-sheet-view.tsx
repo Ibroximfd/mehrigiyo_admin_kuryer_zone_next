@@ -24,7 +24,7 @@ import { isSingleDay } from "../period";
 import type { SheetRange } from "../period";
 import type { RegionGroup } from "../regions";
 import { cellOf } from "../types";
-import type { CourierRef, IssuePlan, SalesSheet } from "../types";
+import type { CourierRef, IssuePlan, SalesSheet, SheetPending } from "../types";
 import { useIssuePlan, useSalesSheet } from "../use-sales-sheet";
 import { useSheetPeriod } from "../use-sheet-period";
 import { useSheetRegions } from "../use-sheet-regions";
@@ -174,7 +174,7 @@ export function SalesSheetBody({
       {sklad ? <LoadRequestsSection /> : null}
       <ChecksNote sheet={sheet} />
       <SalesSheetGrid sheet={gridSheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={actions} />
-      <SheetLegend today={today !== null} />
+      <SheetLegend today={today !== null} addressesOnPress={sheet.addressesOnPress} />
       {open?.kind === "receipt" ? <ReceiptDialog sheet={sheet} courier={open.courier} date={range.dateFrom} canAccept={canAccept} onClose={close} /> : null}
       {open?.kind === "document" && sklad ? (
         <CourierDocumentDialog
@@ -210,9 +210,11 @@ function ReceiptDialog({ sheet, courier, date, canAccept, onClose }: { sheet: Sa
 /**
  * Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan sotuv (97 §3). Egasi
  * (2026-11-20, hujjat 101 §6): bosh kuryerda hech narsa tasdiqni kutmaydi —
- * sotuv va pul darhol hisoblanadi, faqat manzil soni (yetkazilgan va borganda
- * atkaz) logist tasdiqlagach qo'shiladi. Server pulni hali kiritmagan bo'lsa
- * (`moneyIncluded: false`) — shuni ochiq aytadi, raqamlar mos kelmayotgandek ko'rinmasin.
+ * sotuv va pul darhol hisoblanadi. Manzil soni ham (21.11, hujjat 108) sukut 1
+ * bilan darhol kiradi, logist tasdig'ida aniqlashadi; borganda atkaz manzili
+ * esa logist qaroriga bog'liq — tasdiqdan keyin. Server biror qismni hali
+ * kiritmagan bo'lsa (`moneyIncluded` / `addressesIncluded: false`) — shuni ochiq
+ * aytadi, raqamlar mos kelmayotgandek ko'rinmasin.
  */
 function PendingNote({ sheet }: { sheet: SalesSheet }) {
   const pending = sheet.pending;
@@ -234,16 +236,25 @@ function PendingNote({ sheet }: { sheet: SalesSheet }) {
           </>
         ) : null}
         {waitingAddresses ? (
-          <span className="block text-meta">{`Kutilmoqda: ${pending.addresses} ta yetkazilgan manzil, ${pending.refusedAddresses} ta borganda atkaz`}</span>
+          <span className="block text-meta">
+            {pending.addressesIncluded
+              ? `Tasdiqlanmagan: ${pending.addresses} ta yetkazilgan manzil (soniga kirgan), ${pending.refusedAddresses} ta borganda atkaz`
+              : `Kutilmoqda: ${pending.addresses} ta yetkazilgan manzil, ${pending.refusedAddresses} ta borganda atkaz`}
+          </span>
         ) : null}
-        <span className="text-ink-muted block text-meta">
-          {pending.moneyIncluded
-            ? "Sotuv va pul kuryer «yetkazdim» bosgan zahoti hisoblangan. Manzil soni va borganda atkaz — logist tasdiqlagandan keyin qo'shiladi."
-            : "Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Pul — server yangilanmaguncha logist tasdiqlagandan keyin «Topshirishi kerak»ga qo'shiladi."}
-        </span>
+        <span className="text-ink-muted block text-meta">{pendingExplanation(pending)}</span>
       </p>
     </div>
   );
+}
+
+function pendingExplanation(pending: SheetPending): string {
+  if (!pending.moneyIncluded) {
+    return "Sotilgan sonlarga kuryer «yetkazdim» bosgan kuni kirdi. Pul — server yangilanmaguncha logist tasdiqlagandan keyin «Topshirishi kerak»ga qo'shiladi.";
+  }
+  return pending.addressesIncluded
+    ? "Sotuv, pul va manzil soni kuryer «yetkazdim» bosgan zahoti hisoblangan — manzil soni logist tasdig'ida aniqlashadi. Borganda atkaz — logist tasdiqlagandan keyin qo'shiladi."
+    : "Sotuv va pul kuryer «yetkazdim» bosgan zahoti hisoblangan. Manzil soni va borganda atkaz — logist tasdiqlagandan keyin qo'shiladi.";
 }
 
 /** Pul zanjiri boshidan oldingi kun (javob 104: toza boshlash 21.11) — pul yozilmaydi, buni ochiq aytamiz. */
@@ -354,7 +365,7 @@ function ChecksNote({ sheet }: { sheet: SalesSheet }) {
 }
 
 /** Qatorlar va ustunlar ma'nosi — rang yagona signal bo'lmasin. */
-function SheetLegend({ today }: { today: boolean }) {
+function SheetLegend({ today, addressesOnPress }: { today: boolean; addressesOnPress: boolean }) {
   return (
     <ul className="text-ink-muted flex flex-col gap-x-6 gap-y-1 text-meta lg:flex-row lg:flex-wrap">
       <li>
@@ -381,7 +392,11 @@ function SheetLegend({ today }: { today: boolean }) {
       ) : null}
       <li>
         <strong className="text-ink font-semibold">Manzil soni / borganda atkaz</strong>
-        <span> — logist tasdiqlagandan keyin qo&apos;shiladi; sotuv va pul — kuryer «yetkazdim» bosgan zahoti</span>
+        <span>
+          {addressesOnPress
+            ? " — manzil kuryer «yetkazdim» bosgan zahoti 1 bo'lib qo'shiladi, logist tasdiqlaganda o'z soniga almashadi; borganda atkaz — logist tasdiqlagandan keyin"
+            : " — logist tasdiqlagandan keyin qo'shiladi; sotuv va pul — kuryer «yetkazdim» bosgan zahoti"}
+        </span>
       </li>
       <li>
         <strong className="text-brand font-semibold">Topshirishi kerak</strong>

@@ -512,8 +512,8 @@ function MoneyCells({
           <ReceiptAction action={cashAction(cash, { single: true, canAccept: edit.actions.canAccept })} courier={edit.courier} onOpen={edit.actions.onReceipt} />
         ) : null}
       </td>
-      <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-ink tabular text-center text-lg2 font-semibold")}>
-        {groupThousands(figures.addresses)}
+      <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-ink tabular text-center text-lg2 font-semibold")} title={addressHint(figures)}>
+        <AddressCount figures={figures} />
       </td>
       <td
         rowSpan={rowSpan}
@@ -523,6 +523,25 @@ function MoneyCells({
       </td>
     </>
   );
+}
+
+/**
+ * Manzil soni (hujjat 108): kuryer «yetkazdim» bosgan zahoti sukut 1 bilan
+ * hisoblanadi, logist tasdiqlaganda o'z soni bilan almashadi — tasdiqlanmagani ostida.
+ */
+function AddressCount({ figures }: { figures: Pick<SheetFigures, "addresses" | "pendingAddresses"> }) {
+  return (
+    <>
+      {groupThousands(figures.addresses)}
+      {figures.pendingAddresses > 0 ? (
+        <span className="text-ink-muted block text-fine leading-tight font-normal">{`shundan ${groupThousands(figures.pendingAddresses)} tasdiqlanmagan`}</span>
+      ) : null}
+    </>
+  );
+}
+
+function addressHint(figures: Pick<SheetFigures, "pendingAddresses">): string | undefined {
+  return figures.pendingAddresses > 0 ? "Manzil kuryer bosgan zahoti hisoblangan, logist tasdig'ida aniqlashadi" : undefined;
 }
 
 /** «Topshirdi» — kuryerdan olingan pul («Oldim»), ostida qolgan qarz (ertaga o'tadi). Blok kelmasa — «—». */
@@ -609,7 +628,9 @@ function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly S
       <td className={cn(DAY_CELL, "text-right")}>{moneyText(money.fee)}</td>
       <td className={cn(DAY_CELL, "text-brand text-right font-semibold")}>{moneyText(money.due)}</td>
       <td className={cn(DAY_CELL, "text-right")}>{moneyText(money.received)}</td>
-      <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.addresses)}</td>
+      <td className={cn(DAY_CELL, "text-center")} title={addressHint(day)}>
+        <AddressCount figures={day} />
+      </td>
       <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.refusedAddresses)}</td>
     </tr>
   );
