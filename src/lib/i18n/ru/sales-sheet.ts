@@ -205,6 +205,8 @@ export const SALES_SHEET: Dictionary = {
   "= davr boshidagi qoldiq + davrda berilgan − kuryerdan qaytarilgan ± tuzatish (katak ustida — tafsiloti)":
     "= остаток на начало + выдано за период − возвращено курьером ± корректировка (подробно — при наведении на ячейку)",
   "{x}: mol berildi": "{x}: товар выдан",
+  "Avval nimadan nechta berishni yozing": "Сначала укажите, что и сколько выдать",
+  "Qizil maydondagi sonni tuzating — skladga butun karobka bo'lib yoziladi": "Исправьте число в красном поле — на склад записываются только целые коробки",
   "Omborda qoldiq minusga tushdi — logistdan mol so'rang": "Остаток на складе ушёл в минус — запросите товар у логиста",
   "= zakazlarga kerak − qo'lida; sonni o'zgartirsa bo'ladi, «Berish» bosilsa darhol beriladi":
     "= нужно для заказов − на руках; число можно изменить, по «Выдать» товар выдаётся сразу",

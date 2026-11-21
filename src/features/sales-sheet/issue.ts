@@ -1,3 +1,5 @@
+import type { ItemRef } from "@/lib/item-ref";
+
 import { cellOf, hasCells } from "./types";
 import type { CellMap, CourierRef, CourierSheet, IssuePlan, PlanCourier, QtyCell, SalesSheet, SheetFigures, SheetProduct } from "./types";
 
@@ -61,6 +63,36 @@ export function idleCourierSheet(courier: CourierRef): CourierSheet {
     cash: null,
   };
   return { ...empty, courier, region: null, days: [] };
+}
+
+/**
+ * Bugungi jadval ustunlari (egasi, 2026-11-21): «Berish kerak» qatori har doim
+ * ochiq — mol harakati bo'lmagan kunda ham (server `products` ni bo'sh beradi)
+ * har mahsulotga son yozib berish mumkin bo'lsin. Avval jadvalnikilar (server
+ * tartibi), keyin rejadagilar, keyin skladdagi qolgan mahsulotlar; takrorsiz.
+ */
+export function todayProducts(sheet: readonly SheetProduct[], plan: IssuePlan | null, items: readonly ItemRef[]): SheetProduct[] {
+  const out = [...sheet];
+  const seen = new Set(out.map((product) => product.id));
+  const add = (product: SheetProduct) => {
+    if (seen.has(product.id)) return;
+    seen.add(product.id);
+    out.push(product);
+  };
+  plan?.products.forEach(add);
+  items.forEach((item) => add(productOfItem(item)));
+  return out;
+}
+
+/** Sklad mahsuloti → jadval ustuni: son sklad birligida yoziladi (aylantirish shart emas). */
+function productOfItem(item: ItemRef): SheetProduct {
+  return {
+    id: item.id,
+    name: item.name,
+    unitLabel: item.unitLabel,
+    countsInDona: item.countsInDona,
+    piecesPerBox: item.piecesPerBox ?? null,
+  };
 }
 
 function sameCell(a: QtyCell, b: QtyCell): boolean {

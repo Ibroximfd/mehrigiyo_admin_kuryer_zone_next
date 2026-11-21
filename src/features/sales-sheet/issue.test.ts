@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { closingMismatch, idleCourierSheet, idleCouriers, issueOf, planOnlyCouriers } from "./issue";
+import { mapItemRef } from "@/lib/item-ref";
+
+import { closingMismatch, idleCourierSheet, idleCouriers, issueOf, planOnlyCouriers, todayProducts } from "./issue";
 import { mapIssuePlan, mapSalesSheet } from "./types";
 
 /** Test server javobi shaklida (2026-11-20): Test Kuryer — qoldig'i bor, zakazlarga choy va bals yetmaydi. */
@@ -69,5 +71,26 @@ describe("bugungi berish — Sotuv jadvalida (egasi, 2026-11-20)", () => {
     expect(closingMismatch(SHEET.couriers[0]!.closing, issueOf(PLAN, 27)!.onHand, products)).toEqual([]);
     const drift = closingMismatch({ "12": { qty: 9, pieces: 0, piecesTotal: 9 } }, issueOf(PLAN, 27)!.onHand, products);
     expect(drift.map((row) => [row.product.id, row.closing, row.onHand])).toEqual([[14, { qty: 0, pieces: 0 }, { qty: 2, pieces: 0, piecesTotal: 2 }]]);
+  });
+});
+
+describe("bugungi ustunlar — «Berish kerak» har doim ochiq (egasi, 2026-11-21)", () => {
+  const items = [
+    mapItemRef({ id: 14, name: "Alatoo bals", unit_label: "dona", count_unit: "piece", stock_unit: "piece", pieces_per_box: 9 }),
+    mapItemRef({ id: 30, name: "Vanna uchun", unit_label: "karobka", stock_unit: "box", pieces_per_box: 6 }),
+  ];
+
+  it("jadvalnikilar, keyin rejadagilar, keyin skladdagi qolganlari — takrorsiz", () => {
+    const fresh = mapSalesSheet({ products: [] });
+    expect(todayProducts(fresh.products, PLAN, items).map((product) => product.id)).toEqual([12, 14, 30]);
+    expect(todayProducts(SHEET.products, null, items).map((product) => product.id)).toEqual([12, 14, 30]);
+    expect(todayProducts([], null, [])).toEqual([]);
+  });
+
+  it("jadval mahsuloti o'zgarmaydi; skladdagi mahsulot sklad birligida ustun bo'ladi", () => {
+    const [, bals, vanna] = todayProducts(SHEET.products.slice(0, 1), null, items);
+    expect(bals).toEqual({ id: 14, name: "Alatoo bals", unitLabel: "dona", countsInDona: true, piecesPerBox: 9 });
+    expect(vanna).toEqual({ id: 30, name: "Vanna uchun", unitLabel: "karobka", countsInDona: false, piecesPerBox: 6 });
+    expect(todayProducts(SHEET.products, null, items)[1]).toBe(SHEET.products[1]);
   });
 });

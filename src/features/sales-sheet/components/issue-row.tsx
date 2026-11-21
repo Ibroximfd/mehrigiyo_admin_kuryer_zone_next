@@ -27,6 +27,8 @@ export type GiveSource = { locationId: number; stock: readonly SkladStockRow[] }
  * `to_issue` i) maydonda yozilgan. «Berish» — hammasi shu sonlar bilan darhol
  * beriladi; birining sonini o'zgartirib (yoki o'chirib, yoki yangisini yozib)
  * bosilsa — o'shancha. Omborda yetmasa ham beriladi (hujjat 90), maydon sariq.
+ * Qator va tugma har doim ochiq (egasi, 2026-11-21): hamma son 0 bo'lsa ham
+ * bosh kuryer kerakli sonni yozib beradi; son yozilmagan bo'lsa — eslatma.
  */
 export function IssueRowCells({
   courier,
@@ -49,10 +51,17 @@ export function IssueRowCells({
   const counts = Object.fromEntries(products.map((product) => [product.id, draftCount(textOf(product.id))]));
   const rowOf = (id: number) => source.stock.find((row) => row.item.id === id);
   const plan = planIssueLines(products, counts, defaults, issue?.issueLines ?? [], (id) => rowOf(id)?.item);
-  const ready = plan.lines.length > 0 && plan.invalid.length === 0 && !give.isPending;
 
   const submit = () => {
-    if (!ready) return;
+    if (give.isPending) return;
+    if (plan.invalid.length > 0) {
+      toast.error("Qizil maydondagi sonni tuzating — skladga butun karobka bo'lib yoziladi");
+      return;
+    }
+    if (plan.lines.length === 0) {
+      toast.info("Avval nimadan nechta berishni yozing");
+      return;
+    }
     const summary = products
       .filter((product) => (counts[product.id] ?? 0) > 0)
       .map((product) => `${product.name} — ${groupThousands(counts[product.id] ?? 0)}`)
@@ -74,7 +83,7 @@ export function IssueRowCells({
     <>
       <RowLabel tone="brand" start={start}>
         <span className="block">Berish kerak</span>
-        <Button size="xs" className="mt-1" disabled={!ready} aria-label={`${courier.fullName}: berish`} onClick={submit}>
+        <Button size="xs" className="mt-1" disabled={give.isPending} aria-label={`${courier.fullName}: berish`} onClick={submit}>
           {give.isPending ? <LoaderCircle className="animate-spin" /> : <ArrowUpFromLine />}
           Berish
         </Button>

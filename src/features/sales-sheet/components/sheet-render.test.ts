@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { demoIssuePlan, demoSalesSheet } from "@/lib/demo/mock/sales-sheet.fixture";
 
 import type { ChiefSklad } from "@/features/sklad/types";
+import { mapItemRef } from "@/lib/item-ref";
 
 import { groupSheetByRegion } from "../regions";
 import { mapIssuePlan, mapSalesSheet } from "../types";
@@ -236,6 +237,31 @@ describe("bugun: berish kerak va kuryerga berish — Sotuv jadvalida (egasi, 202
     expect(out).toContain("Bugun harakati yo&#x27;q kuryerlar");
     expect(out).toContain('aria-label="Sanoq kuryer: tuzatish"');
     expect(out).toContain('aria-label="Sanoq kuryer: berish"');
+  });
+
+  it("toza kun (21.11): jadvalda mahsulot yo'q — skladdagi hamma mahsulotga maydon bor, «Berish» har doim yoqiq", () => {
+    const fresh = mapSalesSheet({ date_from: range.dateFrom, date_to: range.dateTo, products: [], couriers: [{ courier: { id: 5, full_name: "Toza kuryer" } }] });
+    const row = (id: number, name: string) => ({
+      item: mapItemRef({ id, name, unit_label: "dona", count_unit: "piece", stock_unit: "piece", pieces_per_box: 1 }),
+      inSklad: 0,
+      withCouriers: 0,
+      minQuantity: 0,
+      isLow: false,
+    });
+    const emptyPlan = mapIssuePlan({ date: range.dateFrom, products: [], couriers: [], store: { location_id: 7 } });
+    const out = html(
+      createElement(SalesSheetBody, {
+        sheet: fresh,
+        range,
+        onOpenDay: () => undefined,
+        today: { plan: emptyPlan, sklad: { ...sklad, stock: [row(1, "Shifo choy"), row(2, "Alatoo bals")] } },
+      }),
+    );
+    expect(out).toContain('aria-label="Toza kuryer: Shifo choy, berish"');
+    expect(out).toContain('aria-label="Toza kuryer: Alatoo bals, berish"');
+    const button = out.match(/<button[^>]*aria-label="Toza kuryer: berish"[^>]*>/)?.[0] ?? "";
+    expect(button).not.toBe("");
+    expect(button).not.toMatch(/\sdisabled(=""|\s|>)/);
   });
 
   it("o'tgan kun yoki reja yo'q — «Berish kerak» va sklad amallari chiqmaydi", () => {

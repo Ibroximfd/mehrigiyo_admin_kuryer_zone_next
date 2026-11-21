@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 import { cashWritable, sheetMoney } from "../cash-view";
 import { cellText, filledCells, fullDate, moneyText, shortDate } from "../display";
-import { idleCouriers } from "../issue";
+import { idleCouriers, todayProducts } from "../issue";
 import { isSingleDay } from "../period";
 import type { SheetRange } from "../period";
 import type { RegionGroup } from "../regions";
@@ -147,6 +147,8 @@ export function SalesSheetBody({
         }
       : null,
   };
+  // Bugun — «Berish kerak» har doim ochiq: harakatsiz kunda ham hamma mahsulot ustuni bor.
+  const gridSheet = today ? { ...sheet, products: todayProducts(sheet.products, today.plan, sklad?.stock.map((row) => row.item) ?? []) } : sheet;
   const money = sheetMoney(sheet.totals);
   return (
     <>
@@ -171,7 +173,7 @@ export function SalesSheetBody({
       {today?.plan ? <ShortageNote plan={today.plan} /> : null}
       {sklad ? <LoadRequestsSection /> : null}
       <ChecksNote sheet={sheet} />
-      <SalesSheetGrid sheet={sheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={actions} />
+      <SalesSheetGrid sheet={gridSheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={actions} />
       <SheetLegend today={today !== null} />
       {open?.kind === "receipt" ? <ReceiptDialog sheet={sheet} courier={open.courier} date={range.dateFrom} canAccept={canAccept} onClose={close} /> : null}
       {open?.kind === "document" && sklad ? (
