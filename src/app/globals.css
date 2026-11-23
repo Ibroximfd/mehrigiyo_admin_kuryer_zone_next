@@ -624,6 +624,32 @@
   --gutter: 0.75rem;
 }
 
+/* ── Sahifa bo'ylab jadval balandligi (Sotuv jadvali) ────────────────────
+   Shapka yopishishi uchun jadval o'z kartasida siljiydi (`SheetScroll`),
+   karta esa ekrandan baland bo'lmaydi: sahifa oxirigacha surilganda butun
+   karta — shapkasi bilan — ko'rinib turadi. Ayiriladigan qism — ekrandagi
+   doimiy karkas (+ ~1.5rem zaxira: oflayn tasmasi, chegaralar):
+     telefon (<40rem)  tepa panel 3.5rem + pastki menyu 4rem + sahifa tagi 1rem
+     40–48rem          + yopishqoq sahifa sarlavhasi ~6rem
+     ≥48rem            yopishqoq sahifa sarlavhasi ~6rem + sahifa tagi 1.25rem
+   Juda past oynada ham jadval 18rem dan qisqarmaydi.
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  --sheet-max-h: max(18rem, calc(100dvh - 9.5rem - env(safe-area-inset-bottom)));
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --sheet-max-h: max(18rem, calc(100dvh - 16rem - env(safe-area-inset-bottom)));
+  }
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --sheet-max-h: max(18rem, calc(100dvh - 9rem));
+  }
+}
+
 /* ── Unumdorlik pog'onalari ──────────────────────────────────────────────
    `low` — dizaynning o'zi, "buzilgan versiya" emas. Shisha va harakat
    uddalay oladigan mashinaga qo'shiladi, aksincha emas.

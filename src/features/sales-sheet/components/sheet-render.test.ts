@@ -170,6 +170,31 @@ describe("sotuv jadvali — server render", () => {
   });
 });
 
+describe("sotuv jadvali — shapka doim ko'rinadi (egasi, 2026-11-23)", () => {
+  const out = sheetHtml("2026-11-16");
+  const region = out.match(/<div role="region"[^>]*>/)?.[0] ?? "";
+  const heads = out.slice(out.indexOf("<thead>"), out.indexOf("</thead>")).match(/<th [^>]*>/g) ?? [];
+
+  it("jadval o'z kartasida ikki tomonga siljiydi, karta ekrandan baland emas — shapka shu kartaga yopishadi", () => {
+    expect(region).toContain("overflow-auto");
+    expect(region).toContain("max-h-(--sheet-max-h)");
+    // Yopishgan kataklar qatlami kartadan tashqariga chiqmaydi (sahifa sarlavhasi ustiga).
+    expect(region).toContain("isolate");
+  });
+
+  it("shapkaning har katagi tepada yopishgan; «Kuryer» burchagi — chapda ham, eng ustki qatlamda", () => {
+    expect(heads.length).toBeGreaterThan(8);
+    for (const head of heads) expect(head).toMatch(/\bsticky\b[^"]*\btop-0\b/);
+    expect(heads[0]).toContain("left-0");
+    expect(heads[0]).toContain("z-30");
+  });
+
+  it("viloyat sarlavhasi va kuryer ustuni shapkadan pastki qatlamda — ustma-ust tushmaydi", () => {
+    const body = out.slice(out.indexOf("</thead>"));
+    expect(body).not.toMatch(/z-(20|30)\b/);
+  });
+});
+
 describe("sotuv jadvali — viloyatlar kesimi (egasi, 2026-11-19)", () => {
   const LIST = new Map<number, string | null>([
     [31, "toshkent"],

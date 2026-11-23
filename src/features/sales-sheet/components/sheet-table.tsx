@@ -8,8 +8,9 @@ import type { CellMap, SheetProduct } from "../types";
 /**
  * Sotuv jadvali va berish rejasining umumiy jadval bo'laklari (egasi Google
  * Sheet'i ko'rinishida): kuryer — blok, mahsulot — ustun, qatorlar rangli.
- * Chegaralar katakda (`border-separate`): yopishgan sarlavha va kuryer ustuni
- * siljiganda chizig'ini o'zi bilan olib yuradi.
+ * Shapka tepada, kuryer va qator yorlig'i ustunlari chapda yopishgan
+ * (`SheetScroll`). Chegaralar katakda (`border-separate`): yopishgan sarlavha
+ * va kuryer ustuni siljiganda chizig'ini o'zi bilan olib yuradi.
  */
 
 /** Qator rangi — ma'nosi yorliqda ham yozilgan (rang yagona signal emas). */
@@ -40,10 +41,21 @@ const LEAD_WIDTH = "w-28 min-w-28 max-w-28 sm:w-40 sm:min-w-40 sm:max-w-40";
 const LABEL_LEFT = "sm:left-40";
 
 /**
- * Siljiydigan karta: telefonda ham jadval bo'lib qoladi — yonga siljiydi.
- * Balandlik cheklanmaydi: jadval sahifa bo'ylab to'liq ochiladi (egasi,
- * 2026-11-18). `data-wheel-x` — sichqoncha g'ildiragi keng jadvalni yon
- * tomonga suradi (`lib/mouse-scroll`).
+ * Siljiydigan karta: telefonda ham jadval bo'lib qoladi — ikki tomonga siljiydi.
+ *
+ * Shapka doim ko'rinib turadi (egasi, 2026-11-23): `position: sticky` faqat
+ * o'zining siljish konteyneriga yopishadi, yon tomonga siljiydigan karta esa
+ * (`overflow-x`) CSS qoidasiga ko'ra tepa-pastga ham shu konteyner bo'ladi —
+ * shuning uchun vertikal siljish ham kartaning o'zida. Balandlik qat'iy son
+ * emas (2026-11-18 dagi tor 640px oynaga qaytilmaydi): karta ekranga sig'adigan
+ * eng katta bo'yni oladi (`--sheet-max-h` — ekran minus doimiy karkas), qisqa
+ * jadvalda esa hech narsa o'zgarmaydi — sahifaning o'zi siljiydi.
+ *
+ * `isolate` — yopishgan kataklarning `z-index` i kartadan tashqariga chiqmaydi
+ * (sahifa sarlavhasi ustiga chiqib qolmasin). `scroll-p*` — klaviatura bilan
+ * o'tilgan maydon yopishgan shapka va kuryer ustuni ostida qolmaydi.
+ * `data-wheel-x` — sichqoncha g'ildiragi: avval tepa-pastga, chetda yon
+ * tomonga, yon chetda — sahifaga (`lib/mouse-scroll`).
  */
 export function SheetScroll({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -52,7 +64,7 @@ export function SheetScroll({ label, children }: { label: string; children: Reac
       aria-label={label}
       tabIndex={0}
       data-wheel-x
-      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 overflow-x-auto rounded-2xl border outline-none focus-visible:ring-2"
+      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 isolate max-h-(--sheet-max-h) scroll-pt-20 scroll-pl-28 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:scroll-pl-64"
     >
       <table className="w-full border-separate border-spacing-0 text-dense">{children}</table>
     </div>
