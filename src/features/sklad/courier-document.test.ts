@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ItemRef } from "@/lib/item-ref";
 
-import { documentRows, draftQuantity, initialDraft, planDocument } from "./courier-document";
+import { adjustmentSurplus, documentRows, draftQuantity, initialDraft, planDocument } from "./courier-document";
 import type { CourierStock, SkladStockRow } from "./types";
 
 const product = (id: number, name: string, stockFactor = 1): ItemRef => ({
@@ -129,5 +129,31 @@ describe("berish va qabul — avvalgidek", () => {
     expect(draftQuantity(undefined)).toBe(0);
     expect(draftQuantity("abc")).toBe(0);
     expect(draftQuantity("-3")).toBe(0);
+  });
+});
+
+describe("tuzatishda kuryerga qo'shilgan mol — Jami oshadi (hujjat 113/114)", () => {
+  const surplusOf = (draft: Record<number, string>) => {
+    const rows = documentRows("adjustment", courier([[TEA, 5], [KREMI, 6], [RAYHON, -3]]), STOCK);
+    return adjustmentSurplus(planDocument("adjustment", rows, { ...initialDraft("adjustment", rows), ...draft }).lines).map(
+      ({ item, extra }) => [item.name, extra],
+    );
+  };
+
+  it("sanalgan qoldiqdan ko'p — farqi; kam yoki teng — ro'yxatga kirmaydi", () => {
+    expect(surplusOf({ [TEA.id]: "9", [KREMI.id]: "4" })).toEqual([["Tea", 4]]);
+  });
+
+  it("kuryerda yo'q mahsulot 0 dan yozilsa — hammasi qo'shiladi", () => {
+    expect(surplusOf({ [ELIXIR.id]: "2" })).toEqual([["Elixir", 2]]);
+  });
+
+  it("minusni yopish ham Jamini oshiradi: −3 → 2 = +5", () => {
+    expect(surplusOf({ [RAYHON.id]: "2" })).toEqual([["Rayhon", 5]]);
+  });
+
+  it("hech narsa o'zgarmasa yoki faqat kamaysa — bo'sh", () => {
+    expect(surplusOf({})).toEqual([]);
+    expect(surplusOf({ [TEA.id]: "1" })).toEqual([]);
   });
 });

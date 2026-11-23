@@ -598,6 +598,11 @@ export const CHIEF: Dictionary = {
   "Rad etish sababi": "Причина отказа",
   "Sanaganda chiqqan sonni yozing — kuryer qoldig'i shunga tenglashadi.": "Введите посчитанное количество — остаток курьера станет равен ему.",
   "Sanaldi": "Посчитано",
+  // Tuzatishda kuryerga qo'shilgan mol — Jami oshadi (hujjat 113/114).
+  "Jami oshadi:": "Итого вырастет:",
+  "Tuzatish molni skladdan olmaydi. Mol skladdan berilgan bo'lsa, bu oynani yoping va «Berish» ni ishlating — aks holda mol ikki marta sanaladi.":
+    "Корректировка не списывает товар со склада. Если товар выдан со склада — закройте окно и используйте «Выдать», иначе товар посчитается дважды.",
+  "Bu mol skladdan berilmagan — sanoqda ortiqcha chiqdi": "Этот товар не выдавался со склада — при пересчёте оказался излишек",
   "Saqlab bo'lmadi": "Не удалось сохранить",
   "Sklad ombori topilmadi — bosh logistga murojaat qiling.": "Склад не найден — обратитесь к главному логисту.",
   "Skladda berish uchun mol yo'q.": "На складе нет товара для выдачи.",

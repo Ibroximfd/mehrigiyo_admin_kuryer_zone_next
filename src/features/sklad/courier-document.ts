@@ -92,3 +92,13 @@ export function planDocument(mode: CourierDocumentMode, rows: readonly DocumentR
     overLimit: mode !== "adjustment" && lines.some(({ row, qty }) => qty > row.available),
   };
 }
+
+/**
+ * Tuzatishda kuryerga qo'shilayotgan mol (sanalgan > qoldiq) — Jami shuncha oshadi,
+ * ekrandagi birlikda. Tuzatish molni skladdan olmaydi: 2026-11-23 da Vodiyda kuryerga
+ * berilgan mol «Berish» o'rniga «Tuzatish» bilan yozilib, ikki marta sanalgan (hujjat
+ * 113/114). Ro'yxat bo'sh bo'lmasa oyna ogohlantiradi va tasdiq so'raydi.
+ */
+export function adjustmentSurplus(lines: DocumentPlan["lines"]): Array<{ item: ItemRef; extra: number }> {
+  return lines.filter(({ row, qty }) => qty > row.available).map(({ row, qty }) => ({ item: row.item, extra: qty - row.available }));
+}

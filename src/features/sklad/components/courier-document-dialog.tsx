@@ -1,14 +1,16 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, TriangleAlert } from "lucide-react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
 import { inputClass } from "@/components/kit/field";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { ApiError, errorCode, errorMessage } from "@/lib/api-client";
 import { groupThousands } from "@/lib/format";
 import { shownQuantity, shownUnit, stockQuantityOf } from "@/lib/item-ref";
@@ -16,7 +18,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { createCourierDocument } from "../api";
-import { documentRows, draftQuantity, initialDraft, planDocument } from "../courier-document";
+import { adjustmentSurplus, documentRows, draftQuantity, initialDraft, planDocument } from "../courier-document";
 import type { CourierDocumentMode } from "../courier-document";
 import { mapShortages, type CourierStock, type SkladStockRow } from "../types";
 
@@ -69,6 +71,11 @@ export function CourierDocumentDialog({
   const value = (id: number) => draftQuantity(draft[id]);
   const { lines, sendable, notWhole, overLimit } = planDocument(mode, rows, draft);
   const needsStore = mode !== "adjustment" && store === null;
+  // Kuryerga qo'shilayotgan mol Jamini oshiradi — tasdiqsiz saqlanmaydi. Son o'zgarsa tasdiq qaytadan so'raladi.
+  const surplus = mode === "adjustment" ? adjustmentSurplus(lines) : [];
+  const surplusKey = surplus.map(({ item, extra }) => `${item.id}:${extra}`).join(",");
+  const [confirmedSurplus, setConfirmedSurplus] = useState<string | null>(null);
+  const surplusConfirmed = surplus.length === 0 || confirmedSurplus === surplusKey;
 
   const save = useMutation({
     mutationFn: (all: boolean) => {
@@ -154,6 +161,13 @@ export function CourierDocumentDialog({
         )}
         {overLimit ? <p className="text-warn mt-2 text-meta">Ba&apos;zi qatorda bordan ko&apos;p — saqlanadi, qoldiq minusga tushadi.</p> : null}
         {notWhole ? <p className="text-danger mt-2 text-meta">Karobkada turgan mahsulotda son butun karobkaga teng bo&apos;lsin.</p> : null}
+        {surplus.length > 0 ? (
+          <SurplusWarning
+            surplus={surplus}
+            confirmed={surplusConfirmed}
+            onConfirm={(checked) => setConfirmedSurplus(checked ? surplusKey : null)}
+          />
+        ) : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -164,12 +178,57 @@ export function CourierDocumentDialog({
               Hammasini qabul qilish
             </Button>
           ) : null}
-          <Button type="button" disabled={needsStore || lines.length === 0 || notWhole || save.isPending} onClick={() => save.mutate(false)}>
+          <Button
+            type="button"
+            disabled={needsStore || lines.length === 0 || notWhole || !surplusConfirmed || save.isPending}
+            onClick={() => save.mutate(false)}
+          >
             {save.isPending ? <LoaderCircle className="animate-spin" /> : null}
             {copy.submit}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Tuzatishda kuryerga mol qo'shilyapti: Jami shuncha oshadi, sklad kamaymaydi. Skladdan berilgan mol
+ * «Berish» bilan yozilishi kerak — aks holda ikki marta sanaladi (hujjat 113/114).
+ */
+function SurplusWarning({
+  surplus,
+  confirmed,
+  onConfirm,
+}: {
+  surplus: ReturnType<typeof adjustmentSurplus>;
+  confirmed: boolean;
+  onConfirm: (checked: boolean) => void;
+}) {
+  return (
+    <div role="alert" className="border-warn bg-warn-soft mt-3 rounded-xl border px-3 py-2.5">
+      <p className="text-warn flex items-start gap-1.5 text-dense font-semibold">
+        <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>
+          Jami oshadi:{" "}
+          {surplus.map(({ item, extra }, index) => (
+            <span key={item.id}>
+              {index > 0 ? ", " : null}
+              <span data-no-translit>{item.name}</span> <span className="tabular">+{groupThousands(extra)}</span> {shownUnit(item)}
+            </span>
+          ))}
+        </span>
+      </p>
+      <p className="text-ink-muted mt-1 text-meta">
+        Tuzatish molni skladdan olmaydi. Mol skladdan berilgan bo&apos;lsa, bu oynani yoping va «Berish» ni ishlating — aks holda
+        mol ikki marta sanaladi.
+      </p>
+      <div className="mt-2 flex items-start gap-2.5">
+        <Checkbox id="courier-adjustment-surplus" checked={confirmed} onCheckedChange={(value) => onConfirm(value === true)} />
+        <Label htmlFor="courier-adjustment-surplus" className="text-ink text-dense">
+          Bu mol skladdan berilmagan — sanoqda ortiqcha chiqdi
+        </Label>
+      </div>
+    </div>
   );
 }
