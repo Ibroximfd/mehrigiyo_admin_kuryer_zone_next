@@ -13,11 +13,41 @@ describe("mapZoneStats", () => {
       unzoned: { orders: 2, incoming: 2, districts: [{ code: "fargona/furqat", orders: 2, incoming: 2 }] },
       no_district: { orders: 1, incoming: 1, with_courier: 0, delivered: 0 },
     });
-    expect(stats.total).toEqual({ orders: 10, incoming: 3, withCourier: 5, delivered: 2 });
+    expect(stats.total).toEqual({ orders: 10, incoming: 3, withCourier: 5, delivered: 2, open: 8 });
     expect(stats.zones.get(3)?.districts.get("fargona/qoqon_sh")?.orders).toBe(7);
     expect(stats.unzoned.districts.get("fargona/furqat")?.orders).toBe(2);
     expect(stats.unzoned.incoming).toBe(2);
-    expect(stats.noDistrict).toEqual({ orders: 1, incoming: 1, withCourier: 0, delivered: 0 });
+    expect(stats.noDistrict).toEqual({ orders: 1, incoming: 1, withCourier: 0, delivered: 0, open: 1 });
+  });
+
+  it("ochiq zakaz = kuryersiz + kuryerda, yetkazilganlarsiz (egasi, 2026-11-23)", () => {
+    const stats = mapZoneStats({
+      total: { orders: 44, incoming: 15, with_courier: 18, delivered: 11 },
+      zones: [
+        {
+          id: 2,
+          orders: 44,
+          incoming: 15,
+          with_courier: 18,
+          delivered: 11,
+          districts: [
+            { code: "andijon/asaka", orders: 13, incoming: 4, with_courier: 6, delivered: 3 },
+            // Faqat `delivered` kelgan — ayirma aniq.
+            { code: "andijon/shahrixon", orders: 13, delivered: 5 },
+            // Bo'linishsiz jami — ochiq soni noma'lum, jami «ochiq» deb ko'rsatilmaydi.
+            { code: "andijon/marhamat", orders: 10 },
+            { code: "andijon/boz", orders: 0 },
+          ],
+        },
+      ],
+    });
+    const zone = stats.zones.get(2);
+    expect(stats.total.open).toBe(33);
+    expect(zone?.open).toBe(33);
+    expect(zone?.districts.get("andijon/asaka")?.open).toBe(10);
+    expect(zone?.districts.get("andijon/shahrixon")?.open).toBe(8);
+    expect(zone?.districts.get("andijon/marhamat")?.open).toBeNull();
+    expect(zone?.districts.get("andijon/boz")?.open).toBe(0);
   });
 
   it("bo'sh javob yiqitmaydi", () => {

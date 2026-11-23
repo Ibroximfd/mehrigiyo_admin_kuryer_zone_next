@@ -24,7 +24,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useLocaleStore } from "@/stores/locale-store";
 
-import type { ZoneStats } from "../zone-stats";
+import type { OrderCounts, ZoneStats } from "../zone-stats";
 import { sortZones } from "../zones";
 import { DistrictsManager } from "./chief-districts";
 import { ZoneCard } from "./zone-card";
@@ -35,7 +35,9 @@ import { ZoneForm } from "./zone-form";
 /**
  * Zonalar (§5b, hujjat 69): zona bir nechta viloyat tumanlaridan, begona
  * viloyatdan ham. Tepada davr — har tuman va zona yonida shu davrda tushgan
- * zakazlar soni. Zonani tahrirlash va o'chirish (faol zakaz bo'lsa — yo'q).
+ * OCHIQ zakazlar soni: kuryersiz + kuryerda. Yetkazilgani bu sahifada yo'q
+ * (egasi, 2026-11-23 — taqsimlashga xalaqit berardi). Zonani tahrirlash va
+ * o'chirish (faol zakaz bo'lsa — yo'q).
  */
 export function ChiefZones({ me }: { me: ChiefMe }) {
   const locale = useLocaleStore((state) => state.locale);
@@ -195,14 +197,14 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   );
 }
 
-/** Davr bo'yicha jami: zakaz · kuryersiz · kuryerda · yetkazildi. */
+/** Davr bo'yicha ochiq zakazlar: jami (kuryersiz + kuryerda) · kuryersiz · kuryerda. */
 function StatsFigures({ stats }: { stats: ZoneStats | null }) {
   if (!stats) return <Skeleton className="h-20 rounded-2xl" />;
   const { total } = stats;
   return (
     <KeyFigures
       items={[
-        { label: "Jami zakaz", value: groupThousands(total.orders) },
+        { label: "Jami zakaz", value: total.open === null ? "—" : groupThousands(total.open) },
         {
           label: "Kuryersiz",
           value: groupThousands(total.incoming),
@@ -210,7 +212,6 @@ function StatsFigures({ stats }: { stats: ZoneStats | null }) {
           hint: total.incoming > 0 ? "Kuryerga berilmagan" : undefined,
         },
         { label: "Kuryerda", value: groupThousands(total.withCourier) },
-        { label: "Yetkazildi", value: groupThousands(total.delivered), tone: total.delivered > 0 ? "ok" : "default" },
       ]}
     />
   );
@@ -220,13 +221,15 @@ function StatsFigures({ stats }: { stats: ZoneStats | null }) {
  * Zonasiz joylar: o'z viloyatlaridagi zonaga kirmagan tumanlar (ro'yxatdan) va
  * server `unzoned` da sanagan, zakazi bor tumanlar — ular orasida begona zonadagi
  * tumandan qolgan eski zakaz ham bo'ladi (71-javob §3). Zakazlisi oldinda.
+ * Son — ochiq zakazlar; server bu qatorda bo'linishni bermasa (`open: null`) jami qoladi.
  */
 function UnzonedBanner({ codes, nameOf, stats }: { codes: string[]; nameOf: (code: string) => string; stats: ZoneStats | null }) {
-  const countOf = (code: string) => stats?.unzoned.districts.get(code)?.orders ?? 0;
+  const shown = (counts: OrderCounts | undefined) => (counts ? (counts.open ?? counts.orders) : 0);
+  const countOf = (code: string) => shown(stats?.unzoned.districts.get(code));
   const withOrders = [...(stats?.unzoned.districts.keys() ?? [])].filter((code) => countOf(code) > 0);
   const all = [...new Set([...codes, ...withOrders])].sort((a, b) => countOf(b) - countOf(a));
-  const orders = stats?.unzoned.orders ?? 0;
-  const noDistrict = stats?.noDistrict.orders ?? 0;
+  const orders = shown(stats?.unzoned);
+  const noDistrict = shown(stats?.noDistrict);
   if (all.length === 0 && noDistrict === 0) return null;
 
   return (

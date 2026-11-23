@@ -7,6 +7,12 @@ export type OrderCounts = {
   incoming: number;
   withCourier: number;
   delivered: number;
+  /**
+   * Ochiq zakazlar — kuryersiz + kuryerda, yetkazilganlarsiz (egasi, 2026-11-23: Zonalar
+   * sahifasi taqsimlash uchun, yetkazilgani kerak emas). Server shu qatorda bo'linishni
+   * bermagan bo'lsa `null` — jami sonni «ochiq» deb ko'rsatmaymiz.
+   */
+  open: number | null;
 };
 
 export type AreaStats = OrderCounts & { districts: Map<string, OrderCounts> };
@@ -20,16 +26,26 @@ export type ZoneStats = {
   noDistrict: OrderCounts;
 };
 
-export const EMPTY_COUNTS: OrderCounts = { orders: 0, incoming: 0, withCourier: 0, delivered: 0 };
+export const EMPTY_COUNTS: OrderCounts = { orders: 0, incoming: 0, withCourier: 0, delivered: 0, open: 0 };
+
+const given = (value: unknown): boolean => value !== undefined && value !== null;
 
 function mapCounts(raw: unknown): OrderCounts {
   const json = asRecord(raw);
-  return {
-    orders: asInt(json.orders),
-    incoming: asInt(json.incoming),
-    withCourier: asInt(json.with_courier),
-    delivered: asInt(json.delivered),
-  };
+  const orders = asInt(json.orders);
+  const incoming = asInt(json.incoming);
+  const withCourier = asInt(json.with_courier);
+  const delivered = asInt(json.delivered);
+  // Bo'linish kelgan — aniq; faqat `delivered` kelgan — ayirma; hech biri yo'q — faqat 0 aniq.
+  const open =
+    given(json.incoming) || given(json.with_courier)
+      ? incoming + withCourier
+      : given(json.delivered)
+        ? Math.max(0, orders - delivered)
+        : orders === 0
+          ? 0
+          : null;
+  return { orders, incoming, withCourier, delivered, open };
 }
 
 function mapArea(raw: unknown): AreaStats {

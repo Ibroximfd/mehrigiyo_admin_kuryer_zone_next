@@ -37,6 +37,8 @@ export const DISPATCH: Dictionary = {
   "Hech qaysi zonada emas · {x} tuman": "Не в зоне · районов: {x}",
   Viloyatsiz: "Без области",
   "{x} kuryer": "курьеров: {x}",
+  // Zona kartasi: tumandagi kuryerga berilmagan zakazlar (egasi, 2026-11-23).
+  "{x} kuryersiz": "без курьера: {x}",
   "{x} o'chirildi": "{x} удалена",
   "Zonani o'chirishda xatolik": "Ошибка удаления зоны",
   "«{x}» o'chirilsinmi?": "Удалить «{x}»?",
