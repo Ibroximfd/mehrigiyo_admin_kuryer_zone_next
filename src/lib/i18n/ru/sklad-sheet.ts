@@ -20,6 +20,16 @@ export const SKLAD_SHEET: Dictionary = {
 
   // ── Kunlik ──────────────────────────────────────────────────────────────
   "{x} — kunlik harakat": "{x} — движение за день",
+  // Kunning saqlangan holati (egasi, 2026-11-23; hujjat 117) — sotuvgacha: Jami · kuryerlarga berilgan · omborda qolgan.
+  "{x} — kun holati": "{x} — состояние дня",
+  "Kun holati": "Состояние дня",
+  "Kuryerlar sotuv qilmasdan oldingi holat — sotuv va sovg'a bu yerda ayrilmaydi, ular ayrilgan qoldiq ertangi kun boshiga o'tadi. Sariq — minimaldan kam · qizil — tugagan yoki minus":
+    "Состояние до продаж курьеров — продажи и подарки здесь не вычитаются, остаток после них переходит на начало следующего дня. Жёлтый — меньше минимума · красный — закончился или минус",
+  "Kuryerlarga berilgan": "Выдано курьерам",
+  "Omborda qolgan": "Осталось на складе",
+  "Kun holati — server hali chiqarmagan": "Состояние дня — сервер ещё не выпустил",
+  "Kuryerlarga berilgani va omborda qolgani bu kun uchun serverda hali yo'q — backend yangilanishi chiqqach shu yerda ko'rinadi.":
+    "Сколько выдано курьерам и сколько осталось на складе за этот день, сервер пока не отдаёт — появится здесь после обновления бэкенда.",
   "Kun boshi + korxonadan − sotuv − sovg'a − korxonaga − chiqim ± tuzatish = kun oxiri":
     "Начало дня + от компании − продажа − подарок − в компанию − списание ± корректировка = конец дня",
   "Kunlik harakat": "Движение за день",

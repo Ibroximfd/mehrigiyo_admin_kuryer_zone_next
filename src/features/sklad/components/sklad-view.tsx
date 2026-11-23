@@ -14,7 +14,8 @@ import { useSkladLive } from "../use-sklad-live";
 
 /**
  * Sklad (§5; TZ 32 S-7; egasi, 2026-11-20): bitta ko'rinish — kun tanlash,
- * hozirgi qoldiq (Jami · Kuryerlarda · Omborda) va kunlik harakat. «Sanadan
+ * kunning saqlangan holati (Jami · kuryerlarga berilgan · omborda qolgan —
+ * sotuvgacha; egasi, 2026-11-23) va kunlik harakat. «Sanadan
  * sanagacha» va «Kuryerlar ombori» olib tashlandi: kuryerga berish, qabul,
  * tuzatish va kirim so'rovlari — Sotuv jadvalida. Bosh kuryer faqat o'ziga
  * biriktirilgan skladni ko'radi; boshqa skladga o'tkazilsa (`sklad_changed`)
@@ -48,7 +49,7 @@ export function SkladView({ me }: { me: ChiefMe }) {
       />
     );
   }
-  // Hozirgi qoldiq javobdagi `current` blokidan; u hali kelmasa — shu yerda yuklangan sklad qoldig'i.
+  // Server kun holatini hali bermasa bugun «Hozirgi qoldiq» ham chiziladi: javobdagi `current`, u kelmasa — shu yerda yuklangan sklad qoldig'i.
   return <SkladDayView fallback={data.stock} />;
 }
 

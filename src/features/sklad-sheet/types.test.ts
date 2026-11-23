@@ -70,6 +70,7 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
       dateFrom: "",
       dateTo: "",
       products: [],
+      dayState: null,
       current: null,
       opening: null,
       fromCompany: null,
@@ -92,6 +93,21 @@ describe("mapSkladSheet (hujjat 85 §1)", () => {
   it("harakat ichida yo'q kalit — nol katak (saqlanmaydi); summa yo'q — `null`", () => {
     const sheet = mapSkladSheet({ sold: { items: { "6": { qty: 0, pieces: 0 }, "7": { qty: 3 } } } });
     expect(sheet.sold).toEqual({ items: { "7": { qty: 3, pieces: 0 } }, amount: null });
+  });
+
+  it("`day_state` (hujjat 117) — uchala blok bo'lsa o'qiladi (`{items}` ham, yalang kataklar ham); yarim holat — `null`", () => {
+    const cell = { qty: 328, pieces: 0, pieces_total: 984 };
+    const wrapped = mapSkladSheet({ day_state: { total: { items: { "34": cell } }, couriers: { items: { "34": { qty: 100 } } }, store: { items: {} } } });
+    expect(wrapped.dayState).toEqual({
+      total: { "34": { qty: 328, pieces: 0, piecesTotal: 984 } },
+      couriers: { "34": { qty: 100, pieces: 0 } },
+      store: {},
+    });
+    expect(mapSkladSheet({ day_state: { total: { "34": cell }, couriers: {}, store: {} } }).dayState?.total).toEqual({
+      "34": { qty: 328, pieces: 0, piecesTotal: 984 },
+    });
+    expect(mapSkladSheet({ day_state: { total: {}, couriers: {} } }).dayState).toBeNull();
+    expect(mapSkladSheet({ day_state: null }).dayState).toBeNull();
   });
 
   it("`current` — uchala blok bo'lmasa `null` (yarim blokdan son yasalmaydi); `min` yo'q — chegara yo'q", () => {

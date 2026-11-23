@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { buildCurrentStock, linesFromCurrent } from "../current-stock";
 import { mapSkladSheet } from "../types";
 import type { SkladSheet } from "../types";
-import { CurrentStockPanel, selectCurrentStock } from "./current-stock-panel";
+import { CurrentStockPanel, currentStockOf } from "./current-stock-panel";
+import { DayStockPanel, DayStockSlot } from "./day-stock-panel";
 import { DaySheetBody } from "./sklad-day-view";
 
 /**
@@ -123,15 +124,80 @@ describe("hozirgi qoldiq — server render", () => {
 
   it("manba: javobda `current` bo'lsa — serverniki, aks holda (yuklanmoqda, endpoint yo'q) — sahifa yuklagan sklad qoldig'i", () => {
     const fallback = [{ item: { id: 6, name: "Tea", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 }, inSklad: 40, withCouriers: 2, minQuantity: 0 }];
-    // `selectCurrentStock` faqat `data` ni o'qiydi — so'rov natijasining qolgan maydonlari kerak emas.
-    const query = (data?: SkladSheet) => ({ data }) as unknown as UseQueryResult<SkladSheet>;
-    expect(selectCurrentStock(query(), fallback).storeTotal).toBe(40);
-    expect(selectCurrentStock(query(mapSkladSheet({ products: PRODUCTS })), fallback).storeTotal).toBe(40);
+    expect(currentStockOf(undefined, fallback).storeTotal).toBe(40);
+    expect(currentStockOf(mapSkladSheet({ products: PRODUCTS }), fallback).storeTotal).toBe(40);
     const server = mapSkladSheet({ products: PRODUCTS.slice(0, 1), current: { store: { "6": { qty: 52 } }, couriers: {}, total: { "6": { qty: 52 } } } });
-    expect(selectCurrentStock(query(server), fallback)).toMatchObject({ storeTotal: 52, couriersTotal: 0 });
+    expect(currentStockOf(server, fallback)).toMatchObject({ storeTotal: 52, couriersTotal: 0 });
   });
 
   it("mahsulot yo'q — bo'sh holat", () => {
     expect(html(createElement(CurrentStockPanel, { model: buildCurrentStock([]) }))).toContain("Skladda mahsulot yo&#x27;q");
+  });
+});
+
+describe("kun holati (egasi, 2026-11-23) — server render", () => {
+  const fallback = [{ item: { id: 6, name: "Tea", image: null, unitLabel: "dona", countsInDona: false, stockFactor: 1 }, inSklad: 40, withCouriers: 2, minQuantity: 0 }];
+  const current = {
+    store: { "6": { qty: 12 }, "7": { qty: 180 } },
+    couriers: { "6": { qty: 10 }, "7": { qty: 73 } },
+    total: { "6": { qty: 22 }, "7": { qty: 253 } },
+  };
+  const panel = (raw: Record<string, unknown>, isToday: boolean) =>
+    html(createElement(DayStockPanel, { sheet: mapSkladSheet(raw), day: "2026-11-17", isToday, fallback }));
+
+  it("server `day_state` — uch qator serverdan, sotuv ayrilmagan; «Hozirgi qoldiq» bo'limi yo'q", () => {
+    const out = panel(
+      {
+        ...DAY,
+        current,
+        day_state: {
+          total: { items: { "6": { qty: 76 }, "7": { qty: 1036 } } },
+          couriers: { items: { "6": { qty: 60 }, "7": { qty: 800 } } },
+          store: { items: { "6": { qty: 16 }, "7": { qty: 236 } } },
+        },
+      },
+      true,
+    );
+    for (const label of ["17.11.2026 — kun holati", "Jami", "Kuryerlarga berilgan", "Omborda qolgan", "Kam qolgan"]) expect(out).toContain(label);
+    expect(out).toContain(">1 036<");
+    expect(out).toContain(">800<");
+    expect(out).toContain(">236<");
+    expect(out).not.toContain("Hozirgi qoldiq");
+    expect(out).not.toContain("serverda hali yo");
+  });
+
+  it("server bo'linishni bermaydi, bugun — «Jami» sotuvgacha (kun oxiri + sotuv + sovg'a), bo'linish uchun «Hozirgi qoldiq» qoladi", () => {
+    const out = panel({ ...DAY, current }, true);
+    // 22 + 54 = 76 (choy), 253 + 783 = 1 036 (rayhon) — egasi sheet'idagi 17.11 kun boshi.
+    expect(text(out)).toContain("Jami 76 0 19 1 036 217 83 69 24 3 38");
+    // Bo'linish qatorlari yo'q (izoh matnida bu so'zlar bor — qator yorlig'i emas).
+    expect(out).not.toContain(">Kuryerlarga berilgan<");
+    expect(out).not.toContain(">Omborda qolgan<");
+    expect(out).toContain("serverda hali yo&#x27;q");
+    expect(out).toContain("Hozirgi qoldiq");
+    expect(out).toContain(">180<");
+  });
+
+  it("server bo'linishni bermaydi, o'tgan kun — faqat «Jami» va izoh; hozirgi qoldiq o'tgan kunga yopishtirilmaydi", () => {
+    const out = panel({ ...DAY, current }, false);
+    expect(text(out)).toContain("Jami 76 0 19 1 036 217 83 69 24 3 38");
+    expect(out).toContain("serverda hali yo&#x27;q");
+    expect(out).not.toContain("Hozirgi qoldiq");
+    expect(out).not.toContain("Kam qolgan");
+  });
+
+  it("javobda harakat bloklari yo'q — holat yasalmaydi, neytral izoh", () => {
+    expect(panel({ products: PRODUCTS }, false)).toContain("Kun holati — server hali chiqarmagan");
+  });
+
+  it("so'rov holati: boshqa kunning vaqtinchalik javobi chizilmaydi; xatoda bugun — sklad qoldig'i, o'tgan kun — bo'sh", () => {
+    const slot = (query: Partial<UseQueryResult<SkladSheet>>, isToday: boolean) =>
+      html(createElement(DayStockSlot, { query: query as UseQueryResult<SkladSheet>, day: "2026-11-17", isToday, fallback }));
+    const sheet = mapSkladSheet({ ...DAY, current });
+    expect(slot({ data: sheet, isPlaceholderData: true }, false)).toContain("Yuklanmoqda");
+    expect(slot({ data: sheet, isPlaceholderData: false }, false)).toContain("kun holati");
+    expect(slot({ isError: true }, true)).toContain("Hozirgi qoldiq");
+    expect(slot({ isError: true }, false)).toBe("");
+    expect(slot({ fetchStatus: "paused" }, false)).toBe("");
   });
 });

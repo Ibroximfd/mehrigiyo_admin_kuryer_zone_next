@@ -16,14 +16,15 @@ import type { SkladSheet } from "../types";
 import { useSkladSheet, useSkladSheetPeriod } from "../use-sklad-sheet";
 import { groupThousands } from "@/lib/format";
 import { qtyCount } from "@/lib/qty-cell";
-import { CurrentStockPanel, selectCurrentStock } from "./current-stock-panel";
+import { DayStockSlot } from "./day-stock-panel";
 import { DaySheetTable } from "./day-sheet-table";
 import { SkladSheetExcelButton } from "./sklad-sheet-excel-button";
 
 /**
- * Sklad sahifasi (hujjat 85 §1, egasi maketi SkladKun): kun tanlash, hozirgi
- * qoldiq va kunlik harakat jadvali — bitta so'rov (`date_from = date_to`).
- * Sukut — bugun; bugun ochiq bo'lsa jadval o'zi yangilanib turadi.
+ * Sklad sahifasi (hujjat 85 §1, egasi maketi SkladKun): kun tanlash, kunning
+ * saqlangan holati (egasi, 2026-11-23 — sotuvgacha: Jami · kuryerlarga
+ * berilgan · omborda qolgan) va kunlik harakat jadvali — bitta so'rov
+ * (`date_from = date_to`). Sukut — bugun; bugun ochiq bo'lsa o'zi yangilanib turadi.
  */
 export function SkladDayView({ fallback }: { fallback: readonly SkladStockFallback[] }) {
   const period = useSkladSheetPeriod();
@@ -39,7 +40,7 @@ export function SkladDayView({ fallback }: { fallback: readonly SkladStockFallba
           <SkladSheetExcelButton query={query} />
         </div>
       </div>
-      <CurrentStockPanel model={selectCurrentStock(sheet, fallback)} />
+      <DayStockSlot query={sheet} day={period.day} isToday={isToday} fallback={fallback} />
       <Section title={`${fullDate(period.day)} — kunlik harakat`} description="Kun boshi + korxonadan − sotuv − sovg'a − korxonaga − chiqim ± tuzatish = kun oxiri">
         <QueryStateView
           query={sheet}

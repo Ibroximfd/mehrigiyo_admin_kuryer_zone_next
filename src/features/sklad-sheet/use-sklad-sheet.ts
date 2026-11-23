@@ -13,9 +13,9 @@ import { resolveDay } from "./period";
 
 /**
  * Sklad jadvali. Oldingi javob vaqtinchalik (`placeholderData`) ushlab
- * turiladi — faqat «Hozirgi qoldiq» uchun: u sanaga bog'liq emas. Jadvalning
- * o'zi vaqtinchalik javobni chizmaydi (`QueryStateView`): pul va mol jadvalida
- * eski raqam yangi sana nomi bilan ko'rinmasin.
+ * turiladi, lekin ekranda chizilmaydi: kun holati ham, kunlik harakat ham
+ * sanaga bog'liq (`DayStockSlot`, `QueryStateView`) — eski raqam yangi sana
+ * nomi bilan ko'rinmasin.
  */
 export function useSkladSheet(query: SkladSheetQuery, live = false) {
   return useQuery({

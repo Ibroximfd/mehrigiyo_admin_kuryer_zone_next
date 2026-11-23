@@ -8,7 +8,9 @@ import type { CellUnit, QtyCell } from "@/lib/qty-cell";
  * `closing = opening + from_company − sold − gift − to_company − write_off + other`
  * (hujjat 92 §3: chiqim alohida blok, `other` — faqat tuzatish va boshqa),
  * `sold`/`gift` jamilari, `current.total`, summalar — javobdan o'qiladi;
- * frontend qo'shmaydi va ayirmaydi, faqat formatlaydi.
+ * frontend qo'shmaydi va ayirmaydi, faqat formatlaydi. Yagona istisno —
+ * `day-state.ts`: server `day_state` ni chiqarguncha kun holatining «Jami» si
+ * shu tenglamaning o'zidan (`closing + sold + gift`) olinadi.
  *
  * Bular haqiqiy hisob raqamlari — o'ylab topilgan son chizilmaydi (egasi,
  * 2026-11-18): harakat ichida yo'q mahsulot kaliti — nol (server nol katakni
@@ -61,10 +63,21 @@ export type SkladCurrent = {
   min: Readonly<Record<string, number>>;
 };
 
+/**
+ * Kunning saqlangan holati (egasi, 2026-11-23; hujjat 117): kuryerlar sotuv
+ * qilmasdan oldingi holat — Jami · kuryerlarga berilgani · omborda qolgani.
+ * Kun davomidagi sotuv va sovg'a bu sonlardan AYRILMAYDI (ular ayrilgan qoldiq
+ * ertangi kunning boshi bo'ladi); o'tgan kun uchun o'sha kunning holati qaytadi.
+ * `total = couriers + store` — serverda.
+ */
+export type SkladDayState = { total: SkladCellMap; couriers: SkladCellMap; store: SkladCellMap };
+
 export type SkladSheet = {
   dateFrom: string;
   dateTo: string;
   products: SkladProduct[];
+  /** `null` — server hali bermaydi (yoki oraliq so'ralgan): bo'linish chizilmaydi, o'ylab topilmaydi. */
+  dayState: SkladDayState | null;
   /** `null` — javobda blok yo'q (eski server): sahifa hozirgi qoldiqni sklad ma'lumotidan oladi. */
   current: SkladCurrent | null;
   /** Harakatlar; javobda blok yo'q — `null` (qator «—» bilan chiziladi). */
@@ -143,6 +156,21 @@ function mapCurrent(raw: unknown): SkladCurrent | null {
   return { store: mapQtyCells(raw.store), couriers: mapQtyCells(raw.couriers), total: mapQtyCells(raw.total), pending: mapQtyCells(raw.pending), min };
 }
 
+/** Blok `{items: {...}}` yoki to'g'ridan-to'g'ri kataklar (`current` dagidek) — ikkalasi ham o'qiladi. */
+function blockCells(raw: unknown): Record<string, QtyCell> | null {
+  if (!isRecord(raw)) return null;
+  return mapQtyCells(isRecord(raw.items) ? raw.items : raw);
+}
+
+/** Uchala blok bo'lmasa — `null`: yarim holatdan son yasalmaydi. */
+function mapDayState(raw: unknown): SkladDayState | null {
+  if (!isRecord(raw)) return null;
+  const total = blockCells(raw.total);
+  const couriers = blockCells(raw.couriers);
+  const store = blockCells(raw.store);
+  return total && couriers && store ? { total, couriers, store } : null;
+}
+
 function mapCourier(raw: unknown): CourierRef | null {
   if (!isRecord(raw)) return null;
   const id = asOptionalInt(raw.id);
@@ -183,6 +211,7 @@ export function mapSkladSheet(raw: unknown): SkladSheet {
     dateFrom: asString(json.date_from),
     dateTo: asString(json.date_to),
     products: mapProducts(json.products),
+    dayState: mapDayState(json.day_state),
     current: mapCurrent(json.current),
     opening: mapFlow(json.opening),
     fromCompany: mapFlow(json.from_company),
