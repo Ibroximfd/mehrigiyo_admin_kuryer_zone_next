@@ -1,12 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, LoaderCircle } from "lucide-react";
+import { ArrowRightLeft, LoaderCircle, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { assignChiefOrder, fetchChiefCouriers } from "@/features/chief/api";
+import { AttachCourierDialog } from "@/features/chief/components/attach-courier-dialog";
 import { reassignErrorText } from "@/features/chief/delivered-reassign";
 import { orderDetailHref, shortOrderNumber } from "@/features/chief/order-view";
 import { formatPhone, groupThousands } from "@/lib/format";
@@ -17,16 +19,21 @@ import type { CourierlessOrder, CourierlessSheet } from "../types";
 
 /**
  * «Kuryersiz (bosh kuryer)» blokidagi zakazlar (hujjat 125 C §4) — qator
- * ochilganda. Ikki xil holat:
- *   • zakazda kuryer yozilgan, lekin sotuv hali omborda — «Kuryer qatoriga
- *     o'tkazish»: o'sha kuryer bilan `assign/` qayta yuboriladi, server sotuv va
- *     pulni uning qatoriga o'tkazadi (§2.4, qayta bosish xavfsiz);
- *   • kuryer yozilmagan — zakaz detali ochiladi, kuryer o'sha yerda biriktiriladi.
+ * ochilganda. Backend javobi (2026-11-24): bu zakazlar bosh kuryerning yashirin
+ * o'rnida yopilgan — haqiqiy kuryer yozilmagan. Holatlar:
+ *   • kuryer yozilmagan yoki `courier_id` — yashirin o'rin (o'z kuryerlari
+ *     ro'yxatida yo'q): «Kuryerni biriktirish» — haqiqiy kuryer tanlanadi, server
+ *     sotuv va pulni uning qatoriga o'tkazadi. Zakazni bosh kuryerning o'zi
+ *     yetkazgan bo'lsa — tuzatish kerak emas;
+ *   • `courier_id` — o'z kuryeri, lekin sotuv hali omborda (tuzatishdan oldin
+ *     biriktirilgan): «Kuryer qatoriga o'tkazish» — o'sha kuryer bilan `assign/`
+ *     qayta yuboriladi (§2.4, qayta bosish xavfsiz).
  * Hisob yo'q: sonlar serverda, amaldan keyin jadval qayta so'raladi.
  */
 export function CourierlessOrders({ block, columns }: { block: CourierlessSheet; columns: number }) {
   const queryClient = useQueryClient();
-  // Kuryer ismi — o'z kuryerlar ro'yxatidan (kesh boshqa bo'limlar bilan umumiy).
+  const [attaching, setAttaching] = useState<CourierlessOrder | null>(null);
+  // O'z kuryerlari — yashirin o'rinni haqiqiy kuryerdan ajratish va ism uchun (kesh umumiy).
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
   const nameOf = (courierId: number) => couriers.data?.find((courier) => courier.id === courierId)?.fullName ?? null;
 
@@ -43,44 +50,51 @@ export function CourierlessOrders({ block, columns }: { block: CourierlessSheet;
   });
 
   const hidden = block.ordersCount - block.orders.length;
+
   return (
     <tr>
       <td colSpan={columns} className="border-line bg-subtle border-b px-3 py-3">
         {/* Chapga yopishgan: jadval yonga siljiganda ham ro'yxat ko'rinib turadi. */}
         <div className="sticky left-3 inline-block w-full max-w-xs text-left sm:max-w-xl">
           <p className="text-ink-muted text-meta">
-            Bu zakazlar sotuvi omboringizdan ayirilgan. Kuryeri yozilgan zakazni o&apos;sha kuryer qatoriga o&apos;tkazing — sotuv va pul
-            unga o&apos;tadi, sana o&apos;zgarmaydi.
+            Bu zakazlar sizning o&apos;rningizda yopilgan — sotuvi omboringizdan ayirilgan. Kuryer yetkazgan bo&apos;lsa, o&apos;sha kuryerni
+            biriktiring: sotuv va pul uning qatoriga o&apos;tadi, sana o&apos;zgarmaydi. O&apos;zingiz yetkazgan bo&apos;lsangiz, o&apos;zgartirish
+            kerak emas.
           </p>
           <ul className="divide-line border-line bg-surface mt-2 divide-y rounded-xl border">
             {block.orders.map((order) => {
               const courierId = order.courierId;
-              const courierName = courierId === null ? null : nameOf(courierId);
+              const ownCourier = courierId === null ? null : nameOf(courierId);
               const busy = move.isPending && move.variables?.id === order.id;
               return (
                 <li key={order.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
                   <span className="min-w-0 flex-1 basis-40">
-                    <span className="text-ink tabular block text-dense font-semibold" data-no-translit title={order.orderNumber}>
+                    <Link
+                      href={orderDetailHref(order.id)}
+                      title={order.orderNumber}
+                      className="text-ink tabular block text-dense font-semibold hover:underline focus-visible:underline focus-visible:outline-none"
+                      data-no-translit
+                    >
                       {`#${shortOrderNumber(order.orderNumber)}`}
-                    </span>
+                    </Link>
                     <span className="text-ink-muted flex flex-wrap gap-x-1.5 text-meta">
                       {order.clientPhone ? <span className="tabular">{formatPhone(order.clientPhone)}</span> : null}
                       {order.reportDate ? <span className="tabular">{shortDate(order.reportDate)}</span> : null}
                     </span>
                     <span className="text-ink-faint block truncate text-meta">
-                      {courierId === null ? (
-                        "Kuryer yozilmagan"
-                      ) : courierName ? (
+                      {ownCourier ? (
                         <>
                           {"Kuryer: "}
                           <span className="text-ink" data-no-translit>
-                            {courierName}
+                            {ownCourier}
                           </span>
                         </>
-                      ) : null}
+                      ) : couriers.isPending ? null : (
+                        "Sizning o'rningizda yopilgan"
+                      )}
                     </span>
                   </span>
-                  {courierId !== null && courierName ? (
+                  {courierId !== null && ownCourier ? (
                     <Button
                       size="xs"
                       variant="outline"
@@ -92,12 +106,17 @@ export function CourierlessOrders({ block, columns }: { block: CourierlessSheet;
                       Kuryer qatoriga o&apos;tkazish
                     </Button>
                   ) : (
-                    <Link
-                      href={orderDetailHref(order.id)}
-                      className="text-brand text-meta font-semibold hover:underline focus-visible:underline focus-visible:outline-none"
+                    // Ro'yxat kelguncha kuryer kimligi noma'lum — noto'g'ri amal taklif qilinmaydi.
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={couriers.isPending}
+                      aria-label={`${order.orderNumber}: kuryerni biriktirish`}
+                      onClick={() => setAttaching(order)}
                     >
-                      Zakazni ochish
-                    </Link>
+                      <UserPlus />
+                      Kuryerni biriktirish
+                    </Button>
                   )}
                 </li>
               );
@@ -109,6 +128,7 @@ export function CourierlessOrders({ block, columns }: { block: CourierlessSheet;
             </p>
           ) : null}
         </div>
+        <AttachCourierDialog order={attaching} onClose={() => setAttaching(null)} />
       </td>
     </tr>
   );

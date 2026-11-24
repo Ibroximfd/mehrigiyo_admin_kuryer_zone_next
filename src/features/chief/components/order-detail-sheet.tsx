@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchChiefOrderDetail } from "@/features/chief/api";
-import { canAttachAfterDelivery } from "@/features/chief/delivered-reassign";
+import { canAttachAfterDelivery, isClosedWithoutRealCourier } from "@/features/chief/delivered-reassign";
+import { useOwnCourierIds } from "@/features/chief/use-own-courier-ids";
 import { historyLabel } from "@/features/chief/types";
 import type { OrderHistoryEntry } from "@/features/chief/types";
 import { formatDeliveryAddress } from "@/features/orders/address";
@@ -100,6 +101,7 @@ function DetailBody({
   onClose: () => void;
 }) {
   const [action, setAction] = useState<"address" | "return" | null>(null);
+  const ownCourierIds = useOwnCourierIds();
   const detail = useQuery({
     queryKey: queryKeys.chiefOrderDetail(orderId),
     queryFn: ({ signal }) => fetchChiefOrderDetail(orderId, signal),
@@ -299,8 +301,12 @@ function DetailBody({
             {/* Yashirin o'rin — haqiqiy kuryer emas: zakaz bosh kuryerning o'zida (javob 104 §3). */}
             <Row
               label="Kuryer"
-              value={order.courier?.isVirtual ? "Kuryersiz — bosh kuryerning o'zida" : (order.courier?.fullName ?? "Kuryersiz")}
-              data={Boolean(order.courier) && !order.courier?.isVirtual}
+              value={
+                order.courier && isClosedWithoutRealCourier(order.courier, ownCourierIds)
+                  ? "Kuryersiz — bosh kuryerning o'zida"
+                  : (order.courier?.fullName ?? "Kuryersiz")
+              }
+              data={Boolean(order.courier) && !isClosedWithoutRealCourier(order.courier, ownCourierIds)}
             />
             {order.deliveredAt ? (
               <Row
@@ -361,10 +367,11 @@ function DetailBody({
           ) : null}
         </footer>
       ) : null}
-      {canDispatch && canAttachAfterDelivery(order) ? (
+      {canDispatch && canAttachAfterDelivery(order, ownCourierIds) ? (
         <footer className="border-line bg-surface pb-safe-4 sticky bottom-0 flex flex-col gap-2 border-t p-4">
           <p className="text-ink-muted text-meta">
-            Zakaz kuryersiz yopilgan — sotuv omboringizdan ayirilgan. Kim yetkazgan bo&apos;lsa, o&apos;sha kuryerni biriktiring.
+            Zakaz sizning o&apos;rningizda yopilgan — sotuv omboringizdan ayirilgan. Kuryer yetkazgan bo&apos;lsa, o&apos;sha kuryerni
+            biriktiring; o&apos;zingiz yetkazgan bo&apos;lsangiz, o&apos;zgartirish kerak emas.
           </p>
           <Button className="w-full" onClick={() => onAttach(order)}>
             <UserPlus />

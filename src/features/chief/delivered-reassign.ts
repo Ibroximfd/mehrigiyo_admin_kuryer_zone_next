@@ -10,15 +10,30 @@ import { errorCode, errorMessage } from "@/lib/api-client";
  * (`409 delivered_courier_locked`).
  */
 
-type Reassignable = { status: string; courier: Pick<CourierRef, "isVirtual"> | null };
+type Reassignable = { status: string; courier: Pick<CourierRef, "id" | "isVirtual"> | null };
+
+/**
+ * Zakaz haqiqiy kuryersiz yopilganmi: kuryer yo'q, server `is_virtual: true` bergan
+ * yoki (server belgini hali bermasa) o'rin bosh kuryerning o'z kuryerlari ro'yxatida
+ * yo'q — bu uning yashirin o'rni. Backend javobi (2026-11-24): prodda «kuryersiz»
+ * blokdagi zakazlarning hammasida aynan shu yashirin o'rin turibdi.
+ * `ownCourierIds: null` — ro'yxat hali kelmagan: xulosa chiqarilmaydi.
+ */
+export function isClosedWithoutRealCourier(
+  courier: Reassignable["courier"],
+  ownCourierIds: ReadonlySet<number> | null,
+): boolean {
+  if (courier === null || courier.isVirtual === true) return true;
+  return ownCourierIds !== null && !ownCourierIds.has(courier.id);
+}
 
 /**
  * «Kuryerni biriktirish» chiqadimi: zakaz yetkazilgan va haqiqiy kuryeri yo'q.
- * Yashirin o'rin faqat server `is_virtual: true` bersa tanib olinadi; bermasa
- * tugma chiqmaydi — yakuniy so'z baribir serverda.
+ * Haqiqiy kuryerda yopilgan zakazda tugma yo'q; adashib chiqsa ham yakuniy so'z
+ * serverda (`409 delivered_courier_locked`).
  */
-export function canAttachAfterDelivery(order: Reassignable): boolean {
-  return order.status === "delivered" && (order.courier === null || order.courier.isVirtual === true);
+export function canAttachAfterDelivery(order: Reassignable, ownCourierIds: ReadonlySet<number> | null = null): boolean {
+  return order.status === "delivered" && isClosedWithoutRealCourier(order.courier, ownCourierIds);
 }
 
 const ERROR_TEXT: Readonly<Record<string, string>> = {

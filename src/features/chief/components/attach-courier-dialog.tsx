@@ -27,7 +27,10 @@ import { cn } from "@/lib/utils";
  * biriktirilgach kuryerni bosh kuryer o'zi qayta o'zgartira olmaydi (faqat
  * logist), shuning uchun tanlov alohida tasdiqlanadi.
  */
-export function AttachCourierDialog({ order, onClose }: { order: LogistOrder | null; onClose: () => void }) {
+/** Oynaga faqat zakazning o'zi kerak — «Kuryersiz» blokidagi qisqa yozuv ham yetadi. */
+type AttachTarget = Pick<LogistOrder, "id" | "orderNumber">;
+
+export function AttachCourierDialog({ order, onClose }: { order: AttachTarget | null; onClose: () => void }) {
   return (
     <Dialog open={order !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="flex max-h-[85vh] w-[30rem] max-w-[calc(100vw-2rem)] flex-col">
@@ -38,7 +41,7 @@ export function AttachCourierDialog({ order, onClose }: { order: LogistOrder | n
   );
 }
 
-function AttachBody({ order, onClose }: { order: LogistOrder; onClose: () => void }) {
+function AttachBody({ order, onClose }: { order: AttachTarget; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [pickedId, setPickedId] = useState<number | null>(null);
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });

@@ -29,6 +29,7 @@ import { formatSom } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 
 import { canAttachAfterDelivery } from "../delivered-reassign";
+import { useOwnCourierIds } from "../use-own-courier-ids";
 import { districtBadge } from "../district-view";
 import { fieldErrors } from "../order-action-rules";
 import { addressChangedBy, isOpenOrder, productsPreview, shortOrderNumber } from "../order-view";
@@ -54,6 +55,8 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
   const [assigning, setAssigning] = useState<LogistOrder | null>(null);
   // Yetkazilgan, kuryersiz yopilgan zakazga kuryerni keyin biriktirish (hujjat 125 C).
   const [attaching, setAttaching] = useState<LogistOrder | null>(null);
+  // Yashirin o'rinni (bosh kuryerning o'zi) haqiqiy kuryerdan ajratish uchun — 125 C.
+  const ownCourierIds = useOwnCourierIds();
   const [planning, setPlanning] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const canDispatch = chiefCan(me, "orders.dispatch");
@@ -166,6 +169,7 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
                 key={order.id}
                 order={order}
                 canDispatch={canDispatch}
+                canAttach={canDispatch && canAttachAfterDelivery(order, ownCourierIds)}
                 busy={unassign.isPending && unassign.variables?.id === order.id}
                 onOpen={() => void setOpenId(order.id)}
                 onAssign={() => setAssigning(order)}
@@ -210,6 +214,7 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
 function ChiefOrderRow({
   order,
   canDispatch,
+  canAttach,
   busy,
   onOpen,
   onAssign,
@@ -218,6 +223,8 @@ function ChiefOrderRow({
 }: {
   order: LogistOrder;
   canDispatch: boolean;
+  /** Yetkazilgan, haqiqiy kuryersiz yopilgan zakaz — «Kuryerni biriktirish» (125 C). */
+  canAttach: boolean;
   busy: boolean;
   onOpen: () => void;
   onAssign: () => void;
@@ -331,7 +338,7 @@ function ChiefOrderRow({
           </Button>
         </span>
       ) : null}
-      {canDispatch && canAttachAfterDelivery(order) ? (
+      {canAttach ? (
         <span className="grid w-full shrink-0 sm:flex sm:w-auto sm:justify-end">
           <Button variant="outline" onClick={onAttach} title="Zakazni kim yetkazganini yozish" className="sm:h-8 sm:px-3 sm:text-meta">
             <UserPlus />

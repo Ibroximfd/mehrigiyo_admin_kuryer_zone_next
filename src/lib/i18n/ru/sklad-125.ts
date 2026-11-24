@@ -31,8 +31,8 @@ export const SKLAD_125: Dictionary = {
     "Сначала добавьте курьера в разделе «Курьеры» или разблокируйте его.",
   "Kuryerlarni yuklashda xatolik": "Ошибка загрузки курьеров",
   "Kuryersiz — bosh kuryerning o'zida": "Без курьера — у самого главного курьера",
-  "Zakaz kuryersiz yopilgan — sotuv omboringizdan ayirilgan. Kim yetkazgan bo'lsa, o'sha kuryerni biriktiring.":
-    "Заказ закрыт без курьера — продажа списана с вашего склада. Назначьте курьера, который его доставил.",
+  "Zakaz sizning o'rningizda yopilgan — sotuv omboringizdan ayirilgan. Kuryer yetkazgan bo'lsa, o'sha kuryerni biriktiring; o'zingiz yetkazgan bo'lsangiz, o'zgartirish kerak emas.":
+    "Заказ закрыт на вашем месте — продажа списана с вашего склада. Если доставил курьер — назначьте его; если доставили вы сами — ничего менять не нужно.",
   "Kuryerni faqat logist o'zgartira oladi": "Курьера может изменить только логист",
   "Kuryerni almashtirish uchun sabab kerak — bu zakazni logist o'zgartiradi":
     "Для замены курьера нужна причина — этот заказ изменяет логист",
@@ -47,12 +47,12 @@ export const SKLAD_125: Dictionary = {
   Zakazlari: "Заказы",
   "kuryer emas": "не курьер",
   "pul sizda": "деньги у вас",
-  "Bu zakazlar sotuvi omboringizdan ayirilgan. Kuryeri yozilgan zakazni o'sha kuryer qatoriga o'tkazing — sotuv va pul unga o'tadi, sana o'zgarmaydi.":
-    "Продажа по этим заказам списана с вашего склада. Заказ, в котором указан курьер, перенесите в строку этого курьера — продажа и деньги перейдут к нему, дата не изменится.",
-  "Kuryer yozilmagan": "Курьер не указан",
+  "Bu zakazlar sizning o'rningizda yopilgan — sotuvi omboringizdan ayirilgan. Kuryer yetkazgan bo'lsa, o'sha kuryerni biriktiring: sotuv va pul uning qatoriga o'tadi, sana o'zgarmaydi. O'zingiz yetkazgan bo'lsangiz, o'zgartirish kerak emas.":
+    "Эти заказы закрыты на вашем месте — продажа списана с вашего склада. Если доставил курьер — назначьте его: продажа и деньги перейдут в его строку, дата не изменится. Если доставили вы сами — ничего менять не нужно.",
+  "Sizning o'rningizda yopilgan": "Закрыт на вашем месте",
+  "{x}: kuryerni biriktirish": "{x}: назначить курьера",
   "Kuryer qatoriga o'tkazish": "Перенести в строку курьера",
   "{x}: kuryer qatoriga o'tkazish": "{x}: перенести в строку курьера",
-  "Zakazni ochish": "Открыть заказ",
   "Ro'yxatda {x} ta, jami {x} ta zakaz": "В списке: {x}, всего заказов: {x}",
   "#{x} — sotuv kuryer qatoriga o'tdi": "#{x} — продажа перенесена в строку курьера",
   "Sotuvni kuryer qatoriga o'tkazib bo'lmadi": "Не удалось перенести продажу в строку курьера",

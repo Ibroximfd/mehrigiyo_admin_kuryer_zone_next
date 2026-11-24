@@ -30,6 +30,18 @@ describe("yetkazilgan zakazga kuryerni keyin biriktirish (hujjat 125 C)", () => 
     }
   });
 
+  it("server belgini bermasa: o'z kuryerlari ro'yxatida yo'q o'rin — yashirin o'rin (prod, 2026-11-24)", () => {
+    const own = new Set([17, 18]);
+    const hiddenSeat = mapCourierRef({ id: 8, full_name: "Bosh kuryer" });
+    expect(canAttachAfterDelivery({ status: "delivered", courier: hiddenSeat }, own)).toBe(true);
+    // O'z kuryerida yopilgan — haqiqiy kuryer, tugma yo'q.
+    expect(canAttachAfterDelivery({ status: "delivered", courier: real }, own)).toBe(false);
+    // Ro'yxat hali kelmagan — xulosa chiqarilmaydi.
+    expect(canAttachAfterDelivery({ status: "delivered", courier: hiddenSeat }, null)).toBe(false);
+    // Yetkazilmagan zakazda ro'yxat ahamiyatsiz.
+    expect(canAttachAfterDelivery({ status: "shipping", courier: hiddenSeat }, own)).toBe(false);
+  });
+
   it("`is_virtual` faqat aniq `true` bo'lsa o'qiladi", () => {
     expect(mapCourierRef({ id: 1, full_name: "A", is_virtual: false })?.isVirtual).toBeUndefined();
     expect(mapCourierRef({ id: 1, full_name: "A", is_virtual: "true" })?.isVirtual).toBeUndefined();
