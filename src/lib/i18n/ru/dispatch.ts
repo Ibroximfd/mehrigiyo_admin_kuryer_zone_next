@@ -39,6 +39,8 @@ export const DISPATCH: Dictionary = {
   "{x} kuryer": "курьеров: {x}",
   // Zona kartasi: tumandagi kuryerga berilmagan zakazlar (egasi, 2026-11-23).
   "{x} kuryersiz": "без курьера: {x}",
+  // Zonalar — davrsiz «hozir ochiq» rejimi (118 §5).
+  "Hozir ochiq zakazlar: kuryersiz va kuryerda — sanasidan qat'i nazar.": "Открытые сейчас заказы: без курьера и у курьера — независимо от даты.",
   "{x} o'chirildi": "{x} удалена",
   "Zonani o'chirishda xatolik": "Ошибка удаления зоны",
   "«{x}» o'chirilsinmi?": "Удалить «{x}»?",

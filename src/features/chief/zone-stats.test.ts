@@ -103,3 +103,16 @@ describe("xatolar", () => {
     expect(shareOf(15, 10)).toBe(1);
   });
 });
+
+describe("118 §5 — «hozir ochiq» rejimi (`?open=1`)", () => {
+  it("server `open: true` qaytarsa — davrsiz rejim; eski server — davr bo'yicha", () => {
+    expect(mapZoneStats({ open: true, total: { orders: 12, incoming: 5, with_courier: 7, delivered: 0 } })).toMatchObject({
+      openMode: true,
+      total: { open: 12, delivered: 0 },
+    });
+    expect(mapZoneStats({ total: { orders: 12, incoming: 5, with_courier: 4, delivered: 3 } })).toMatchObject({
+      openMode: false,
+      total: { open: 9 },
+    });
+  });
+});

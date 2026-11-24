@@ -445,12 +445,17 @@ export async function deleteChiefZone(id: number): Promise<void> {
   await call(() => api.delete<unknown>(ENDPOINTS.chiefZone(id), { fallbackError: "Zonani o'chirishda xatolik" }));
 }
 
-/** Zona va tuman bo'yicha zakaz soni (hujjat 69 §3); sana — tizimga tushgan kun. */
+/**
+ * Zona va tuman bo'yicha zakaz soni (hujjat 69 §3). `open=1` — davrsiz, hozir ochiq
+ * zakazlar (egasi, 2026-11-24; 118 §5): oldingi kunlardan qolgani ham sanaladi, javobda
+ * `open: true`. Eski server bu kalitni bilmaydi — o'shanda sonlar `date_from…date_to`
+ * da tushgan zakazlar bo'yicha (sana — tizimga tushgan kun), shuning uchun davr ham yuboriladi.
+ */
 export function fetchChiefZoneStats(from: string, to: string, signal?: AbortSignal): Promise<ZoneStats> {
   return call(async () =>
     mapZoneStats(
       await api.get<unknown>(ENDPOINTS.chiefZoneStats, {
-        searchParams: { date_from: from, date_to: to },
+        searchParams: { open: 1, date_from: from, date_to: to },
         signal,
         fallbackError: "Zakaz sonlarini yuklashda xatolik",
       }),

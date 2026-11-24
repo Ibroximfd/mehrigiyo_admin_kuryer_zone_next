@@ -34,10 +34,12 @@ import { ZoneForm } from "./zone-form";
 
 /**
  * Zonalar (§5b, hujjat 69): zona bir nechta viloyat tumanlaridan, begona
- * viloyatdan ham. Tepada davr — har tuman va zona yonida shu davrda tushgan
- * OCHIQ zakazlar soni: kuryersiz + kuryerda. Yetkazilgani bu sahifada yo'q
- * (egasi, 2026-11-23 — taqsimlashga xalaqit berardi). Zonani tahrirlash va
- * o'chirish (faol zakaz bo'lsa — yo'q).
+ * viloyatdan ham. Har tuman va zona yonida OCHIQ zakazlar soni: kuryersiz +
+ * kuryerda. Yetkazilgani bu sahifada yo'q (egasi, 2026-11-23 — taqsimlashga
+ * xalaqit berardi). Sonlar davrsiz — oldingi kunlardan ochiq qolgan zakazlar
+ * ham sanaladi (egasi, 2026-11-24; server `open=1`, 118 §5). Eski serverda
+ * sonlar tepada tanlangan davr bo'yicha — davr tanlovi faqat o'shanda chiqadi.
+ * Zonani tahrirlash va o'chirish (faol zakaz bo'lsa — yo'q).
  */
 export function ChiefZones({ me }: { me: ChiefMe }) {
   const locale = useLocaleStore((state) => state.locale);
@@ -104,7 +106,13 @@ export function ChiefZones({ me }: { me: ChiefMe }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <PeriodPicker period={period} className="min-w-0 flex-1" />
+        {stats.isPending ? (
+          <Skeleton className="h-10 min-w-0 flex-1 rounded-full" />
+        ) : stats.data?.openMode ? (
+          <p className="text-ink-muted min-w-0 flex-1 text-dense">Hozir ochiq zakazlar: kuryersiz va kuryerda — sanasidan qat&apos;i nazar.</p>
+        ) : (
+          <PeriodPicker period={period} className="min-w-0 flex-1" />
+        )}
         {/* Tumanlar — har bosh kuryerga o'z viloyatida (51-javob Q13); zona qo'shish — dopusk bilan. */}
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
           <Button variant="outline" onClick={() => setDistrictsOpen(true)}>

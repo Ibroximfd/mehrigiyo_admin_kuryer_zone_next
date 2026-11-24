@@ -24,6 +24,12 @@ export type ZoneStats = {
   unzoned: AreaStats;
   /** Tumani aniqlanmagan zakazlar. Σ zonalar + `unzoned` + `noDistrict` = `total`. */
   noDistrict: OrderCounts;
+  /**
+   * Server «hozir ochiq» rejimida javob berdi (`?open=1`, 118 §5): sonlar davrsiz —
+   * sanasidan qat'i nazar hamma kuryersiz va kuryerdagi zakazlar. `false` — eski
+   * server: sonlar so'ralgan davrda tushgan zakazlar bo'yicha.
+   */
+  openMode: boolean;
 };
 
 export const EMPTY_COUNTS: OrderCounts = { orders: 0, incoming: 0, withCourier: 0, delivered: 0, open: 0 };
@@ -69,6 +75,7 @@ export function mapZoneStats(raw: unknown): ZoneStats {
     zones,
     unzoned: mapArea(json.unzoned),
     noDistrict: mapCounts(json.no_district),
+    openMode: json.open === true,
   };
 }
 
