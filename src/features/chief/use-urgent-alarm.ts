@@ -6,10 +6,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { formatDeliveryAddress } from "@/features/orders/address";
 import { playUrgentAlarm, requestNotificationPermission, setTitleAlert, showNotification, unlockAudio } from "@/lib/alerts";
 import { translateText } from "@/lib/i18n/translate";
-import { ROUTES } from "@/lib/routes";
 import { useLocaleStore } from "@/stores/locale-store";
 
-import { shortOrderNumber } from "./order-view";
+import { orderDetailHref, shortOrderNumber } from "./order-view";
 import { alarmDue, awaitsAck, freshUnacked } from "./urgent";
 import type { UrgentBoard, UrgentOrder } from "./urgent";
 
@@ -20,7 +19,7 @@ const NO_ORDERS: UrgentOrder[] = [];
 
 /** Zakaz detali `?order=` bilan «Zakazlar» sahifasida ochiladi. */
 export function urgentOrderHref(orderId: string): string {
-  return `${ROUTES.orders}?order=${encodeURIComponent(orderId)}`;
+  return orderDetailHref(orderId);
 }
 
 /**

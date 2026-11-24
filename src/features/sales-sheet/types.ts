@@ -152,6 +152,36 @@ export type SheetRegion = SheetFigures & {
   courierIds: number[];
 };
 
+/**
+ * «Kuryersiz» blokidagi zakaz (hujjat 125 C §4). `courierId` to'la — zakazda kuryer
+ * bor, lekin sotuv hali omborda yozilgan: shu kuryer bilan `assign/` qayta
+ * yuborilsa server skladni tuzatadi (§2.4). `null` — kuryer umuman yozilmagan.
+ */
+export type CourierlessOrder = {
+  id: string;
+  orderNumber: string;
+  clientPhone: string;
+  reportDate: string | null;
+  courierId: number | null;
+};
+
+/**
+ * Bosh kuryerning o'zida (kuryersiz yoki yashirin o'rinda) yopilgan zakazlar
+ * (hujjat 125 C §4). Moli kuryer omboridan emas, bosh kuryer omboridan ayirilgan —
+ * shuning uchun `couriers[]` da yo'q, lekin `totals` ichida bor. Ombor kataklari
+ * (`opening/issued/given/other/closing`) doim bo'sh, `handoverDue` doim 0 (pul
+ * bosh kuryerning o'zida). `totals` ni sayt qayta hisoblamaydi.
+ */
+export type CourierlessSheet = SheetFigures & {
+  /** Blokdagi zakazlar soni (to'liq). */
+  ordersCount: number;
+  /** Ko'pi bilan 50 ta; ko'p bo'lsa `ordersTruncated`. */
+  orders: CourierlessOrder[];
+  ordersTruncated: boolean;
+  /** Kunma-kun (`days=1`, oraliq 1 kundan uzun). */
+  days: SheetDay[];
+};
+
 /** Daftar sotuvi zakazlar sotuvidan farq qilgan qator (§2.10) — odatda bo'lmaydi. */
 export type SheetCheck = {
   date: string;
@@ -170,6 +200,8 @@ export type SalesSheet = {
   couriers: CourierSheet[];
   /** Viloyatlar kesimi; server hali bermasa `null` — guruhlash frontendda (`regions.ts`). */
   regions: SheetRegion[] | null;
+  /** «Kuryersiz (bosh kuryer)» bloki (125 C §4); server bermasa yoki `courier_id` filtri bilan — `null`. */
+  courierless: CourierlessSheet | null;
   totals: SheetFigures;
   /** Kuryer «yetkazdim» bosgan, logist hali tasdiqlamagan (hujjat 97 §3); yo'q yoki 0 — `null`. */
   pending: SheetPending | null;
@@ -263,6 +295,46 @@ function mapCourierSheet(raw: unknown): CourierSheet {
   };
 }
 
+function mapCourierlessOrder(raw: unknown): CourierlessOrder {
+  const json = asRecord(raw);
+  return {
+    id: asString(json.id),
+    orderNumber: asString(json.order_number),
+    clientPhone: asString(json.client_phone),
+    reportDate: asOptionalString(json.report_date),
+    courierId: asOptionalInt(json.courier_id),
+  };
+}
+
+function mapCourierless(raw: unknown): CourierlessSheet | null {
+  if (!isRecord(raw)) return null;
+  const orders = asArray(raw.orders).map(mapCourierlessOrder).filter((order) => order.id);
+  return {
+    ...mapFigures(raw),
+    // Son kelmasa — ro'yxat uzunligi (kamida shuncha).
+    ordersCount: asOptionalInt(raw.orders_count) ?? orders.length,
+    orders,
+    ordersTruncated: raw.orders_truncated === true,
+    days: asArray(raw.days).map((day) => ({ ...mapFigures(day), date: asString(asRecord(day).date) })),
+  };
+}
+
+/**
+ * Blok jadvalda chiziladimi: zakaz, sotuv/sovg'a yoki pul bo'lsa. Hammasi nol —
+ * qator ko'rsatilmaydi (har kuni bo'sh qator turmasin).
+ */
+export function hasCourierlessActivity(block: CourierlessSheet): boolean {
+  return (
+    block.ordersCount > 0 ||
+    hasCells(block.sold) ||
+    hasCells(block.gift) ||
+    block.salesAmount !== 0 ||
+    block.cashAmount !== 0 ||
+    block.onlineAmount !== 0 ||
+    block.discountAmount !== 0
+  );
+}
+
 function mapPending(raw: unknown): SheetPending | null {
   const json = asRecord(raw);
   const salesAmount = asOptionalNumber(json.pending_sales_amount) ?? 0;
@@ -302,6 +374,7 @@ export function mapSalesSheet(raw: unknown): SalesSheet {
     products: mapProducts(json.products),
     couriers: asArray(json.couriers).map(mapCourierSheet),
     regions: Array.isArray(json.regions) ? json.regions.map(mapRegion) : null,
+    courierless: mapCourierless(json.courierless),
     totals: mapFigures(json.totals),
     pending: mapPending(json.totals),
     addressesOnPress: asRecord(json.totals).pending_in_addresses === true,

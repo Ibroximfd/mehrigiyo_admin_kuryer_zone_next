@@ -20,22 +20,28 @@ import type { StockMismatch } from "../issue";
 import { isSingleDay } from "../period";
 import type { SheetRange } from "../period";
 import type { RegionGroup } from "../regions";
-import { cellOf, hasCells, isZeroCell } from "../types";
-import type { CellMap, CourierFee, CourierRef, CourierSheet, IssuePlan, PlanCourier, SalesSheet, SheetDay, SheetFigures, SheetFlow, SheetProduct } from "../types";
+import { cellOf, hasCells, hasCourierlessActivity, isZeroCell } from "../types";
+import type { CellMap, CourierFee, CourierRef, CourierSheet, CourierlessSheet, IssuePlan, PlanCourier, SalesSheet, SheetDay, SheetFigures, SheetFlow, SheetProduct } from "../types";
 import { CourierDiscountEditor } from "./courier-discount-editor";
 import { CourierFeeEditor } from "./courier-fee-editor";
 import { CourierOnlineEditor } from "./courier-online-editor";
+import { CourierlessOrders } from "./courierless-orders";
 import { IssueRowCells } from "./issue-row";
 import type { GiveSource } from "./issue-row";
 import { BLOCK_START, CELL, HeadCell, LeadCell, LeadHeads, ProductHeads, QtyCells, RowLabel, SheetScroll } from "./sheet-table";
 import type { RowTone } from "./sheet-table";
 
-const FLOW_ROWS: ReadonlyArray<{ flow: SheetFlow; label: string; tone: RowTone }> = [
+type FlowRow = { flow: SheetFlow; label: string; tone: RowTone };
+
+const FLOW_ROWS: readonly FlowRow[] = [
   { flow: "given", label: "Berilgan", tone: "plain" },
   { flow: "sold", label: "Sotilgan", tone: "ok" },
   { flow: "gift", label: "Sovg'a", tone: "gold" },
   { flow: "closing", label: "Qolgan", tone: "danger" },
 ];
+
+/** «Kuryersiz» blokida faqat sotuv qatorlari: bu kuryer ombori emas — berilgan va qolgan yo'q (hujjat 125 C §4). */
+const SALE_ROWS: readonly FlowRow[] = FLOW_ROWS.filter((row) => row.flow === "sold" || row.flow === "gift");
 
 /**
  * Qo'shimcha mahsulot qatori — bugungi «Berish kerak» (kuryer blokida va «JAMI» da).
@@ -69,8 +75,8 @@ function givenTitle(figures: SheetFigures, product: SheetProduct): string | unde
  * Kuryerdan qaytarish va tuzatish alohida qator emas — «Berilgan» ichida
  * (`netGiven`), tafsiloti katak izohida. Bugun — oxirida «Berish kerak» (faqat bo'lsa).
  */
-function rowsOf(figures: SheetFigures, products: readonly SheetProduct[], extra: ExtraRow | null): BlockRow[] {
-  const flows = FLOW_ROWS.map(
+function rowsOf(figures: SheetFigures, products: readonly SheetProduct[], extra: ExtraRow | null, flowRows: readonly FlowRow[]): BlockRow[] {
+  const flows = flowRows.map(
     (row): BlockRow => ({
       key: row.flow,
       label: row.label,
@@ -248,6 +254,15 @@ export function SalesSheetGrid({
           {idle.map((courier) => courierBlock(idleCourierSheet(courier), true))}
         </>
       ) : null}
+      {sheet.courierless && hasCourierlessActivity(sheet.courierless) ? (
+        <CourierlessBlock
+          key={`courierless:${range.dateFrom}:${range.dateTo}`}
+          block={sheet.courierless}
+          products={sheet.products}
+          columns={columns}
+          onOpenDay={onOpenDay}
+        />
+      ) : null}
       <tfoot>
         <FigureRows
           figures={sheet.totals}
@@ -371,6 +386,61 @@ function CourierBlock({
   );
 }
 
+/**
+ * «Kuryersiz (bosh kuryer)» (hujjat 125 C §4): bosh kuryerning o'zida yopilgan
+ * zakazlar — sotuvi kuryer omboridan emas, uning omboridan ayirilgan. Kuryer
+ * qatorlarida yo'q, lekin «JAMI» ichida bor: shu qatorsiz kuryerlar yig'indisi
+ * jamidan kam chiqardi. Faqat sotuv va pul; kuryer amallari («Oldim», xizmat
+ * haqi, skidka, berish) yo'q — pul bosh kuryerning o'zida.
+ */
+function CourierlessBlock({
+  block,
+  products,
+  columns,
+  onOpenDay,
+}: {
+  block: CourierlessSheet;
+  products: readonly SheetProduct[];
+  columns: number;
+  onOpenDay: (day: string) => void;
+}) {
+  const [ordersOpen, setOrdersOpen] = useState(false);
+  const [daysOpen, setDaysOpen] = useState(false);
+  const toggle = "text-ink-muted hover:text-ink mt-1 mr-3 inline-flex items-center gap-1 text-fine font-semibold focus-visible:underline focus-visible:outline-none";
+  return (
+    <tbody>
+      <FigureRows
+        figures={block}
+        products={products}
+        variant="own"
+        flows={SALE_ROWS}
+        lead={
+          <>
+            <span className="text-ink block text-body font-bold">Kuryersiz (bosh kuryer)</span>
+            <span className="text-ink-muted block text-fine">{`${groupThousands(block.ordersCount)} ta zakaz`}</span>
+            <span className="text-ink-faint block text-fine">sotuv omboringizdan ayirilgan</span>
+            {block.orders.length > 0 ? (
+              <button type="button" aria-expanded={ordersOpen} onClick={() => setOrdersOpen((open) => !open)} className={toggle}>
+                Zakazlari
+                <ChevronDown aria-hidden className={cn("size-3.5 transition-transform", ordersOpen && "rotate-180")} />
+              </button>
+            ) : null}
+            {block.days.length > 0 ? (
+              <button type="button" aria-expanded={daysOpen} onClick={() => setDaysOpen((open) => !open)} className={toggle}>
+                Kunma-kun
+                <ChevronDown aria-hidden className={cn("size-3.5 transition-transform", daysOpen && "rotate-180")} />
+              </button>
+            ) : null}
+          </>
+        }
+        fee={<FeeSum fee={null} hint="kuryer emas" />}
+      />
+      {ordersOpen ? <CourierlessOrders block={block} columns={columns} /> : null}
+      {daysOpen ? block.days.map((day) => <DayRow key={day.date} day={day} products={products} onOpen={() => onOpenDay(day.date)} />) : null}
+    </tbody>
+  );
+}
+
 /** Kuryerdagi zakazlar: bugun — rejadagi (kechadan o'tgan + yangi), boshqa kun — davr oxirida qolgani. */
 function OrdersNote({ courier, issue }: { courier: CourierSheet; issue: PlanCourier | null }) {
   if (issue) {
@@ -415,8 +485,14 @@ function StockActions({ courier, onDocument }: { courier: CourierRef; onDocument
   );
 }
 
-/** Blok turi: kuryer (yoki oraliqda viloyat) — oddiy; viloyat jami va «JAMI» — xira fonli yig'indi. */
-type BlockVariant = "plain" | "region" | "total";
+/**
+ * Blok turi: kuryer (yoki oraliqda viloyat) — oddiy; viloyat jami va «JAMI» — xira
+ * fonli yig'indi; `own` — «Kuryersiz»: pul bosh kuryerning o'zida, topshirish yo'q.
+ */
+type BlockVariant = "plain" | "region" | "total" | "own";
+
+/** Yig'indi bloklari xira fonda; kuryer va «Kuryersiz» — oddiy. */
+const isSummary = (variant: BlockVariant) => variant === "region" || variant === "total";
 
 /** Bitta kun ochiq kuryer bloki — qo'lda yoziladigan pul va «Oldim» shu yerda. */
 type BlockEdit = { courier: CourierRef; date: string; actions: SheetActions | null };
@@ -430,6 +506,7 @@ function FigureRows({
   variant = "plain",
   extra = null,
   edit = null,
+  flows = FLOW_ROWS,
 }: {
   figures: SheetFigures;
   products: readonly SheetProduct[];
@@ -438,14 +515,16 @@ function FigureRows({
   variant?: BlockVariant;
   extra?: ExtraRow | null;
   edit?: BlockEdit | null;
+  /** Qaysi mahsulot qatorlari chiziladi — sukut to'rttasi. */
+  flows?: readonly FlowRow[];
 }) {
-  const rows = rowsOf(figures, products, extra);
+  const rows = rowsOf(figures, products, extra, flows);
   return (
     <>
       {rows.map((row, index) => (
         <tr key={row.key}>
           {index === 0 ? (
-            <LeadCell rowSpan={rows.length} className={variant === "plain" ? undefined : "bg-subtle"}>
+            <LeadCell rowSpan={rows.length} className={isSummary(variant) ? "bg-subtle" : undefined}>
               {lead}
             </LeadCell>
           ) : null}
@@ -481,8 +560,10 @@ function MoneyCells({
   variant: BlockVariant;
   edit: BlockEdit | null;
 }) {
-  const surface = variant === "plain" ? "bg-surface" : "bg-subtle";
+  const surface = isSummary(variant) ? "bg-subtle" : "bg-surface";
   const total = variant === "total";
+  // «Kuryersiz»: pul bosh kuryerning o'zida — kuryerdan olinmaydi (`handover_due` doim 0, 125 C §4).
+  const own = variant === "own";
   const money = sheetMoney(figures);
   const cash = figures.cash;
   const editing = edit !== null && cash !== null;
@@ -501,9 +582,13 @@ function MoneyCells({
         {fee}
       </td>
       <td rowSpan={rowSpan} className={cn(MONEY, "text-right", total ? "bg-brand text-brand-ink" : "bg-brand-soft text-brand")}>
-        <span className="tabular block text-body font-bold whitespace-nowrap">{moneyText(money.due)}</span>
+        <span className="tabular block text-body font-bold whitespace-nowrap">{own ? "—" : moneyText(money.due)}</span>
         <span className="block text-fine whitespace-nowrap">
-          {money.openingDebt !== null && money.openingDebt > 0 ? `o'tgan qarz ${groupThousands(money.openingDebt)} bilan` : "kuryer topshiradi"}
+          {own
+            ? "pul sizda"
+            : money.openingDebt !== null && money.openingDebt > 0
+              ? `o'tgan qarz ${groupThousands(money.openingDebt)} bilan`
+              : "kuryer topshiradi"}
         </span>
       </td>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>

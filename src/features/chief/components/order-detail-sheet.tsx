@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { History, MapPinned, PackageX, Phone, Truck, Undo2, X } from "lucide-react";
+import { History, MapPinned, PackageX, Phone, Truck, Undo2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchChiefOrderDetail } from "@/features/chief/api";
-import { HISTORY_LABELS } from "@/features/chief/types";
+import { canAttachAfterDelivery } from "@/features/chief/delivered-reassign";
+import { historyLabel } from "@/features/chief/types";
 import type { OrderHistoryEntry } from "@/features/chief/types";
 import { formatDeliveryAddress } from "@/features/orders/address";
 import { GIFT_MARK } from "@/features/orders/gift-source";
@@ -45,6 +46,7 @@ export function OrderDetailSheet({
   regions,
   onClose,
   onAssign,
+  onAttach,
 }: {
   orderId: string | null;
   /** Ro'yxatdagi nusxa — detal kelguncha darhol ko'rinadi. */
@@ -54,6 +56,8 @@ export function OrderDetailSheet({
   regions: string[];
   onClose: () => void;
   onAssign: (order: LogistOrder) => void;
+  /** Yetkazilgan, kuryersiz yopilgan zakazga kuryerni keyin biriktirish (hujjat 125 C). */
+  onAttach: (order: LogistOrder) => void;
 }) {
   return (
     <Sheet open={orderId !== null} onOpenChange={(next) => !next && onClose()}>
@@ -69,6 +73,7 @@ export function OrderDetailSheet({
             canDispatch={canDispatch}
             regions={regions}
             onAssign={onAssign}
+            onAttach={onAttach}
             onClose={onClose}
           />
         ) : null}
@@ -83,6 +88,7 @@ function DetailBody({
   canDispatch,
   regions,
   onAssign,
+  onAttach,
   onClose,
 }: {
   orderId: string;
@@ -90,6 +96,7 @@ function DetailBody({
   canDispatch: boolean;
   regions: string[];
   onAssign: (order: LogistOrder) => void;
+  onAttach: (order: LogistOrder) => void;
   onClose: () => void;
 }) {
   const [action, setAction] = useState<"address" | "return" | null>(null);
@@ -289,10 +296,11 @@ function DetailBody({
               value={order.zoning.zoneName ?? "Zona aniqlanmagan"}
               data={Boolean(order.zoning.zoneName)}
             />
+            {/* Yashirin o'rin — haqiqiy kuryer emas: zakaz bosh kuryerning o'zida (javob 104 §3). */}
             <Row
               label="Kuryer"
-              value={order.courier?.fullName ?? "Kuryersiz"}
-              data={Boolean(order.courier)}
+              value={order.courier?.isVirtual ? "Kuryersiz — bosh kuryerning o'zida" : (order.courier?.fullName ?? "Kuryersiz")}
+              data={Boolean(order.courier) && !order.courier?.isVirtual}
             />
             {order.deliveredAt ? (
               <Row
@@ -353,6 +361,17 @@ function DetailBody({
           ) : null}
         </footer>
       ) : null}
+      {canDispatch && canAttachAfterDelivery(order) ? (
+        <footer className="border-line bg-surface pb-safe-4 sticky bottom-0 flex flex-col gap-2 border-t p-4">
+          <p className="text-ink-muted text-meta">
+            Zakaz kuryersiz yopilgan — sotuv omboringizdan ayirilgan. Kim yetkazgan bo&apos;lsa, o&apos;sha kuryerni biriktiring.
+          </p>
+          <Button className="w-full" onClick={() => onAttach(order)}>
+            <UserPlus />
+            Kuryerni biriktirish
+          </Button>
+        </footer>
+      ) : null}
     </div>
   );
 }
@@ -406,7 +425,7 @@ function Timeline({ entries }: { entries: OrderHistoryEntry[] }) {
             className="bg-brand ring-surface absolute top-1.5 -left-5 size-2 rounded-full ring-2"
           />
           <p className="text-ink text-dense font-medium">
-            {HISTORY_LABELS[entry.action] ?? entry.action}
+            {historyLabel(entry.action)}
             {entry.courier ? (
               <span
                 className="text-ink-muted font-normal"

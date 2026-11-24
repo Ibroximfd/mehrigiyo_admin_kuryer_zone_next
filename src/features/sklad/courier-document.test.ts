@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ItemRef } from "@/lib/item-ref";
 
-import { adjustmentSurplus, documentRows, draftQuantity, initialDraft, planDocument } from "./courier-document";
+import { adjustmentStoreMoves, documentRows, draftQuantity, hasStoreMoves, initialDraft, planDocument, storeEffectMoves } from "./courier-document";
 import type { CourierStock, SkladStockRow } from "./types";
 
 const product = (id: number, name: string, stockFactor = 1): ItemRef => ({
@@ -132,28 +132,64 @@ describe("berish va qabul — avvalgidek", () => {
   });
 });
 
-describe("tuzatishda kuryerga qo'shilgan mol — Jami oshadi (hujjat 113/114)", () => {
-  const surplusOf = (draft: Record<number, string>) => {
-    const rows = documentRows("adjustment", courier([[TEA, 5], [KREMI, 6], [RAYHON, -3]]), STOCK);
-    return adjustmentSurplus(planDocument("adjustment", rows, { ...initialDraft("adjustment", rows), ...draft }).lines).map(
-      ({ item, extra }) => [item.name, extra],
-    );
+describe("tuzatish ombor bilan juft (hujjat 125 §A)", () => {
+  const rows = documentRows("adjustment", courier([[TEA, 5], [KREMI, 6], [RAYHON, -3]]), STOCK);
+  const movesOf = (draft: Record<number, string>) => {
+    const moves = adjustmentStoreMoves(planDocument("adjustment", rows, { ...initialDraft("adjustment", rows), ...draft }).lines);
+    const brief = (list: typeof moves.out) => list.map((move) => [move.name, move.amount, move.unit]);
+    return { out: brief(moves.out), back: brief(moves.back) };
   };
 
-  it("sanalgan qoldiqdan ko'p — farqi; kam yoki teng — ro'yxatga kirmaydi", () => {
-    expect(surplusOf({ [TEA.id]: "9", [KREMI.id]: "4" })).toEqual([["Tea", 4]]);
+  it("kuryerga qo'shilgani ombordan chiqadi, kamaygani omborga qaytadi", () => {
+    expect(movesOf({ [TEA.id]: "9", [RAYHON.id]: "-3" })).toEqual({ out: [["Tea", 4, "dona"]], back: [] });
+    expect(movesOf({ [TEA.id]: "1" })).toEqual({ out: [], back: [["Tea", 4, "dona"]] });
   });
 
-  it("kuryerda yo'q mahsulot 0 dan yozilsa — hammasi qo'shiladi", () => {
-    expect(surplusOf({ [ELIXIR.id]: "2" })).toEqual([["Elixir", 2]]);
+  it("bir hujjatda ikkala yo'nalish — alohida ro'yxatlarda", () => {
+    expect(movesOf({ [TEA.id]: "9", [ELIXIR.id]: "2", [KREMI.id]: "12" })).toEqual({
+      // KREMI skladda karobkada (1 kar. = 3 dona): kuryerda 6 kar. = 18 dona, sanaldi 12 dona → 6 dona qaytadi.
+      out: [["Tea", 4, "dona"], ["Elixir", 2, "dona"]],
+      back: [["Kremi", 6, "dona"]],
+    });
   });
 
-  it("minusni yopish ham Jamini oshiradi: −3 → 2 = +5", () => {
-    expect(surplusOf({ [RAYHON.id]: "2" })).toEqual([["Rayhon", 5]]);
+  it("minusni yopish ham ombordan chiqadi: −3 → 2 = 5", () => {
+    expect(movesOf({ [RAYHON.id]: "2" })).toEqual({ out: [["Rayhon", 5, "dona"]], back: [] });
   });
 
-  it("hech narsa o'zgarmasa yoki faqat kamaysa — bo'sh", () => {
-    expect(surplusOf({})).toEqual([]);
-    expect(surplusOf({ [TEA.id]: "1" })).toEqual([]);
+  it("hech narsa o'zgarmasa — ta'sir yo'q", () => {
+    const moves = adjustmentStoreMoves(planDocument("adjustment", rows, initialDraft("adjustment", rows)).lines);
+    expect(hasStoreMoves(moves)).toBe(false);
+  });
+});
+
+describe("saqlangach natija — server `store_effect` dan (hujjat 125 §A)", () => {
+  const rows = documentRows("adjustment", courier([[TEA, 5], [KREMI, 6]]), STOCK);
+
+  it("manfiy — ombordan chiqdi, musbat — omborga qaytdi; nol qator tashlanadi", () => {
+    const moves = storeEffectMoves(
+      [
+        { itemId: TEA.id, qty: -30 },
+        { itemId: ELIXIR.id, qty: 8 },
+        { itemId: RAYHON.id, qty: 0 },
+      ],
+      rows,
+    );
+    expect(moves.out).toEqual([{ itemId: TEA.id, name: "Tea", amount: 30, unit: "dona" }]);
+    expect(moves.back).toEqual([{ itemId: ELIXIR.id, name: "Elixir", amount: 8, unit: "dona" }]);
+  });
+
+  it("server birligi karobka bo'lsa ekranda donaga aylanadi (1 kar. = 3 dona)", () => {
+    expect(storeEffectMoves([{ itemId: KREMI.id, qty: -2 }], rows).out).toEqual([
+      { itemId: KREMI.id, name: "Kremi", amount: 6, unit: "dona" },
+    ]);
+  });
+
+  it("ro'yxatda yo'q mahsulot — `#id`, son o'zgarishsiz, birliksiz", () => {
+    expect(storeEffectMoves([{ itemId: 999, qty: 4 }], rows).back).toEqual([{ itemId: 999, name: "#999", amount: 4, unit: "" }]);
+  });
+
+  it("bo'sh javob — ta'sir yo'q", () => {
+    expect(hasStoreMoves(storeEffectMoves([], rows))).toBe(false);
   });
 });

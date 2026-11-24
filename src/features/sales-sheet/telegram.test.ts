@@ -142,3 +142,37 @@ describe("Telegram matni — tarjima", () => {
     }
   });
 });
+
+describe("Telegram matni — «Kuryersiz (bosh kuryer)» (hujjat 125 C §4)", () => {
+  const withBlock = (courierless: Record<string, unknown>): SheetTelegramInput => {
+    const base = input("2026-11-16");
+    const sheet = mapSalesSheet({ products: [], couriers: [], totals: {}, courierless });
+    return { ...base, courierless: sheet.courierless };
+  };
+
+  it("blok bor — viloyatlardan keyin, «Jami» dan oldin alohida bo'lim", () => {
+    const base = input("2026-11-16");
+    const productId = String(base.products[0]!.id);
+    const lines = salesSheetTelegram(
+      withBlock({ sold: { [productId]: { qty: 3, pieces: 0 } }, sales_amount: 630_000, cash_amount: 630_000, orders_count: 4, orders: [] }),
+    ).split("\n");
+    const start = lines.indexOf("🏬 Kuryersiz (bosh kuryer) · 4 ta zakaz");
+    expect(start).toBeGreaterThan(lines.indexOf("📊 Toshkent viloyati jami"));
+    expect(start).toBeLessThan(lines.indexOf("🧾 Jami · 3 ta kuryer"));
+    expect(lines[start + 1]).toBe("📦 Sotildi");
+    expect(lines.slice(start).find((line) => line.startsWith("💵 "))).toBe("💵 Naqd: 630 000 · Onlayn: 0 · Skidka: 0");
+    // Kuryer emas — «Topshirishi kerak» qatori yo'q, bo'lim chiziq bilan yopiladi.
+    expect(lines.slice(start, lines.indexOf("🧾 Jami · 3 ta kuryer")).some((line) => line.startsWith("💰 "))).toBe(false);
+    expect(lines.filter((line) => line === TELEGRAM_LINE)).toHaveLength(4);
+  });
+
+  it("blok yo'q yoki hammasi nol — bo'lim yozilmaydi", () => {
+    expect(salesSheetTelegram(input("2026-11-16"))).not.toContain("Kuryersiz");
+    expect(salesSheetTelegram(withBlock({ orders_count: 0, orders: [] }))).not.toContain("Kuryersiz");
+  });
+
+  it("bitta viloyat matniga kirmaydi — u viloyatniki emas", () => {
+    const one = withBlock({ sales_amount: 630_000, orders_count: 1, orders: [] });
+    expect(regionTelegram(one, one.regions![0]!)).not.toContain("Kuryersiz");
+  });
+});

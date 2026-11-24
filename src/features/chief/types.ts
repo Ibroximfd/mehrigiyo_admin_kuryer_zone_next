@@ -237,7 +237,14 @@ export const HISTORY_LABELS: Record<string, string> = {
   urgent_acked: "Shoshilinch — qabul qilindi",
   urgent_reminder: "Shoshilinch — takror ogohlantirish",
   urgent_cleared: "Shoshilinch belgisi olib tashlandi",
+  // Yetkazilgan zakazga kuryer keyin biriktirildi — sklad va pul uning qatoriga o'tgan (hujjat 125 C §3).
+  courier_reassigned_after_delivery: "Kuryer yetkazilgandan keyin biriktirildi",
 };
+
+/** Tarix yorlig'i. Kod `order.` prefiksi bilan kelsa ham (lenta turi) — bir xil; notanish kod o'z holicha. */
+export function historyLabel(action: string): string {
+  return HISTORY_LABELS[action] ?? HISTORY_LABELS[action.replace(/^order\./, "")] ?? action;
+}
 
 export function mapChiefCouriers(raw: unknown): Courier[] {
   const list = Array.isArray(raw) ? raw : asArray(asRecord(raw).results);

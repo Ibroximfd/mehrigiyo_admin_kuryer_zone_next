@@ -1,4 +1,4 @@
-import { shownQuantity, stockQuantityOf } from "@/lib/item-ref";
+import { shownQuantity, shownUnit, stockQuantityOf } from "@/lib/item-ref";
 import type { ItemRef } from "@/lib/item-ref";
 
 import type { CourierStock, SkladStockRow } from "./types";
@@ -93,12 +93,65 @@ export function planDocument(mode: CourierDocumentMode, rows: readonly DocumentR
   };
 }
 
+// ── Juft tuzatish (hujjat 125 §A) ────────────────────────────────────────────
+
 /**
- * Tuzatishda kuryerga qo'shilayotgan mol (sanalgan > qoldiq) — Jami shuncha oshadi,
- * ekrandagi birlikda. Tuzatish molni skladdan olmaydi: 2026-11-23 da Vodiyda kuryerga
- * berilgan mol «Berish» o'rniga «Tuzatish» bilan yozilib, ikki marta sanalgan (hujjat
- * 113/114). Ro'yxat bo'sh bo'lmasa oyna ogohlantiradi va tasdiq so'raydi.
+ * Kuryer tuzatishi ombor bilan JUFT yoziladi (hujjat 125 §A, prodda 2026-11-24):
+ * kuryerga qo'shilgan mol sklad omboridan chiqadi, kamaygani omborga qaytadi —
+ * sklad jamisi o'zgarmaydi. Ilgari tuzatish faqat kuryerga yozilardi va jami
+ * oshib ketardi (Vodiy, 23.11 — hujjat 113/114).
  */
-export function adjustmentSurplus(lines: DocumentPlan["lines"]): Array<{ item: ItemRef; extra: number }> {
-  return lines.filter(({ row, qty }) => qty > row.available).map(({ row, qty }) => ({ item: row.item, extra: qty - row.available }));
+export type StoreMove = {
+  itemId: number;
+  /** Mahsulot nomi; ro'yxatda topilmasa — `#id`. */
+  name: string;
+  /** Ekrandagi birlikda, doim musbat. */
+  amount: number;
+  /** Ekrandagi birlik («dona», «karobka»); mahsulot noma'lum — bo'sh. */
+  unit: string;
+};
+
+export type StoreMoves = {
+  /** Ombordan chiqadi — kuryerga qo'shilgan mol. */
+  out: StoreMove[];
+  /** Omborga qaytadi — kuryerda kamaygan mol. */
+  back: StoreMove[];
+};
+
+export function hasStoreMoves(moves: StoreMoves): boolean {
+  return moves.out.length > 0 || moves.back.length > 0;
+}
+
+/** Saqlashdan OLDIN: o'zgargan qatorlar omborga qanday ta'sir qiladi (ekrandagi birlikda). */
+export function adjustmentStoreMoves(lines: DocumentPlan["lines"]): StoreMoves {
+  const moves: StoreMoves = { out: [], back: [] };
+  for (const { row, qty } of lines) {
+    const diff = qty - row.available;
+    if (diff === 0) continue;
+    const move = { itemId: row.item.id, name: row.item.name, amount: Math.abs(diff), unit: shownUnit(row.item) };
+    (diff > 0 ? moves.out : moves.back).push(move);
+  }
+  return moves;
+}
+
+/** Server javobidagi `store_effect[]`: `qty` ishorali, SERVER birligida (`-30` — ombordan 30 chiqdi). */
+export type StoreEffect = { itemId: number; qty: number };
+
+/**
+ * Saqlangach: server aytgan natija ekrandagi birlikda. Hisob yo'q — faqat birlik
+ * (skladda karobkada turgan dona mahsuloti donaga) va ishora → yo'nalish.
+ */
+export function storeEffectMoves(effects: readonly StoreEffect[], rows: readonly DocumentRow[]): StoreMoves {
+  const itemOf = new Map(rows.map((row) => [row.item.id, row.item]));
+  const moves: StoreMoves = { out: [], back: [] };
+  for (const effect of effects) {
+    if (effect.qty === 0) continue;
+    const item = itemOf.get(effect.itemId);
+    const size = Math.abs(effect.qty);
+    const move = item
+      ? { itemId: item.id, name: item.name, amount: shownQuantity(item, size), unit: shownUnit(item) }
+      : { itemId: effect.itemId, name: `#${effect.itemId}`, amount: size, unit: "" };
+    (effect.qty < 0 ? moves.out : moves.back).push(move);
+  }
+  return moves;
 }

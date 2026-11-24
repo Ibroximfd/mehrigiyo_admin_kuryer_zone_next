@@ -1,5 +1,6 @@
 import { isInReview } from "@/features/orders/review";
 import type { LogistOrder, OrderItem } from "@/features/orders/types";
+import { ROUTES } from "@/lib/routes";
 
 
 /** Kartada nechta mahsulot nomi ko'rinadi; qolgani «+N». */
@@ -15,6 +16,11 @@ export function productsPreview(order: Pick<LogistOrder, "items">): ProductsPrev
   const items = order.items.filter((item) => item.name);
   const shown = items.slice(0, VISIBLE_PRODUCTS);
   return { shown, rest: items.length - shown.length };
+}
+
+/** Zakaz detali — «Zakazlar» sahifasida `?order=` bilan ochiladi (alohida sahifa yo'q, statik eksport). */
+export function orderDetailHref(orderId: string): string {
+  return `${ROUTES.orders}?order=${encodeURIComponent(orderId)}`;
 }
 
 /** Zakaz qayta taqsimlanadimi: yo'lda va kuryer hali yakunlamagan. */

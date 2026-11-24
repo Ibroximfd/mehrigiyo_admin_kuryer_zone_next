@@ -411,6 +411,11 @@ export type CourierRef = {
   id: number;
   fullName: string;
   phone: string | null;
+  /**
+   * Bosh kuryerning yashirin o'rni (`is_virtual`, javob 104 §3) — zakaz haqiqiy
+   * kuryersiz, bosh kuryerning o'zida. Faqat server `true` bersa; aks holda kalit yo'q.
+   */
+  isVirtual?: true;
 };
 
 export type DeliveryWindow = "morning" | "afternoon" | "evening";
@@ -927,6 +932,7 @@ export function mapCourierRef(raw: unknown): CourierRef | null {
     id,
     fullName: asString(raw.full_name ?? raw.name),
     phone: asOptionalString(raw.phone),
+    ...(raw.is_virtual === true ? { isVirtual: true as const } : {}),
   };
 }
 

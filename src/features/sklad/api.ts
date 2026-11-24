@@ -1,9 +1,10 @@
 import { api } from "@/lib/api-client";
 import { ENDPOINTS } from "@/lib/api-constants";
 import { asPage } from "@/lib/paginate";
-import { asArray, asInt, asRecord } from "@/lib/parse";
+import { asArray, asInt, asOptionalInt, asRecord } from "@/lib/parse";
 
 import { mapCourierStock, mapLoadRequest, mapOwnSklad, mapSkladMe, mapStockCell, skladStockRows, skladStore } from "./types";
+import type { StoreEffect } from "./courier-document";
 import type { PackedQuantity } from "./packaging";
 import type { ChiefSklad, LoadRequest, LoadRequestStatus } from "./types";
 
@@ -53,13 +54,45 @@ export type CourierDocumentInput =
   | { type: "courier_load"; locationId: number; courierId: number; lines: Array<{ itemId: number; quantity: number }> }
   /** `lines` yo'q — kuryerdagi hammasi qaytadi. */
   | { type: "courier_return"; locationId: number; courierId: number; lines: Array<{ itemId: number; quantity: number }> | null }
-  /** Tuzatish: `actual_qty` — «sanaganda shuncha chiqdi», qoldiq shunga tenglashadi. */
+  /**
+   * Tuzatish: `actual_qty` — «sanaganda shuncha chiqdi», qoldiq shunga tenglashadi.
+   * Ombor bilan juft yoziladi (hujjat 125 §A). `found` («topilma») ATAYLAB
+   * yuborilmaydi — uni faqat logist yozadi (`403 found_requires_logist`).
+   */
   | { type: "adjustment"; courierId: number; lines: Array<{ itemId: number; actualQty: number }> };
 
 /** Hujjatdan keyin minusga tushgan katak (hujjat 90) — ogohlantirish, xato emas. */
 export type NegativeStockCell = { locationId: number; itemId: number; onHand: number };
 
-export async function createCourierDocument(input: CourierDocumentInput): Promise<NegativeStockCell[]> {
+export type CourierDocumentResult = {
+  negative: NegativeStockCell[];
+  /**
+   * Sklad omboriga ta'sir (125 §A) — kuryer tuzatishida. `null` — server kalitni
+   * bermadi (eski server): natija matni chiqmaydi, taxmin qilinmaydi.
+   */
+  storeEffect: StoreEffect[] | null;
+  /** Sklad jamisi qanchaga o'zgardi: juft tuzatishda `0`; kuryer tuzatishi bo'lmasa `null`. */
+  jamiDelta: number | null;
+};
+
+export function mapCourierDocumentResult(raw: unknown): CourierDocumentResult {
+  const json = asRecord(raw);
+  return {
+    negative: asArray(json.negative_stock).map((entry) => {
+      const row = asRecord(entry);
+      return { locationId: asInt(row.location_id), itemId: asInt(row.item_id), onHand: asInt(row.on_hand) };
+    }),
+    storeEffect: Array.isArray(json.store_effect)
+      ? json.store_effect.map((entry) => {
+          const row = asRecord(entry);
+          return { itemId: asInt(row.item_id), qty: asInt(row.qty) };
+        })
+      : null,
+    jamiDelta: asOptionalInt(json.jami_delta),
+  };
+}
+
+export async function createCourierDocument(input: CourierDocumentInput): Promise<CourierDocumentResult> {
   const json =
     input.type === "adjustment"
       ? {
@@ -75,10 +108,7 @@ export async function createCourierDocument(input: CourierDocumentInput): Promis
           ...(input.lines ? { lines: input.lines.map((line) => ({ item_id: line.itemId, quantity: line.quantity })) } : {}),
         };
   const raw = await api.post<unknown>(ENDPOINTS.skladDocuments, { json, fallbackError: "Hujjatni saqlab bo'lmadi" });
-  return asArray(asRecord(raw).negative_stock).map((entry) => {
-    const row = asRecord(entry);
-    return { locationId: asInt(row.location_id), itemId: asInt(row.item_id), onHand: asInt(row.on_hand) };
-  });
+  return mapCourierDocumentResult(raw);
 }
 
 export async function fetchLoadRequests(status: LoadRequestStatus, signal?: AbortSignal): Promise<LoadRequest[]> {

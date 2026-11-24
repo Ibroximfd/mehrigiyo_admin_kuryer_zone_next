@@ -10,6 +10,7 @@ import { CHIEF } from "./chief";
 import { DISPATCH } from "./dispatch";
 import { SALES_SHEET } from "./sales-sheet";
 import { SKLAD_SHEET } from "./sklad-sheet";
+import { SKLAD_125 } from "./sklad-125";
 import { URGENT } from "./urgent";
 import { ZONES } from "./zones";
 
@@ -30,4 +31,5 @@ export const RU_DICTIONARY: Dictionary = {
   ...CASH_SHEET,
   ...SKLAD_SHEET,
   ...URGENT,
+  ...SKLAD_125,
 };

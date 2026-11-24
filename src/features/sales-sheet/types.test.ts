@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cellOf, EMPTY_CELL, hasCells, isZeroCell, mapCells, mapIssuePlan, mapSalesSheet } from "./types";
+import { cellOf, EMPTY_CELL, hasCells, hasCourierlessActivity, isZeroCell, mapCells, mapIssuePlan, mapSalesSheet } from "./types";
 
 /** Hujjat 83 §2 dagi namuna javob (qisqartirilgan). */
 const SHEET = {
@@ -249,5 +249,82 @@ describe("berish rejasi — `mapIssuePlan` (hujjat 83 §4)", () => {
   it("bo'sh javob — bo'sh reja, yiqilmaydi", () => {
     expect(mapIssuePlan({})).toEqual({ date: "", products: [], couriers: [], store: { locationId: null, onHand: {}, toIssue: {}, shortage: {} } });
     expect(mapIssuePlan({ couriers: [{}] }).couriers[0]).toMatchObject({ carriedOrders: 0, newOrders: 0, toIssue: {} });
+  });
+});
+
+describe("«Kuryersiz (bosh kuryer)» bloki — `courierless` (hujjat 125 C §4)", () => {
+  /** Prod javobi shaklida (2026-11-24): kuryer qatori kalitlari + zakazlar ro'yxati. */
+  const COURIERLESS = {
+    opening: {},
+    issued: {},
+    given: {},
+    other: {},
+    closing: {},
+    sold: { "6": { qty: 3, pieces: 0 } },
+    gift: { "6": { qty: 0, pieces: 1 } },
+    sales_amount: 630_000,
+    cash_amount: 630_000,
+    online_amount: 0,
+    discount_amount: 0,
+    addresses: 0,
+    open_orders: 0,
+    fee: null,
+    handover_due: 0,
+    orders_count: 4,
+    orders: [
+      { id: "a1", order_number: "ORD-20261123101010-AAAA1111", client_phone: "998901234567", report_date: "2026-11-23", courier_id: null },
+      { id: "b2", order_number: "ORD-20261123111111-BBBB2222", client_phone: "998907654321", report_date: "2026-11-23", courier_id: 31 },
+    ],
+    orders_truncated: true,
+    days: [],
+  };
+
+  it("kuryer qatori kalitlari va zakazlar ro'yxati o'qiladi", () => {
+    const block = mapSalesSheet({ ...SHEET, courierless: COURIERLESS }).courierless;
+    expect(block).not.toBeNull();
+    expect(cellOf(block!.sold, 6)).toEqual({ qty: 3, pieces: 0 });
+    expect(cellOf(block!.gift, 6)).toEqual({ qty: 0, pieces: 1 });
+    expect(block).toMatchObject({ salesAmount: 630_000, cashAmount: 630_000, handoverDue: 0, fee: null, cash: null });
+    expect(block).toMatchObject({ ordersCount: 4, ordersTruncated: true });
+    expect(block!.orders).toEqual([
+      { id: "a1", orderNumber: "ORD-20261123101010-AAAA1111", clientPhone: "998901234567", reportDate: "2026-11-23", courierId: null },
+      { id: "b2", orderNumber: "ORD-20261123111111-BBBB2222", clientPhone: "998907654321", reportDate: "2026-11-23", courierId: 31 },
+    ]);
+  });
+
+  it("ombor kataklari doim bo'sh — bu kuryer ombori emas", () => {
+    const block = mapSalesSheet({ ...SHEET, courierless: COURIERLESS }).courierless!;
+    for (const flow of ["opening", "issued", "given", "other", "closing"] as const) expect(hasCells(block[flow])).toBe(false);
+  });
+
+  it("server bermasa yoki `courier_id` filtri bilan (`null`) — blok yo'q", () => {
+    expect(mapSalesSheet(SHEET).courierless).toBeNull();
+    expect(mapSalesSheet({ ...SHEET, courierless: null }).courierless).toBeNull();
+  });
+
+  it("`orders_count` kelmasa — ro'yxat uzunligi; kunma-kun qatorlar o'qiladi", () => {
+    const block = mapSalesSheet({
+      ...SHEET,
+      courierless: { orders: COURIERLESS.orders, days: [{ date: "2026-11-23", sold: { "6": { qty: 1, pieces: 0 } }, sales_amount: 210_000 }] },
+    }).courierless!;
+    expect(block.ordersCount).toBe(2);
+    expect(block.ordersTruncated).toBe(false);
+    expect(block.days).toHaveLength(1);
+    expect(block.days[0]).toMatchObject({ date: "2026-11-23", salesAmount: 210_000 });
+  });
+
+  it("hammasi nol — qator chizilmaydi; zakaz, sotuv yoki pul bo'lsa — chiziladi", () => {
+    const empty = mapSalesSheet({ ...SHEET, courierless: { orders_count: 0, orders: [] } }).courierless!;
+    expect(hasCourierlessActivity(empty)).toBe(false);
+    expect(hasCourierlessActivity(mapSalesSheet({ ...SHEET, courierless: COURIERLESS }).courierless!)).toBe(true);
+    expect(hasCourierlessActivity({ ...empty, ordersCount: 1 })).toBe(true);
+    expect(hasCourierlessActivity({ ...empty, salesAmount: 50_000 })).toBe(true);
+    expect(hasCourierlessActivity({ ...empty, gift: { "6": { qty: 0, pieces: 1 } } })).toBe(true);
+  });
+
+  it("`totals` — serverniki: blok qo'shilgani uchun sayt uni qayta hisoblamaydi", () => {
+    const sheet = mapSalesSheet({ ...SHEET, courierless: COURIERLESS });
+    expect(sheet.totals.cashAmount).toBe(12_060_000);
+    expect(sheet.totals.handoverDue).toBe(10_565_000);
   });
 });

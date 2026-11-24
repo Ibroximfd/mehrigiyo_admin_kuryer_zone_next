@@ -72,7 +72,7 @@ export function IssueRowCells({
     give.mutate(
       { locationId: source.locationId, courierId: courier.id, lines: plan.lines },
       {
-        onSuccess: (negative) => {
+        onSuccess: ({ negative }) => {
           setEdited({});
           toast.success(`${courier.fullName}: mol berildi`, { description: summary });
           if (negative.length > 0) toast.warning("Omborda qoldiq minusga tushdi — logistdan mol so'rang");

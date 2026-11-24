@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Send, Siren, Store, Truck, Undo2, Wand2 } from "lucide-react";
+import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Send, Siren, Store, Truck, Undo2, UserPlus, Wand2 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -28,9 +28,11 @@ import { ApiError, errorMessage } from "@/lib/api-client";
 import { formatSom } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 
+import { canAttachAfterDelivery } from "../delivered-reassign";
 import { districtBadge } from "../district-view";
 import { fieldErrors } from "../order-action-rules";
 import { addressChangedBy, isOpenOrder, productsPreview, shortOrderNumber } from "../order-view";
+import { AttachCourierDialog } from "./attach-courier-dialog";
 import { AutoAssignPreview } from "./auto-assign-preview";
 import { BulkAssignDialog } from "./bulk-assign-dialog";
 import { ChiefAssignDialog } from "./chief-assign-dialog";
@@ -50,6 +52,8 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
   const { scope, filters } = controls;
   const [openId, setOpenId] = useQueryState("order", parseAsString);
   const [assigning, setAssigning] = useState<LogistOrder | null>(null);
+  // Yetkazilgan, kuryersiz yopilgan zakazga kuryerni keyin biriktirish (hujjat 125 C).
+  const [attaching, setAttaching] = useState<LogistOrder | null>(null);
   const [planning, setPlanning] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const canDispatch = chiefCan(me, "orders.dispatch");
@@ -166,6 +170,7 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
                 onOpen={() => void setOpenId(order.id)}
                 onAssign={() => setAssigning(order)}
                 onUnassign={() => unassign.mutate(order)}
+                onAttach={() => setAttaching(order)}
               />
             ))}
           </ul>
@@ -186,8 +191,10 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
         regions={me.regions}
         onClose={() => void setOpenId(null)}
         onAssign={setAssigning}
+        onAttach={setAttaching}
       />
       <ChiefAssignDialog order={assigning} onClose={() => setAssigning(null)} />
+      <AttachCourierDialog order={attaching} onClose={() => setAttaching(null)} />
       {planning ? <AutoAssignPreview filters={toDispatch} filtered={filtered} onClose={() => setPlanning(false)} /> : null}
       <BulkAssignDialog
         open={bulkOpen}
@@ -207,6 +214,7 @@ function ChiefOrderRow({
   onOpen,
   onAssign,
   onUnassign,
+  onAttach,
 }: {
   order: LogistOrder;
   canDispatch: boolean;
@@ -214,6 +222,7 @@ function ChiefOrderRow({
   onOpen: () => void;
   onAssign: () => void;
   onUnassign: () => void;
+  onAttach: () => void;
 }) {
   const status = orderStatusInfo(order.status);
   const address = formatDeliveryAddress(order);
@@ -319,6 +328,14 @@ function ChiefOrderRow({
           >
             <Truck />
             {order.courier ? "Almashtirish" : "Kuryerga berish"}
+          </Button>
+        </span>
+      ) : null}
+      {canDispatch && canAttachAfterDelivery(order) ? (
+        <span className="grid w-full shrink-0 sm:flex sm:w-auto sm:justify-end">
+          <Button variant="outline" onClick={onAttach} title="Zakazni kim yetkazganini yozish" className="sm:h-8 sm:px-3 sm:text-meta">
+            <UserPlus />
+            Kuryerni biriktirish
           </Button>
         </span>
       ) : null}

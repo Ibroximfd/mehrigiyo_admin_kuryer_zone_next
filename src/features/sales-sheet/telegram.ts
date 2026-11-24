@@ -4,7 +4,8 @@ import { cellUnitText, filledCells, fullDate, moneyText } from "./display";
 import { isSingleDay, rangeTitle } from "./period";
 import type { SheetRange } from "./period";
 import type { RegionGroup } from "./regions";
-import type { CellMap, CourierSheet, SheetFigures, SheetProduct } from "./types";
+import { hasCourierlessActivity } from "./types";
+import type { CellMap, CourierSheet, CourierlessSheet, SheetFigures, SheetProduct } from "./types";
 
 /**
  * «Sotuv jadvali» — Telegram guruhiga yoziladigan matn (logist saytidagi
@@ -27,6 +28,11 @@ export type SheetTelegramInput = {
   totals: SheetFigures;
   /** Viloyatlar; `null` — hali aniqlanmagan: matn viloyat bo'limlarisiz (kuryerlar + jami). */
   regions: readonly RegionGroup[] | null;
+  /**
+   * «Kuryersiz (bosh kuryer)» (hujjat 125 C §4) — «Jami» ichida bor, kuryer va
+   * viloyat bo'limlarida yo'q: yozilmasa bo'limlar yig'indisi jamiga teng chiqmaydi.
+   */
+  courierless?: CourierlessSheet | null;
   t?: Translate;
 };
 
@@ -102,14 +108,24 @@ function regionLines(region: RegionGroup, input: SheetTelegramInput, t: Translat
   ];
 }
 
-/** Butun matn: sarlavha, har viloyat (yoki viloyat noma'lum bo'lsa — kuryerlar), oxirida «Jami». */
+/** «Kuryersiz» bo'limi: bosh kuryerning o'zida yopilgan zakazlar — sotuv va pul (topshirish yo'q). */
+function courierlessLines(block: CourierlessSheet, products: readonly SheetProduct[], t: Translate): string[] {
+  return [`🏬 ${t("Kuryersiz (bosh kuryer)")} · ${t(`${groupThousands(block.ordersCount)} ta zakaz`)}`, ...figureLines(block, products, t, false)];
+}
+
+/**
+ * Butun matn: sarlavha, har viloyat (yoki viloyat noma'lum bo'lsa — kuryerlar),
+ * «Kuryersiz» (bo'lsa), oxirida «Jami».
+ */
 export function salesSheetTelegram(input: SheetTelegramInput): string {
   const t = input.t ?? same;
-  const sections = input.regions
+  const groups = input.regions
     ? input.regions.map((region) => regionLines(region, input, t))
     : input.couriers.length > 0
       ? [courierLines(input.couriers, input.products, t)]
       : [];
+  const own = input.courierless && hasCourierlessActivity(input.courierless) ? [courierlessLines(input.courierless, input.products, t)] : [];
+  const sections = [...groups, ...own];
   return [
     ...headerLines(input, t),
     TELEGRAM_LINE,

@@ -69,6 +69,7 @@ function SheetTelegramDialog({
     products: sheet.products,
     couriers: sheet.couriers,
     totals: sheet.totals,
+    courierless: sheet.courierless,
     regions,
     // Matn DOM'ga tushmaydi (nusxalanadi) — yorliqlar shu yerda tanlangan tilga o'giriladi.
     t: (text: string) => translateText(text, locale),

@@ -1,16 +1,14 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle, TriangleAlert } from "lucide-react";
+import { ArrowLeftRight, LoaderCircle } from "lucide-react";
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
 import { ProductThumb } from "@/components/kit/product-thumb";
 import { inputClass } from "@/components/kit/field";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { ApiError, errorCode, errorMessage } from "@/lib/api-client";
 import { groupThousands } from "@/lib/format";
 import { shownQuantity, shownUnit, stockQuantityOf } from "@/lib/item-ref";
@@ -18,8 +16,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import { createCourierDocument } from "../api";
-import { adjustmentSurplus, documentRows, draftQuantity, initialDraft, planDocument } from "../courier-document";
-import type { CourierDocumentMode } from "../courier-document";
+import { adjustmentStoreMoves, documentRows, draftQuantity, hasStoreMoves, initialDraft, planDocument, storeEffectMoves } from "../courier-document";
+import type { CourierDocumentMode, StoreMove, StoreMoves } from "../courier-document";
 import { mapShortages, type CourierStock, type SkladStockRow } from "../types";
 
 export type { CourierDocumentMode } from "../courier-document";
@@ -32,6 +30,8 @@ const COPY: Record<CourierDocumentMode, { title: string; hint: string; submit: s
 
 /** Hujjat xatosi — o'qiladigan matn (403 ruxsat, 409 qoldiq yetmaydi). */
 export function documentError(error: unknown): string {
+  // «Topilma» (`found: true`) — faqat logist (hujjat 125 §A). Bu sayt uni yubormaydi; server shunday desa — tushunarli matn.
+  if (errorCode(error) === "found_requires_logist") return "Topilmani faqat logist yozadi";
   if (errorCode(error) === "insufficient_stock" && error instanceof ApiError) {
     const shortages = mapShortages(error.data);
     return shortages.length
@@ -46,6 +46,9 @@ export function documentError(error: unknown): string {
  * Bosh kuryer hujjati (sklad hujjati 2026-11-03 §6): faqat uchta tur. Kuryerga berish —
  * sklad omboridagi mol; qabul — kuryer qo'lidagi mol; tuzatish — hamma mahsulot, kuryerdagisi
  * oldinda (`documentRows`). Tuzatishda `actual_qty`, faqat o'zgargan qator yuboriladi.
+ * Tuzatish ombor bilan juft yoziladi (hujjat 125 §A): kuryerga qo'shilgani ombordan chiqadi,
+ * kamaygani omborga qaytadi, sklad jamisi o'zgarmaydi — oyna buni saqlashdan oldin ko'rsatadi,
+ * saqlangach server aytgan natijani (`store_effect`) yozadi.
  * Son ekrandagi birlikda kiritiladi (donada yuritiladigan mahsulot — donada, hujjat 84 §3);
  * skladda hali karobkada turgan bunday mahsulot serverga butun karobka bo'lib aniq aylantiriladi.
  *
@@ -71,11 +74,6 @@ export function CourierDocumentDialog({
   const value = (id: number) => draftQuantity(draft[id]);
   const { lines, sendable, notWhole, overLimit } = planDocument(mode, rows, draft);
   const needsStore = mode !== "adjustment" && store === null;
-  // Kuryerga qo'shilayotgan mol Jamini oshiradi — tasdiqsiz saqlanmaydi. Son o'zgarsa tasdiq qaytadan so'raladi.
-  const surplus = mode === "adjustment" ? adjustmentSurplus(lines) : [];
-  const surplusKey = surplus.map(({ item, extra }) => `${item.id}:${extra}`).join(",");
-  const [confirmedSurplus, setConfirmedSurplus] = useState<string | null>(null);
-  const surplusConfirmed = surplus.length === 0 || confirmedSurplus === surplusKey;
 
   const save = useMutation({
     mutationFn: (all: boolean) => {
@@ -85,7 +83,7 @@ export function CourierDocumentDialog({
         ? createCourierDocument({ type: mode, locationId: store!.id, courierId: courier.courier.id, lines: sendable })
         : createCourierDocument({ type: mode, locationId: store!.id, courierId: courier.courier.id, lines: all ? null : sendable });
     },
-    onSuccess: (negative) => {
+    onSuccess: ({ negative, storeEffect, jamiDelta }) => {
       for (const cell of negative) {
         const row = rows.find((entry) => entry.item.id === cell.itemId);
         const amount = row ? shownQuantity(row.item, cell.onHand) : cell.onHand;
@@ -93,7 +91,15 @@ export function CourierDocumentDialog({
           description: "Qoldiq minusga tushdi — sanab, tuzatish bilan to'g'rilang.",
         });
       }
-      toast.success(`${copy.title} saqlandi`);
+      // Natija — server aytgani (`store_effect`); kalit kelmasa (eski server) — umumiy xabar.
+      const result = mode === "adjustment" && storeEffect ? storeEffectMoves(storeEffect, rows) : null;
+      toast.success(`${copy.title} saqlandi`, {
+        description: result && hasStoreMoves(result) ? <StoreMovesText moves={result} outLabel="Ombordan chiqdi:" backLabel="Omborga qaytdi:" /> : undefined,
+      });
+      // Juft tuzatishda jami o'zgarmaydi; o'zgargan bo'lsa — kuryerning ombori topilmagan (125, cheklov 10).
+      if (mode === "adjustment" && jamiDelta !== null && jamiDelta !== 0) {
+        toast.warning("Sklad jamisi o'zgardi — kuryerning ombori topilmadi", { description: "Bosh logistga xabar bering." });
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSklad });
       void queryClient.invalidateQueries({ queryKey: queryKeys.chiefSalesSheets });
       onClose();
@@ -161,13 +167,7 @@ export function CourierDocumentDialog({
         )}
         {overLimit ? <p className="text-warn mt-2 text-meta">Ba&apos;zi qatorda bordan ko&apos;p — saqlanadi, qoldiq minusga tushadi.</p> : null}
         {notWhole ? <p className="text-danger mt-2 text-meta">Karobkada turgan mahsulotda son butun karobkaga teng bo&apos;lsin.</p> : null}
-        {surplus.length > 0 ? (
-          <SurplusWarning
-            surplus={surplus}
-            confirmed={surplusConfirmed}
-            onConfirm={(checked) => setConfirmedSurplus(checked ? surplusKey : null)}
-          />
-        ) : null}
+        {mode === "adjustment" && rows.length > 0 ? <PairedNote moves={adjustmentStoreMoves(lines)} /> : null}
 
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -180,7 +180,7 @@ export function CourierDocumentDialog({
           ) : null}
           <Button
             type="button"
-            disabled={needsStore || lines.length === 0 || notWhole || !surplusConfirmed || save.isPending}
+            disabled={needsStore || lines.length === 0 || notWhole || save.isPending}
             onClick={() => save.mutate(false)}
           >
             {save.isPending ? <LoaderCircle className="animate-spin" /> : null}
@@ -193,42 +193,47 @@ export function CourierDocumentDialog({
 }
 
 /**
- * Tuzatishda kuryerga mol qo'shilyapti: Jami shuncha oshadi, sklad kamaymaydi. Skladdan berilgan mol
- * «Berish» bilan yozilishi kerak — aks holda ikki marta sanaladi (hujjat 113/114).
+ * Tuzatish ombor bilan juft yoziladi (hujjat 125 §A) — doim ko'rinadigan izoh va,
+ * son o'zgargach, omborga ta'siri: nima chiqadi, nima qaytadi (ekrandagi birlikda).
  */
-function SurplusWarning({
-  surplus,
-  confirmed,
-  onConfirm,
-}: {
-  surplus: ReturnType<typeof adjustmentSurplus>;
-  confirmed: boolean;
-  onConfirm: (checked: boolean) => void;
-}) {
+function PairedNote({ moves }: { moves: StoreMoves }) {
   return (
-    <div role="alert" className="border-warn bg-warn-soft mt-3 rounded-xl border px-3 py-2.5">
-      <p className="text-warn flex items-start gap-1.5 text-dense font-semibold">
-        <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <span>
-          Jami oshadi:{" "}
-          {surplus.map(({ item, extra }, index) => (
-            <span key={item.id}>
-              {index > 0 ? ", " : null}
-              <span data-no-translit>{item.name}</span> <span className="tabular">+{groupThousands(extra)}</span> {shownUnit(item)}
-            </span>
-          ))}
-        </span>
+    <div role="status" className="bg-subtle mt-3 rounded-xl px-3 py-2.5">
+      <p className="text-ink-muted flex items-start gap-1.5 text-meta">
+        <ArrowLeftRight aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+        <span>Kuryerga qo&apos;shilgan mol ombordan ayiriladi, kamaygani omborga qaytadi. Sklad jamisi o&apos;zgarmaydi.</span>
       </p>
-      <p className="text-ink-muted mt-1 text-meta">
-        Tuzatish molni skladdan olmaydi. Mol skladdan berilgan bo&apos;lsa, bu oynani yoping va «Berish» ni ishlating — aks holda
-        mol ikki marta sanaladi.
-      </p>
-      <div className="mt-2 flex items-start gap-2.5">
-        <Checkbox id="courier-adjustment-surplus" checked={confirmed} onCheckedChange={(value) => onConfirm(value === true)} />
-        <Label htmlFor="courier-adjustment-surplus" className="text-ink text-dense">
-          Bu mol skladdan berilmagan — sanoqda ortiqcha chiqdi
-        </Label>
-      </div>
+      {hasStoreMoves(moves) ? (
+        <p className="text-ink mt-1.5 text-dense">
+          <StoreMovesText moves={moves} outLabel="Ombordan chiqadi:" backLabel="Omborga qaytadi:" />
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+/** «Ombordan chiqdi: Krem 30 dona, …» — nom tarjima qilinmaydi, birlik alohida bo'lakda (lug'atda bor). */
+function StoreMovesText({ moves, outLabel, backLabel }: { moves: StoreMoves; outLabel: string; backLabel: string }) {
+  return (
+    <>
+      <MovesLine label={outLabel} moves={moves.out} />
+      <MovesLine label={backLabel} moves={moves.back} />
+    </>
+  );
+}
+
+function MovesLine({ label, moves }: { label: string; moves: readonly StoreMove[] }) {
+  if (moves.length === 0) return null;
+  return (
+    <span className="block">
+      <span className="font-semibold">{label}</span>{" "}
+      {moves.map((move, index) => (
+        <span key={move.itemId}>
+          {index > 0 ? ", " : null}
+          <span data-no-translit>{move.name}</span> <span className="tabular">{groupThousands(move.amount)}</span>
+          {move.unit ? <> <span>{move.unit}</span></> : null}
+        </span>
+      ))}
+    </span>
   );
 }
