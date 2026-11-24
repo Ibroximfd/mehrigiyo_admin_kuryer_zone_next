@@ -31,6 +31,7 @@ import { needsDistrictAction } from "../district-view";
 import { addressChangedBy, isOpenOrder, paymentLabel, shortOrderNumber } from "../order-view";
 import { DistrictPrompt } from "./district-prompt";
 import { AddressFixDialog, ReturnDialog } from "./order-actions";
+import { UrgentDetail } from "./urgent-detail";
 
 /**
  * Zakaz detali (`?order=<id>`): mijoz, manzil, mahsulotlar va summalar,
@@ -179,6 +180,7 @@ function DetailBody({
       </header>
 
       <div className="flex flex-1 flex-col gap-5 px-5 py-4">
+        {order.urgent ? <UrgentDetail orderId={order.id} urgent={order.urgent} /> : null}
         <Block title="Mijoz">
           <p className="text-ink text-body font-semibold" data-no-translit>
             {order.client.fullName || "—"}

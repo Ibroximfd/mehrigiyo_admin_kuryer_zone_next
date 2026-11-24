@@ -22,6 +22,11 @@ export const queryKeys = {
   /** Mahsulotlar katalogi (filtr) — kam o'zgaradi. */
   productOptions: ["catalog", "products"] as const,
   chiefOrderDetail: (orderId: string) => ["chief", "order", orderId] as const,
+  /**
+   * Faol shoshilinch zakazlar (hujjat 123 §4.1) — `chief` ostida: kuryerga berish,
+   * qaytarish kabi har amaldan keyin ro'yxatlar bilan birga yangilanadi.
+   */
+  chiefUrgent: ["chief", "urgent"] as const,
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */
   chiefAutoAssignPreview: (filters: Record<string, unknown>) => ["chief", "auto-assign-preview", filters] as const,
   chiefFilials: ["chief", "filials"] as const,

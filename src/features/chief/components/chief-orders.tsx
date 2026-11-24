@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Send, Store, Truck, Undo2, Wand2 } from "lucide-react";
+import { Inbox, LoaderCircle, MapPin, MapPinned, MapPinOff, SearchX, Send, Siren, Store, Truck, Undo2, Wand2 } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,7 +17,9 @@ import { chiefCan } from "@/features/chief/types";
 import type { ChiefMe, ChiefOrderScope } from "@/features/chief/types";
 import { dispatchFilters } from "@/features/chief/order-params";
 import { ORDER_SORT_LABELS } from "@/features/chief/order-sort";
+import { isActiveUrgent } from "@/features/chief/urgent";
 import { useOrderFilters } from "@/features/chief/use-order-filters";
+import { useUrgentOrders } from "@/features/chief/use-urgent-orders";
 import { formatDeliveryAddress } from "@/features/orders/address";
 import { isInReview, reviewLabel } from "@/features/orders/review";
 import { orderStatusInfo } from "@/features/orders/types";
@@ -35,6 +37,7 @@ import { ChiefAssignDialog } from "./chief-assign-dialog";
 import { OrderDetailSheet } from "./order-detail-sheet";
 import { OrderFilters } from "./order-filters";
 import { OrderProductsLine } from "./order-products-line";
+import { UrgentSection } from "./urgent-section";
 
 /**
  * Bosh kuryer zakazlari (§5a, 2-bosqich): holat chiplari, qidiruv va
@@ -50,6 +53,8 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
   const [planning, setPlanning] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const canDispatch = chiefCan(me, "orders.dispatch");
+  // Shoshilinch zakaz oddiy ro'yxat filtrida bo'lmasligi mumkin — detal uchun nusxa shundan olinadi.
+  const urgent = useUrgentOrders();
 
   // Filtr va tartib — faqat serverda (60-javob); sayt o'zi saralamaydi.
   const orders = useInfiniteQuery({
@@ -85,6 +90,7 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <UrgentSection canDispatch={canDispatch} onOpen={(orderId) => void setOpenId(orderId)} onAssign={setAssigning} />
       <div className="flex flex-wrap items-center gap-2">
         <FilterChips<ChiefOrderScope>
           label="Holat"
@@ -173,7 +179,9 @@ export function ChiefOrders({ me }: { me: ChiefMe }) {
 
       <OrderDetailSheet
         orderId={openId}
-        fallback={rows.find((order) => order.id === openId) ?? null}
+        fallback={
+          rows.find((order) => order.id === openId) ?? urgent.board?.orders.find((order) => order.id === openId) ?? null
+        }
         canDispatch={canDispatch}
         regions={me.regions}
         onClose={() => void setOpenId(null)}
@@ -255,6 +263,7 @@ function ChiefOrderRow({
               {order.orderNumber}
             </span>
             <StatusPill label={status.label} color={status.color} size="sm" />
+            {isActiveUrgent(order) ? <StatusPill label="Shoshilinch" color="var(--danger)" size="sm" Icon={Siren} /> : null}
             {isInReview(order) ? <StatusPill label={reviewLabel(order)} color="var(--order-review)" size="sm" /> : null}
             {changedBy ? <StatusPill label="Manzil o'zgardi" color="var(--warn)" size="sm" Icon={MapPinned} /> : null}
             {district ? <StatusPill label={district.label} color={district.color} size="sm" Icon={MapPinOff} /> : null}

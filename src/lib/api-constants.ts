@@ -59,6 +59,12 @@ export const ENDPOINTS = {
   /** Avto-taqsimlash: reja va tasdiqlangan rejani yuborish (V5). */
   chiefAutoAssignPreview: "/operator/chief/orders/auto-assign/preview/",
   chiefAutoAssignApply: "/operator/chief/orders/auto-assign/apply/",
+  /**
+   * Shoshilinch zakazlar (hujjat 123 §4): faol shoshilinchlar ro'yxati (har 15 s
+   * so'raladi — bu saytda soket yo'q) va bosh kuryerning «Qabul qildim»i.
+   */
+  chiefOrdersUrgent: "/operator/chief/orders/urgent/",
+  chiefOrderUrgentAck: (id: string) => `/operator/chief/orders/${id}/urgent/ack/`,
   /** Filtrdagi hamma kuryersiz zakazni bitta kuryerga (hujjat 68 §2.1). */
   chiefBulkAssign: "/operator/chief/orders/bulk-assign/",
   /** Filiallar ro'yxati (V14). */

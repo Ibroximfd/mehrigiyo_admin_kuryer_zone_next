@@ -33,6 +33,8 @@ import { asAddressChangedBy } from "./address";
 import type { AddressChangedBy } from "./address";
 import { mapOrderReview } from "./review";
 import type { OrderReview } from "./review";
+import { hasUrgentKey, mapOrderUrgent } from "./urgent";
+import type { OrderUrgent } from "./urgent";
 import { mapOrderZoning } from "./zoning";
 import type { OrderZoning } from "./zoning";
 
@@ -133,6 +135,10 @@ export type LogistOrder = {
    * saqlanadi (`stores/tags-store.ts`) — eski javob bilan ham ishlaydi.
    */
   tagsFromServer: boolean;
+  /** Shoshilinch zakaz belgisi (hujjat 123 §2); shoshilinch emas — `null`. */
+  urgent: OrderUrgent | null;
+  /** Server `urgent` kalitini yuborganmi (`null` ham) — yubormasa eski server (§11). */
+  urgentFromServer: boolean;
 
   // ── Yagona domain model (`02_DOMAIN_MODEL` §2.2, §5) ─────────────────────
   // Backend hali chiqarmagan bo'lsa hammasi `null`/bo'sh — UI badge'larni
@@ -1117,6 +1123,8 @@ export function mapLogistOrder(raw: unknown): LogistOrder {
     transfer: mapOrderTransferInfo(json.transfer),
     tags: mapTags(json.tags),
     tagsFromServer: Array.isArray(json.tags),
+    urgent: mapOrderUrgent(json.urgent),
+    urgentFromServer: hasUrgentKey(json),
 
     pendingReason: mapPendingReason(json.pending_reason),
     confirmation: mapConfirmation(json.confirmation),

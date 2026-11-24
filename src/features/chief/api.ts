@@ -36,6 +36,8 @@ import type {
 import { mapCourierCredentials, mapSetPasswordResult } from "./credentials";
 import type { CourierCredentials } from "./credentials";
 import { orderFilterParams } from "./order-params";
+import { isUrgentUnsupported, mapUrgentBoard } from "./urgent";
+import type { UrgentBoard } from "./urgent";
 import { mapZoneStats } from "./zone-stats";
 import type { ZoneStats } from "./zone-stats";
 import type { ChiefOrdersQuery, DispatchFilters } from "./order-params";
@@ -141,6 +143,31 @@ export function assignChiefOrder(
       warnings: patchWarningCodes(json),
     };
   });
+}
+
+// ── Shoshilinch zakazlar (hujjat 123 §4) ──────────────────────────────────
+
+/**
+ * Faol shoshilinch zakazlar (§4.1). `null` — server funksiyani bilmaydi (eski
+ * backend): bu xato emas, qiymat — bo'lim, banner va signal chizilmaydi, so'rov
+ * to'xtaydi. Vaqtinchalik xato (`5xx`, tarmoq) tashqariga otiladi — so'rov davom etadi.
+ */
+export async function fetchChiefUrgent(signal?: AbortSignal): Promise<UrgentBoard | null> {
+  try {
+    return mapUrgentBoard(await api.get<unknown>(ENDPOINTS.chiefOrdersUrgent, { signal }));
+  } catch (error) {
+    if (isUrgentUnsupported(error)) return null;
+    throw error;
+  }
+}
+
+/** «Qabul qildim» (§4.2) — idempotent: ikkinchi marta bosilsa ham `200`, birinchi vaqt saqlanadi. */
+export async function ackChiefUrgent(orderId: string): Promise<LogistOrder> {
+  const raw = await api.post<unknown>(ENDPOINTS.chiefOrderUrgentAck(orderId), {
+    fallbackError: "Qabul qilishda xatolik",
+  });
+  const json = asRecord(raw);
+  return mapLogistOrder(isRecord(json.order) ? json.order : raw);
 }
 
 /** Reja uchun sahifa hajmi — server `page_size` ni 200 gacha qabul qiladi (prodda o'lchandi, 2026-11-10). */

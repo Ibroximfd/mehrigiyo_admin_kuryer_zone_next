@@ -17,10 +17,12 @@ export type NavItem = {
   permission?: ChiefPermission;
   /** Telefonning pastki panelida yo'q — faqat yon panel / menyuda. */
   secondary?: boolean;
+  /** Bo'lim yonidagi sanagich: `urgent` — faol shoshilinch zakazlar (hujjat 123). */
+  badge?: "urgent";
 };
 
 export const NAV: NavItem[] = [
-  { href: ROUTES.orders, label: "Zakazlar", Icon: Receipt },
+  { href: ROUTES.orders, label: "Zakazlar", Icon: Receipt, badge: "urgent" },
   { href: ROUTES.couriers, label: "Kuryerlar", Icon: Truck },
   { href: ROUTES.zones, label: "Zonalar", Icon: Hexagon },
   { href: ROUTES.sklad, label: "Sklad", Icon: Warehouse, permission: "warehouse.view_courier_stores" },

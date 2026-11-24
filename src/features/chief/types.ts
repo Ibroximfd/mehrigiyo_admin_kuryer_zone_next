@@ -232,6 +232,11 @@ export const HISTORY_LABELS: Record<string, string> = {
   cash_handed: "Pul filialga topshirildi",
   address_changed: "Manzil o'zgardi",
   returned_to_logist: "Logistga qaytarildi",
+  // Shoshilinch zakaz (hujjat 123 §8).
+  urgent_set: "Shoshilinch qilindi",
+  urgent_acked: "Shoshilinch — qabul qilindi",
+  urgent_reminder: "Shoshilinch — takror ogohlantirish",
+  urgent_cleared: "Shoshilinch belgisi olib tashlandi",
 };
 
 export function mapChiefCouriers(raw: unknown): Courier[] {

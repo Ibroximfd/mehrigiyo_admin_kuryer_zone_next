@@ -8,6 +8,7 @@ import { DemoBadge } from "@/components/demo-badge";
 import { isNavActive } from "@/components/panel/nav";
 import { useNavItems } from "@/components/panel/use-nav-items";
 import { UserMenu } from "@/components/panel/user-menu";
+import { UrgentNavBadge } from "@/features/chief/components/urgent-nav-badge";
 import { SERVER_NAME } from "@/lib/api-constants";
 import { DEMO_MODE } from "@/lib/demo/mode";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
             >
               <item.Icon className="size-4.5 shrink-0" aria-hidden />
               <span className="flex-1 truncate">{item.label}</span>
+              {item.badge === "urgent" ? <UrgentNavBadge surface="rail" /> : null}
             </Link>
           );
         })}

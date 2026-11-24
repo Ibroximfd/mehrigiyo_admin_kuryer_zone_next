@@ -12,6 +12,8 @@ import { PANEL_MAIN_ID } from "@/components/panel/main-scroll-memory";
 import { isNavActive } from "@/components/panel/nav";
 import { useNavItems } from "@/components/panel/use-nav-items";
 import { UserMenu } from "@/components/panel/user-menu";
+import { UrgentBanner } from "@/features/chief/components/urgent-banner";
+import { UrgentNavBadge } from "@/features/chief/components/urgent-nav-badge";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { ROUTES } from "@/lib/routes";
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils";
 /**
  * Panel karkasi: desktopda yon panel, telefonda tepada sarlavha va pastda
  * olti bo'lim. Internet uzilsa — neytral ogohlantirish, kesh ko'rinib turadi.
+ * Tasdiqlanmagan shoshilinch zakaz banneri (hujjat 123) har sahifada turadi.
  */
 export function PanelShell({ children }: { children: React.ReactNode }) {
   const online = useOnlineStatus();
@@ -34,6 +37,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       <div className="bg-canvas relative flex min-w-0 flex-1 flex-col">
         {!online ? <OfflineBanner /> : null}
         <MobileTopBar />
+        <UrgentBanner />
         <main id={PANEL_MAIN_ID} className="relative min-w-0 flex-1 overflow-y-auto overscroll-contain pb-bottom-nav md:pb-0">
           {/* `key` — marshrut o'zgarganda kirish animatsiyasi qaytadan o'ynaydi. */}
           <div key={pathname} className="section-enter min-h-full">
@@ -98,7 +102,10 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
               aria-hidden
               className={cn("bg-brand absolute top-0 h-0.5 w-8 rounded-b-full transition-opacity", active ? "opacity-100" : "opacity-0")}
             />
-            <item.Icon aria-hidden className={cn("size-5 transition-colors", active ? "text-brand" : "text-ink-faint")} />
+            <span className="relative">
+              <item.Icon aria-hidden className={cn("size-5 transition-colors", active ? "text-brand" : "text-ink-faint")} />
+              {item.badge === "urgent" ? <UrgentNavBadge surface="bar" className="absolute -top-2 left-3" /> : null}
+            </span>
             <span className={cn("truncate text-fine transition-colors", active ? "text-brand font-semibold" : "text-ink-faint")}>
               {item.label}
             </span>
