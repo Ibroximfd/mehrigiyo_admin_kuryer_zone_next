@@ -56,6 +56,10 @@ const LABEL_LEFT = "sm:left-40";
  * o'tilgan maydon yopishgan shapka va kuryer ustuni ostida qolmaydi.
  * `data-wheel-x` — sichqoncha g'ildiragi: avval tepa-pastga, chetda yon
  * tomonga, yon chetda — sahifaga (`lib/mouse-scroll`).
+ * `relative` — SHART: katak ichidagi `sr-only` yorliqlar `position: absolute`.
+ * Konteyner joylashuv bloki bo'lmasa ular sahifaga (`main`) nisbatan turadi,
+ * kesilmaydi va sahifaga jadvalning yashirin balandligicha bo'sh joy qo'shadi
+ * (prod, 2026-11-25: sahifa ostida ~2000px bo'sh joy).
  */
 export function SheetScroll({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -64,7 +68,7 @@ export function SheetScroll({ label, children }: { label: string; children: Reac
       aria-label={label}
       tabIndex={0}
       data-wheel-x
-      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 isolate max-h-(--sheet-max-h) scroll-pt-20 scroll-pl-28 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:scroll-pl-64"
+      className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 relative isolate max-h-(--sheet-max-h) scroll-pt-20 scroll-pl-28 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:scroll-pl-64"
     >
       <table className="w-full border-separate border-spacing-0 text-dense">{children}</table>
     </div>
