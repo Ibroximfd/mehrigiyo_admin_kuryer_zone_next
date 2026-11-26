@@ -123,6 +123,11 @@ export type SheetFigures = Record<SheetFlow, CellMap> & {
    * (eski server: ustun chizilmaydi).
    */
   extraAddresses: number | null;
+  /**
+   * «Borganda atkaz» qo'shimcha manzil bilan (2026-11-26, egasi; hujjat 134).
+   * Server bermasa `null` — `refusedWithExtra` yig'adi.
+   */
+  refusedAddressesTotal: number | null;
   /** Davr oxirida kuryerda yetkazilmay qolgan zakazlar. */
   openOrders: number;
   /** `null` — yozilmagan. Oraliqda — kunlik yozuvlar yig'indisi. */
@@ -269,6 +274,7 @@ function mapFigures(raw: unknown): SheetFigures {
     pendingAddresses: json.pending_in_addresses === true ? asInt(json.pending_addresses) : 0,
     refusedAddresses: asInt(json.refused_addresses),
     extraAddresses: asOptionalInt(json.extra_addresses),
+    refusedAddressesTotal: asOptionalInt(json.refused_addresses_total),
     openOrders: asInt(json.open_orders),
     fee: mapFee(json.fee),
     handoverDue: asOptionalNumber(json.handover_due),

@@ -1,5 +1,6 @@
 import { groupThousands } from "@/lib/format";
 
+import { refusedWithExtra } from "./addresses";
 import { cellUnitText, filledCells, fullDate, moneyText } from "./display";
 import { isSingleDay, rangeTitle } from "./period";
 import type { SheetRange } from "./period";
@@ -68,14 +69,14 @@ function figureLines(figures: SheetFigures, products: readonly SheetProduct[], t
     ...itemLines(figures.gift, products, t),
     ...moneyLines(figures, t),
     ...(withAddresses
-      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(figures.refusedAddresses)}${extraAddressText(figures, t)}`]
+      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(refusedWithExtra(figures))}${extraAddressText(figures, t)}`]
       : []),
   ];
 }
 
-/** Qo'shimcha manzil (2026-11-26) — faqat noldan katta bo'lsa: « · Qo'shimcha manzil: N». */
+/** Qo'shimcha manzil «Borganda atkaz» ichida (2026-11-26, egasi) — faqat bor bo'lsa: « (shundan qo'shimcha: N)». */
 function extraAddressText(figures: SheetFigures, t: Translate): string {
-  return figures.extraAddresses ? ` · ${t("Qo'shimcha manzil")}: ${groupThousands(figures.extraAddresses)}` : "";
+  return figures.extraAddresses ? ` (${t("shundan qo'shimcha")}: ${groupThousands(figures.extraAddresses)})` : "";
 }
 
 /** Hujjat 108: manzil soniga kirgan, logist hali tasdiqlamagani — « (shundan N tasdiqlanmagan)». */

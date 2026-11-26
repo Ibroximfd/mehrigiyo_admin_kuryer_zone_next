@@ -53,6 +53,9 @@ export const SALES_SHEET: Dictionary = {
   Qolgan: "Осталось",
   "Tuzatish / qaytarish": "Корректировка / возврат",
   "Borganda atkaz": "Отказ на месте",
+  // Qo'shimcha manzil «Borganda atkaz» ichida (2026-11-26, egasi).
+  "shundan qo'shimcha": "из них дополнительные",
+  "shundan qo'shimcha manzil: {x}": "из них дополнительных адресов: {x}",
   "Kuryer xizmati (qo'lda)": "Курьерская услуга (вручную)",
   "Topshiradi (naqd − xizmat)": "Сдаёт (наличные − услуга)",
   "Boshida {x} + berildi {x2}": "На начало {x} + выдано {x2}",

@@ -116,6 +116,7 @@ export function sumFigures(list: readonly SheetFigures[], products: readonly She
     pendingAddresses: sumOf(list.map((figures) => figures.pendingAddresses)),
     refusedAddresses: sumOf(list.map((figures) => figures.refusedAddresses)),
     extraAddresses: sumKnown(list.map((figures) => figures.extraAddresses)),
+    refusedAddressesTotal: sumKnown(list.map((figures) => figures.refusedAddressesTotal)),
     openOrders: sumOf(list.map((figures) => figures.openOrders)),
     fee: fees.length > 0 ? { amount: sumOf(fees), note: "" } : null,
     handoverDue: sumNullable(list.map((figures) => figures.handoverDue)),

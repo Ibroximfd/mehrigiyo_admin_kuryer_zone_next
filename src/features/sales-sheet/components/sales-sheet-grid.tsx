@@ -2,7 +2,7 @@
 
 import { ArrowDownToLine, ChevronDown, HandCoins, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { Fragment, createContext, useContext, useState } from "react";
+import { Fragment, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { CourierDocumentMode } from "@/features/sklad/courier-document";
@@ -11,6 +11,7 @@ import { groupThousands } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+import { extraShareHint, refusedWithExtra } from "../addresses";
 import { cashAction, cashWritable, sheetMoney } from "../cash-view";
 import type { SheetMoney } from "../cash-view";
 import { cellText, fullDate, moneyText, shortDate, signedCellText } from "../display";
@@ -131,12 +132,6 @@ function storeIssueRow(plan: IssuePlan | null): ExtraRow | null {
 const MONEY_COLUMNS = 8;
 
 /**
- * «Qo'shimcha» ustuni (qo'shimcha manzil, 2026-11-26) — server `extra_addresses`
- * bersagina. Jadval bo'ylab bitta qaror: sarlavha, blok va kun qatorlari mos.
- */
-const ExtraAddressColumn = createContext(false);
-
-/**
  * Jadvaldagi amallar (egasi, 2026-11-20: «Pul olish» va «Berish rejasi»
  * tablari shu jadvalga qo'shildi). Berilmasa — jadval faqat o'qish uchun.
  */
@@ -181,8 +176,7 @@ export function SalesSheetGrid({
   actions?: SheetActions | null;
 }) {
   const single = isSingleDay(range);
-  const withExtra = sheet.totals.extraAddresses !== null;
-  const columns = 2 + sheet.products.length + MONEY_COLUMNS + (withExtra ? 1 : 0);
+  const columns = 2 + sheet.products.length + MONEY_COLUMNS;
   const plan = actions?.today?.plan ?? null;
   const idle = actions?.today ? idleCouriers(plan, sheet, actions.today.couriers) : [];
   // Davr almashsa blok yangidan quriladi — tahrirdagi summa boshqa kunga o'tib ketmaydi.
@@ -199,7 +193,6 @@ export function SalesSheetGrid({
     />
   );
   return (
-    <ExtraAddressColumn.Provider value={withExtra}>
       <SheetScroll label="Sotuv jadvali">
         <thead>
           <tr>
@@ -226,7 +219,6 @@ export function SalesSheetGrid({
             </HeadCell>
             <HeadCell className="min-w-16">Manzil soni</HeadCell>
             <HeadCell className="min-w-16">Borganda atkaz</HeadCell>
-            {withExtra ? <HeadCell className="min-w-16">Qo&apos;shimcha</HeadCell> : null}
           </tr>
         </thead>
         {regions === null
@@ -288,7 +280,6 @@ export function SalesSheetGrid({
           />
         </tfoot>
       </SheetScroll>
-    </ExtraAddressColumn.Provider>
   );
 }
 
@@ -577,7 +568,8 @@ function MoneyCells({
   const money = sheetMoney(figures);
   const cash = figures.cash;
   const editing = edit !== null && cash !== null;
-  const withExtra = useContext(ExtraAddressColumn);
+  // Qo'shimcha manzil «Borganda atkaz» ichida (2026-11-26, egasi) — alohida ustun emas.
+  const refused = refusedWithExtra(figures);
   return (
     <>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
@@ -613,19 +605,11 @@ function MoneyCells({
       </td>
       <td
         rowSpan={rowSpan}
-        className={cn(MONEY, surface, "tabular text-center text-lg2 font-semibold", figures.refusedAddresses > 0 ? "text-danger" : "text-ink-faint")}
+        className={cn(MONEY, surface, "tabular text-center text-lg2 font-semibold", refused > 0 ? "text-danger" : "text-ink-faint")}
+        title={extraShareHint(figures)}
       >
-        {groupThousands(figures.refusedAddresses)}
+        {groupThousands(refused)}
       </td>
-      {withExtra ? (
-        <td
-          rowSpan={rowSpan}
-          className={cn(MONEY, surface, "tabular text-center text-lg2 font-semibold", figures.extraAddresses ? "text-ink" : "text-ink-faint")}
-          title="Kuryer borgan, zakaz topshirilmagan — logist izoh bilan qo'shgan"
-        >
-          {groupThousands(figures.extraAddresses ?? 0)}
-        </td>
-      ) : null}
     </>
   );
 }
@@ -713,7 +697,6 @@ const DAY_CELL = cn(CELL, "bg-surface text-ink-muted tabular whitespace-nowrap")
  */
 function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly SheetProduct[]; onOpen: () => void }) {
   const money = sheetMoney(day);
-  const withExtra = useContext(ExtraAddressColumn);
   return (
     <tr>
       <th scope="row" className="border-line bg-surface sticky left-0 z-10 border-r border-b px-3 py-2 text-left font-normal">
@@ -737,8 +720,9 @@ function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly S
       <td className={cn(DAY_CELL, "text-center")} title={addressHint(day)}>
         <AddressCount figures={day} />
       </td>
-      <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.refusedAddresses)}</td>
-      {withExtra ? <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.extraAddresses ?? 0)}</td> : null}
+      <td className={cn(DAY_CELL, "text-center")} title={extraShareHint(day)}>
+        {groupThousands(refusedWithExtra(day))}
+      </td>
     </tr>
   );
 }

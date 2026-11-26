@@ -32,7 +32,7 @@ function sheetHtml(dateFrom: string, dateTo = dateFrom): string {
 /** Matnni teglarsiz o'qish — katak ichidagi sonni izlash uchun. */
 const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
-describe("sotuv jadvali — «Qo'shimcha» ustuni (qo'shimcha manzil, 2026-11-26)", () => {
+describe("sotuv jadvali — qo'shimcha manzil «Borganda atkaz» ichida (2026-11-26, egasi)", () => {
   const render = (extra: boolean) => {
     const range = { dateFrom: "2026-11-16", dateTo: "2026-11-16" };
     const raw = demoSalesSheet({ ...range, courierId: null, withDays: false }, TODAY) as Record<string, unknown>;
@@ -43,16 +43,14 @@ describe("sotuv jadvali — «Qo'shimcha» ustuni (qo'shimcha manzil, 2026-11-26
     return html(createElement(SalesSheetBody, { sheet: mapSalesSheet(json), range, onOpenDay: () => undefined }));
   };
 
-  it("server `extra_addresses` bersa — ustun va son chiqadi", () => {
+  it("alohida «Qo'shimcha» ustuni yo'q; «Borganda atkaz» izohida — shundan qo'shimcha", () => {
     const out = render(true);
-    expect(out).toContain("Qo&#x27;shimcha</th>");
-    expect(out).toContain("logist izoh bilan qo&#x27;shgan");
+    expect(out).not.toContain("Qo&#x27;shimcha</th>");
+    expect(out).toContain("shundan qo&#x27;shimcha manzil: 2");
   });
 
-  it("bermasa — ustun yo'q (eski server)", () => {
-    const out = render(false);
-    expect(out).not.toContain("Qo&#x27;shimcha</th>");
-    expect(out).not.toContain("logist izoh bilan qo&#x27;shgan");
+  it("qo'shimcha yo'q — izoh ham yo'q", () => {
+    expect(render(false)).not.toContain("shundan qo&#x27;shimcha");
   });
 });
 
