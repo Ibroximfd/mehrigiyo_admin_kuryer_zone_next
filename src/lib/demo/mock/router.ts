@@ -1137,6 +1137,8 @@ const ROUTES: Route[] = [
   ["get", /^\/operator\/chief\/zones\/stats\/$/, zoneStats],
   ["post", /^\/operator\/chief\/orders\/bulk-assign\/$/, bulkAssign],
   ["get", /^\/operator\/chief\/filials\/$/, () => ok(DEMO_FILIALS.map((filial) => ({ id: filial.id, name: filial.name, is_main: filial.isMain })))],
+  // Markazlar (136-javob): demoda bitta — logistika filialining o'zi, «Markaz» filtri chiqmaydi (demo zakazlarda markaz yo'q).
+  ["get", /^\/operator\/chief\/sales-centers\/$/, () => ok([{ id: DEMO_FILIALS[0]?.id ?? 1, name: DEMO_FILIALS[0]?.name ?? "Filial", code: "", is_hub: true }])],
   ["post", /^\/operator\/chief\/places\/$/, createPlace],
   ["patch", /^\/operator\/chief\/places\/(.+)\/$/, (request, match) => updatePlace(decodeURIComponent(match[1]!), request)],
   ["get", /^\/operator\/chief\/finance\/$/, chiefFinance],

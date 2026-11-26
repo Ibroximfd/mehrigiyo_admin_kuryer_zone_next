@@ -11,6 +11,7 @@ import { DISPATCH } from "./dispatch";
 import { SALES_SHEET } from "./sales-sheet";
 import { SKLAD_SHEET } from "./sklad-sheet";
 import { SKLAD_125 } from "./sklad-125";
+import { CENTERS_136 } from "./centers-136";
 import { URGENT } from "./urgent";
 import { ZONES } from "./zones";
 
@@ -32,4 +33,5 @@ export const RU_DICTIONARY: Dictionary = {
   ...SKLAD_SHEET,
   ...URGENT,
   ...SKLAD_125,
+  ...CENTERS_136,
 };

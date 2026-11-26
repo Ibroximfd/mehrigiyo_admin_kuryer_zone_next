@@ -21,6 +21,8 @@ import { DEFAULT_ORDER_SORT, DISTRICT_FILTER_LABELS, DISTRICT_FILTERS, ORDER_SOR
 import type { ChiefMe } from "@/features/chief/types";
 import type { OrderFilterControls } from "@/features/chief/use-order-filters";
 import { regionLabel } from "@/features/orders/regions";
+import { CenterSelect } from "@/features/sales-centers/components/center-select";
+import { useSalesCenters } from "@/features/sales-centers/use-sales-centers";
 import { districtName } from "@/features/zones/types";
 import { useRegionsDictionary } from "@/features/zones/use-zones";
 import { formatMoneyInput, formatSom, parseMoneyInput, toIsoDay, todayIso } from "@/lib/format";
@@ -74,6 +76,9 @@ export function OrderFilters({
       </div>
 
       <div className="hidden flex-wrap items-center gap-2 sm:flex">
+        {options.centers.length > 1 ? (
+          <CenterSelect value={controls.state.center} onChange={(center) => controls.set({ center })} className="w-48" />
+        ) : null}
         <DateFilter controls={controls} />
         <div className="hidden flex-wrap items-center gap-2 lg:flex">
           <ProductPicker controls={controls} products={options.products} className="w-52" />
@@ -120,6 +125,12 @@ export function OrderFilters({
             </SheetDescription>
           </div>
           <div className="flex flex-col gap-5 px-5 py-4">
+            {options.centers.length > 1 ? (
+              // Markaz (136-javob) — eng yuqori filtr; markazlar bog'langan filialdagina.
+              <PanelGroup title="Markaz">
+                <CenterSelect value={controls.state.center} onChange={(center) => controls.set({ center })} />
+              </PanelGroup>
+            ) : null}
             <PanelGroup title={controls.scope === "delivered" ? "Sana (yetkazilgan kuni)" : "Sana (sizga kelgan kuni)"}>
               <DateFilter controls={controls} />
             </PanelGroup>
@@ -235,7 +246,10 @@ function useFilterOptions(me: ChiefMe) {
   });
   const dictionary = useRegionsDictionary();
   const regions = (dictionary.data ?? []).filter((item) => me.regions.includes(item.region));
+  const { centers, choice } = useSalesCenters();
   return {
+    /** Markaz tanlovi yo'q (eski server, bog'lanmagan filial) — bo'sh: panel va chip chiqmaydi. */
+    centers: choice ? (centers ?? []).map((center) => ({ value: String(center.id), label: center.name, translate: false })) : [],
     zones: (zones.data?.zones ?? []).map((zone) => ({ value: String(zone.id), label: zone.name, translate: false })),
     couriers: (couriers.data ?? []).map((courier) => ({ value: String(courier.id), label: courier.fullName, translate: false })),
     filials: (filials.data ?? []).map((filial) => ({ value: String(filial.id), label: filial.name, translate: false })),
@@ -576,6 +590,10 @@ function activeChips(controls: OrderFilterControls, options: FilterOptions): Chi
     chips.push({ key: "courier", label: labelOf(options.couriers, state.courier), clear: () => set({ courier: null }) });
   }
   if (state.filial !== null) chips.push({ key: "filial", label: labelOf(options.filials, state.filial), clear: () => set({ filial: null }) });
+  // Ro'yxatda yo'q markaz serverga ketmaydi — chip ham yo'q.
+  if (state.center !== null && options.centers.some((option) => option.value === String(state.center))) {
+    chips.unshift({ key: "center", label: labelOf(options.centers, state.center), clear: () => set({ center: null }) });
+  }
   if (state.region) {
     chips.push({ key: "region", label: labelOf(options.regions, state.region), clear: () => set({ region: null, district: null }), translate: true });
   }

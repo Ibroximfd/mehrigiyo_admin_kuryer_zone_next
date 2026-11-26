@@ -30,11 +30,14 @@ export function SheetTelegramButton({
   regions,
   range,
   title,
+  center = null,
 }: {
   sheet: SalesSheet | undefined;
   regions: readonly RegionGroup[] | null;
   range: SheetRange;
   title: string;
+  /** Markaz filtri nomi (136-javob) — matnda aytiladi. */
+  center?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -43,7 +46,9 @@ export function SheetTelegramButton({
         <Send />
         Telegram matni
       </Button>
-      {open && sheet ? <SheetTelegramDialog sheet={sheet} regions={regions} range={range} title={title} onClose={() => setOpen(false)} /> : null}
+      {open && sheet ? (
+        <SheetTelegramDialog sheet={sheet} regions={regions} range={range} title={title} center={center} onClose={() => setOpen(false)} />
+      ) : null}
     </>
   );
 }
@@ -53,12 +58,14 @@ function SheetTelegramDialog({
   regions,
   range,
   title,
+  center,
   onClose,
 }: {
   sheet: SalesSheet;
   regions: readonly RegionGroup[] | null;
   range: SheetRange;
   title: string;
+  center: string | null;
   onClose: () => void;
 }) {
   const locale = useLocaleStore((state) => state.locale);
@@ -71,6 +78,7 @@ function SheetTelegramDialog({
     totals: sheet.totals,
     courierless: sheet.courierless,
     regions,
+    center,
     // Matn DOM'ga tushmaydi (nusxalanadi) — yorliqlar shu yerda tanlangan tilga o'giriladi.
     t: (text: string) => translateText(text, locale),
   };

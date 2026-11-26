@@ -164,6 +164,8 @@ export type RatingFilters = {
   stars: number[];
   courierId: number | null;
   region: string | null;
+  /** Markaz (136-javob): `sales_filial`; yo'q/`null` — umumiy. */
+  salesFilial?: string | null;
   hasComment: boolean | null;
   page: number;
 };
@@ -175,6 +177,7 @@ export function ratingSearchParams(filters: RatingFilters): Record<string, strin
     stars: filters.stars.length ? [...filters.stars].sort().join(",") : null,
     courier: filters.courierId,
     region: filters.region,
+    ...(filters.salesFilial ? { sales_filial: filters.salesFilial } : {}),
     has_comment: filters.hasComment === null ? null : String(filters.hasComment),
     page: filters.page > 1 ? filters.page : null,
   };
@@ -182,6 +185,12 @@ export function ratingSearchParams(filters: RatingFilters): Record<string, strin
 
 export function hasActiveRatingFilters(filters: RatingFilters): boolean {
   return Boolean(
-    filters.dateFrom || filters.dateTo || filters.stars.length || filters.courierId !== null || filters.region || filters.hasComment !== null,
+    filters.dateFrom ||
+      filters.dateTo ||
+      filters.stars.length ||
+      filters.courierId !== null ||
+      filters.region ||
+      filters.salesFilial ||
+      filters.hasComment !== null,
   );
 }

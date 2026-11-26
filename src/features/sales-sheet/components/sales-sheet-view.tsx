@@ -14,6 +14,9 @@ import { LoadRequestsPanel } from "@/features/sklad/components/load-requests-pan
 import type { ChiefSklad, CourierStock } from "@/features/sklad/types";
 import { useChiefSklad } from "@/features/sklad/use-chief-sklad";
 import { useLoadRequests } from "@/features/sklad/use-load-requests";
+import { CenterSelect } from "@/features/sales-centers/components/center-select";
+import { NotSplitNote } from "@/features/sales-centers/components/not-split-note";
+import { useCenterParam, useSalesCenters } from "@/features/sales-centers/use-sales-centers";
 import { groupThousands, todayIso } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -52,13 +55,23 @@ export type TodayData = {
  * «Berish kerak» va berish / qabul / tuzatish, kirim so'rovlari, ombor
  * yetishmovchiligi; jadval o'zi yangilanib turadi. Kuryerlar viloyat bo'yicha
  * guruhlanadi (`useSheetRegions`); Telegram matni sarlavhasi — filial nomi.
+ *
+ * Markaz (136-javob): sotuv, sovg'a, pul va manzillar — markaz bo'yicha; sklad
+ * qoldig'i, xizmat haqi, pul topshirig'i va qarz umumiy. Shuning uchun markaz
+ * tanlanganda jadval faqat ko'rish uchun: berish, «Oldim», xizmat haqi, Click
+ * va skidka — «Hamma markaz» ko'rinishida (aks holda umumiy pul bir markaz
+ * sonlari yonida yozilardi).
  */
 export function SalesSheetView({ me }: { me: ChiefMe }) {
   const controls = useSheetPeriod();
-  const sheet = useSalesSheet(controls.range);
+  const center = useCenterParam();
+  const { centers } = useSalesCenters();
+  const centerName = center.salesFilial ? (centers?.find((item) => String(item.id) === center.salesFilial)?.name ?? null) : null;
+  const filtered = center.salesFilial !== null;
+  const sheet = useSalesSheet(controls.range, center.salesFilial);
   const regions = useSheetRegions(sheet.data);
   const today = todayIso();
-  const isToday = isSingleDay(controls.range) && controls.range.dateFrom === today;
+  const isToday = isSingleDay(controls.range) && controls.range.dateFrom === today && !filtered;
   const plan = useIssuePlan(today, isToday);
   const sklad = useChiefSklad(isToday && chiefCan(me, "warehouse.view_courier_stores"));
   const todayData: TodayData | null = isToday ? { plan: plan.data ?? null, sklad: sklad.data?.kind === "ready" ? sklad.data : null } : null;
@@ -66,8 +79,15 @@ export function SalesSheetView({ me }: { me: ChiefMe }) {
   return (
     <div className="flex flex-col gap-4">
       <SheetPeriodBar controls={controls}>
-        <SheetTelegramButton sheet={sheet.data} regions={regions} range={controls.range} title={me.filial?.name || me.seat.fullName} />
-        <SheetExcelButton range={controls.range} />
+        <CenterSelect value={center.center} onChange={center.setCenter} className="w-48" />
+        <SheetTelegramButton
+          sheet={sheet.data}
+          regions={regions}
+          range={controls.range}
+          title={me.filial?.name || me.seat.fullName}
+          center={centerName}
+        />
+        <SheetExcelButton range={controls.range} salesFilial={center.salesFilial} />
       </SheetPeriodBar>
       <SheetQueryState
         query={sheet}
@@ -96,8 +116,9 @@ export function SalesSheetView({ me }: { me: ChiefMe }) {
               range={controls.range}
               regions={regions}
               onOpenDay={controls.setDay}
-              canAccept={chiefCan(me, "cash.accept")}
+              canAccept={!filtered && chiefCan(me, "cash.accept")}
               today={todayData}
+              readOnly={filtered}
             />
           )
         }
@@ -122,6 +143,7 @@ export function SalesSheetBody({
   onOpenDay,
   canAccept = false,
   today = null,
+  readOnly = false,
 }: {
   sheet: SalesSheet;
   range: SheetRange;
@@ -129,6 +151,8 @@ export function SalesSheetBody({
   onOpenDay: (day: string) => void;
   canAccept?: boolean;
   today?: TodayData | null;
+  /** Markaz filtri (136-javob) — jadval faqat ko'rish uchun, amallar yo'q. */
+  readOnly?: boolean;
 }) {
   const [open, setOpen] = useState<OpenDialog | null>(null);
   const close = () => setOpen(null);
@@ -158,13 +182,14 @@ export function SalesSheetBody({
           { label: "Umumiy sotuv", value: moneyText(money.sales), hint: "sovg'a qo'shilmaydi" },
           { label: "Click / onlayn", value: moneyText(money.online), hint: "qo'lda + ilovada oldindan" },
           { label: "Skidka", value: moneyText(money.discount), hint: "qo'lda + ball" },
-          { label: "Kuryer xizmati", value: moneyText(money.fee), hint: "bosh kuryer qo'lda yozgan" },
-          { label: "Topshirishi kerak", value: moneyText(money.due), hint: "kuryerlar topshiradigan pul" },
+          // Markaz filtrida xizmat haqi, topshiriq va qarz umumiy (136-javob §4) — izohda aytiladi.
+          { label: "Kuryer xizmati", value: moneyText(money.fee), hint: readOnly ? "umumiy" : "bosh kuryer qo'lda yozgan" },
+          { label: "Topshirishi kerak", value: moneyText(money.due), hint: readOnly ? "umumiy" : "kuryerlar topshiradigan pul" },
           {
             label: "Topshirdi",
             value: moneyText(money.received),
-            hint: money.debt !== null && money.debt > 0 ? `qoldi ${groupThousands(money.debt)}` : "kuryerlardan olingan",
-            tone: money.debt !== null && money.debt > 0 ? "warn" : "default",
+            hint: readOnly ? "umumiy" : money.debt !== null && money.debt > 0 ? `qoldi ${groupThousands(money.debt)}` : "kuryerlardan olingan",
+            tone: !readOnly && money.debt !== null && money.debt > 0 ? "warn" : "default",
           },
         ]}
       />
@@ -172,8 +197,15 @@ export function SalesSheetBody({
       <PendingNote sheet={sheet} />
       {today?.plan ? <ShortageNote plan={today.plan} /> : null}
       {sklad ? <LoadRequestsSection /> : null}
-      <ChecksNote sheet={sheet} />
-      <SalesSheetGrid sheet={gridSheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={actions} />
+      {readOnly ? (
+        <NotSplitNote
+          split="sotuv, sovg'a, naqd va onlayn pul, skidka, manzillar."
+          common="sklad qoldig'i, kuryer xizmati, pul topshirig'i va qarz — ular hamma markaz uchun birga. Tahrir va «Oldim» — «Hamma markaz» ko'rinishida."
+        />
+      ) : null}
+      {/* Daftar (sklad) markazga bo'linmaydi — markaz filtrida solishtirish yolg'on farq ko'rsatardi. */}
+      {readOnly ? null : <ChecksNote sheet={sheet} />}
+      <SalesSheetGrid sheet={gridSheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={readOnly ? null : actions} />
       <SheetLegend today={today !== null} addressesOnPress={sheet.addressesOnPress} />
       {open?.kind === "receipt" ? <ReceiptDialog sheet={sheet} courier={open.courier} date={range.dateFrom} canAccept={canAccept} onClose={close} /> : null}
       {open?.kind === "document" && sklad ? (

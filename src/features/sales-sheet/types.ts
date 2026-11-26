@@ -1,6 +1,7 @@
 import { countsInDona, piecesPerBoxOf } from "@/lib/dona";
 import { PIECE_UNIT } from "@/lib/item-ref";
 import { asArray, asInt, asNumber, asOptionalInt, asOptionalNumber, asOptionalString, asRecord, asString, isRecord } from "@/lib/parse";
+import { mapNotSplit, type NotSplit } from "@/features/sales-centers/types";
 
 import { mapOptionalCash } from "./cash";
 import type { CourierCash } from "./cash";
@@ -223,6 +224,11 @@ export type SalesSheet = {
    */
   addressesOnPress: boolean;
   checks: SheetCheck[];
+  /**
+   * Markaz filtrida bo'linmaydigan ustunlar (136-javob §4: sklad qoldig'i,
+   * xizmat haqi, pul topshirig'i, qarz); filtrsiz — `null`.
+   */
+  notSplit: NotSplit;
 };
 
 /**
@@ -393,6 +399,7 @@ export function mapSalesSheet(raw: unknown): SalesSheet {
     pending: mapPending(json.totals),
     addressesOnPress: asRecord(json.totals).pending_in_addresses === true,
     checks: asArray(json.checks).map(mapCheck),
+    notSplit: mapNotSplit(json.not_by_sales_filial),
   };
 }
 

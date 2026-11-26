@@ -14,10 +14,10 @@ import type { SheetRange } from "./period";
  * (`keepPreviousData` yo'q): pul jadvalida eski raqam yangi kun nomi bilan
  * ko'rinmasin — davr almashganda skelet chiqadi. Bugun kirgan davr — jonli.
  */
-export function useSalesSheet(range: SheetRange) {
+export function useSalesSheet(range: SheetRange, salesFilial: string | null = null) {
   return useQuery({
-    queryKey: queryKeys.chiefSalesSheet(salesSheetParams(range)),
-    queryFn: ({ signal }) => fetchSalesSheet(range, signal),
+    queryKey: queryKeys.chiefSalesSheet(salesSheetParams(range, salesFilial)),
+    queryFn: ({ signal }) => fetchSalesSheet(range, salesFilial, signal),
     refetchInterval: range.dateTo >= todayIso() ? LIVE_REFETCH_MS : false,
   });
 }

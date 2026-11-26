@@ -34,6 +34,11 @@ export type SheetTelegramInput = {
    * viloyat bo'limlarida yo'q: yozilmasa bo'limlar yig'indisi jamiga teng chiqmaydi.
    */
   courierless?: CourierlessSheet | null;
+  /**
+   * Markaz filtri (136-javob): sarlavhada aytiladi; pul topshirig'i va qarz
+   * markazga bo'linmaydi — «Topshirishi kerak · Topshirdi» qatori yozilmaydi.
+   */
+  center?: string | null;
   t?: Translate;
 };
 
@@ -50,24 +55,30 @@ function itemLines(cells: CellMap, products: readonly SheetProduct[], t: Transla
  * (`cash.due_total`, o'tgan qarz bilan), «Topshirdi» — olingani (`cash.received`).
  * «Pul olish» bloki serverdan kelmagan bo'lsa ikkinchi qator yozilmaydi.
  */
-function moneyLines(figures: SheetFigures, t: Translate): string[] {
+function moneyLines(figures: SheetFigures, t: Translate, withHandover: boolean): string[] {
   const lines = [
     `💵 ${t("Naqd")}: ${moneyText(figures.cashAmount)} · ${t("Onlayn")}: ${moneyText(figures.onlineAmount)} · ${t("Skidka")}: ${moneyText(figures.discountAmount)}`,
   ];
-  if (figures.cash) {
+  if (figures.cash && withHandover) {
     lines.push(`💰 ${t("Topshirishi kerak")}: ${moneyText(figures.cash.dueTotal)} · ${t("Topshirdi")}: ${moneyText(figures.cash.received)}`);
   }
   return lines;
 }
 
 /** Blok: sotilgan, sovg'a, pul; yig'indi blokida (viloyat, jami) — manzillar ham. */
-function figureLines(figures: SheetFigures, products: readonly SheetProduct[], t: Translate, withAddresses: boolean): string[] {
+function figureLines(
+  figures: SheetFigures,
+  products: readonly SheetProduct[],
+  t: Translate,
+  withAddresses: boolean,
+  withHandover = true,
+): string[] {
   return [
     `📦 ${t("Sotildi")}`,
     ...itemLines(figures.sold, products, t),
     `🎁 ${t("Sovg'a")}`,
     ...itemLines(figures.gift, products, t),
-    ...moneyLines(figures, t),
+    ...moneyLines(figures, t, withHandover),
     ...(withAddresses
       ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(refusedWithExtra(figures))}${extraAddressText(figures, t)}`]
       : []),
@@ -85,14 +96,19 @@ function pendingAddressText(figures: SheetFigures, t: Translate): string {
 }
 
 /** Kuryerlar qisqacha — orasida bo'sh qator. */
-function courierLines(couriers: readonly CourierSheet[], products: readonly SheetProduct[], t: Translate): string[] {
-  return couriers.flatMap((courier, index) => [...(index > 0 ? [""] : []), `👤 ${courier.courier.fullName}`, ...figureLines(courier, products, t, false)]);
+function courierLines(couriers: readonly CourierSheet[], products: readonly SheetProduct[], t: Translate, withHandover: boolean): string[] {
+  return couriers.flatMap((courier, index) => [
+    ...(index > 0 ? [""] : []),
+    `👤 ${courier.courier.fullName}`,
+    ...figureLines(courier, products, t, false, withHandover),
+  ]);
 }
 
 function headerLines(input: SheetTelegramInput, t: Translate): string[] {
-  const { range, title } = input;
+  const { range, title, center } = input;
   return [
     title ? `📍 ${t("Sotuv hisoboti")} — ${title}` : `📍 ${t("Sotuv hisoboti")}`,
+    ...(center ? [`🏢 ${t("Markaz")}: ${center}`] : []),
     isSingleDay(range) ? `📅 ${t("Sana")}: ${fullDate(range.dateFrom)}` : `📅 ${t("Davr")}: ${rangeTitle(range)}`,
   ];
 }
@@ -103,20 +119,24 @@ function headerLines(input: SheetTelegramInput, t: Translate): string[] {
  */
 function regionLines(region: RegionGroup, input: SheetTelegramInput, t: Translate): string[] {
   const head = `🗺 ${t(region.name)} · ${t(`${region.couriers.length} ta kuryer`)}`;
-  if (!isSingleDay(input.range)) return [head, ...figureLines(region.totals, input.products, t, true)];
+  const handover = !input.center;
+  if (!isSingleDay(input.range)) return [head, ...figureLines(region.totals, input.products, t, true, handover)];
   return [
     head,
     "",
-    ...courierLines(region.couriers, input.products, t),
+    ...courierLines(region.couriers, input.products, t, handover),
     "",
     `📊 ${t(`${region.name} jami`)}`,
-    ...figureLines(region.totals, input.products, t, true),
+    ...figureLines(region.totals, input.products, t, true, handover),
   ];
 }
 
 /** «Kuryersiz» bo'limi: bosh kuryerning o'zida yopilgan zakazlar — sotuv va pul (topshirish yo'q). */
-function courierlessLines(block: CourierlessSheet, products: readonly SheetProduct[], t: Translate): string[] {
-  return [`🏬 ${t("Kuryersiz (bosh kuryer)")} · ${t(`${groupThousands(block.ordersCount)} ta zakaz`)}`, ...figureLines(block, products, t, false)];
+function courierlessLines(block: CourierlessSheet, products: readonly SheetProduct[], t: Translate, withHandover: boolean): string[] {
+  return [
+    `🏬 ${t("Kuryersiz (bosh kuryer)")} · ${t(`${groupThousands(block.ordersCount)} ta zakaz`)}`,
+    ...figureLines(block, products, t, false, withHandover),
+  ];
 }
 
 /**
@@ -125,19 +145,21 @@ function courierlessLines(block: CourierlessSheet, products: readonly SheetProdu
  */
 export function salesSheetTelegram(input: SheetTelegramInput): string {
   const t = input.t ?? same;
+  const handover = !input.center;
   const groups = input.regions
     ? input.regions.map((region) => regionLines(region, input, t))
     : input.couriers.length > 0
-      ? [courierLines(input.couriers, input.products, t)]
+      ? [courierLines(input.couriers, input.products, t, handover)]
       : [];
-  const own = input.courierless && hasCourierlessActivity(input.courierless) ? [courierlessLines(input.courierless, input.products, t)] : [];
+  const own =
+    input.courierless && hasCourierlessActivity(input.courierless) ? [courierlessLines(input.courierless, input.products, t, handover)] : [];
   const sections = [...groups, ...own];
   return [
     ...headerLines(input, t),
     TELEGRAM_LINE,
     ...sections.flatMap((section) => [...section, TELEGRAM_LINE]),
     `🧾 ${t("Jami")} · ${t(`${input.couriers.length} ta kuryer`)}`,
-    ...figureLines(input.totals, input.products, t, true),
+    ...figureLines(input.totals, input.products, t, true, handover),
   ].join("\n");
 }
 

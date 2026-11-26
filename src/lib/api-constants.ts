@@ -69,6 +69,8 @@ export const ENDPOINTS = {
   chiefBulkAssign: "/operator/chief/orders/bulk-assign/",
   /** Filiallar ro'yxati (V14). */
   chiefFilials: "/operator/chief/filials/",
+  /** Zakaz beradigan call-markazlar (136-javob §2): birinchisi — logistika filialining o'zi (`is_hub`). */
+  chiefSalesCenters: "/operator/chief/sales-centers/",
   chiefCouriers: "/operator/chief/couriers/",
   chiefCourier: (id: number) => `/operator/chief/couriers/${id}/`,
   /** Kuryer login/paroli (hujjat 67): ko'rish, parol qo'yish (akkaunt ham ochadi), qurilmadan chiqarish. */

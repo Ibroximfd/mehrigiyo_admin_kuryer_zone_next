@@ -30,6 +30,8 @@ export const queryKeys = {
   /** Avto-taqsimlash rejasi — har ochilishda yangidan. */
   chiefAutoAssignPreview: (filters: Record<string, unknown>) => ["chief", "auto-assign-preview", filters] as const,
   chiefFilials: ["chief", "filials"] as const,
+  /** «Markaz» filtri ro'yxati (136-javob §2). */
+  chiefSalesCenters: ["chief", "sales-centers"] as const,
   chiefCandidates: (orderId: string) => ["chief", "candidates", orderId] as const,
   chiefCouriers: ["chief", "couriers"] as const,
   /** Kuryer login/paroli — keshda saqlanmaydi (`gcTime: 0`). */

@@ -374,13 +374,17 @@ function CourierBlock({
         fee={
           idle ? (
             <FeeSum fee={null} hint="harakat yo'q" />
-          ) : single ? (
+          ) : single && actions !== null ? (
             <CourierFeeEditor courier={courier.courier} date={range.dateFrom} fee={courier.fee} />
           ) : (
-            <FeeSum fee={courier.fee} hint="kunma-kun yoziladi" />
+            // Markaz filtrida xizmat haqi umumiy (136-javob §4) — tahrir yo'q.
+            <FeeSum fee={courier.fee} hint={actions === null ? "umumiy" : "kunma-kun yoziladi"} />
           )
         }
-        edit={single && !idle && cashWritable(range.dateFrom, cashSince) ? { courier: courier.courier, date: range.dateFrom, actions } : null}
+        edit={
+          // `actions: null` — faqat ko'rish (masalan markaz filtri: pul markazga bo'linmaydi).
+          actions !== null && single && !idle && cashWritable(range.dateFrom, cashSince) ? { courier: courier.courier, date: range.dateFrom, actions } : null
+        }
       />
       {daysOpen ? courier.days.map((day) => <DayRow key={day.date} day={day} products={products} onOpen={() => onOpenDay(day.date)} />) : null}
     </tbody>

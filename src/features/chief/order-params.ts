@@ -11,6 +11,8 @@ export type ChiefOrderFilters = {
   zoneId?: number | null;
   courierId?: number | null;
   filialId?: number | null;
+  /** Markaz (136-javob): sotgan call-markaz — `sales_filial`; `null` — umumiy. */
+  salesFilial?: string | null;
   region?: string | null;
   district?: string | null;
   productIds?: readonly number[];
@@ -29,7 +31,7 @@ export type ChiefOrdersQuery = ChiefOrderFilters & {
 /**
  * Server filtrlari (K1 §2.2 + V3): `scope`, `status`, `courier_id`, sana,
  * `q` (raqam, mijoz, telefon, manzil, mahsulot), `zone_id`, `filial_id`,
- * `region`, `district`, `page`. «Yetkazilgan» — `scope=all&status=delivered`.
+ * `sales_filial` (markaz, 136-javob), `region`, `district`, `page`. «Yetkazilgan» — `scope=all&status=delivered`.
  * 60-javob (prod, 6/6): mahsulot, summa, `ordering`, `date_field`, `has_zone`,
  * `district_state` — hammasi serverda; sayt o'zi saralamaydi.
  * Sana: «Yetkazilgan» da yetkazilgan kuni, boshqalarida bosh kuryerga kelgan kuni.
@@ -42,6 +44,7 @@ export function orderFilterParams(query: ChiefOrdersQuery): Record<string, Query
     courier_id: query.courierId ?? null,
     zone_id: query.zoneId ?? null,
     filial_id: query.filialId ?? null,
+    sales_filial: query.salesFilial ?? null,
     region: query.region ?? null,
     district: query.district ?? null,
     date_from: query.from ?? null,

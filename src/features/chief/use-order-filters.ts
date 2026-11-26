@@ -2,6 +2,8 @@
 
 import { parseAsArrayOf, parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 
+import { useSalesFilialParam } from "@/features/sales-centers/use-sales-centers";
+
 import type { ChiefOrderFilters } from "./api";
 import { DEFAULT_ORDER_SORT, DISTRICT_FILTERS, ORDER_SORTS, SERVER_ORDERING } from "./order-sort";
 import type { OrderSort, ProductMatch } from "./order-sort";
@@ -31,6 +33,8 @@ export function useOrderFilters() {
     zone: parseAsInteger,
     courier: parseAsInteger,
     filial: parseAsInteger,
+    /** Markaz (136-javob) — sotgan call-markaz id si. */
+    center: parseAsInteger,
     region: parseAsString,
     district: parseAsString,
     products: parseAsArrayOf(parseAsInteger),
@@ -42,6 +46,8 @@ export function useOrderFilters() {
   });
 
   const productIds = state.products ?? [];
+  // Markaz tanlovi yo'q serverda (eski, bitta markaz) qiymat yuborilmaydi.
+  const salesFilial = useSalesFilialParam(state.center);
   const selection: OrderSelection = {
     productIds,
     productMatch: state.pmatch ?? "any",
@@ -54,6 +60,7 @@ export function useOrderFilters() {
     zoneId: state.zone,
     courierId: state.courier,
     filialId: state.filial,
+    salesFilial,
     region: state.region,
     district: state.district,
     productIds,
@@ -69,7 +76,8 @@ export function useOrderFilters() {
     (state.min !== null || state.max !== null ? 1 : 0);
   const activeCount =
     panelCount +
-    [state.zone, state.courier].filter((value) => value !== null).length +
+    // Markaz — asosiy qatorda (keng ekranda), panel soniga kirmaydi.
+    [state.zone, state.courier, state.center].filter((value) => value !== null).length +
     (productIds.length > 0 ? 1 : 0) +
     (state.from || state.to ? 1 : 0);
 
@@ -91,6 +99,7 @@ export function useOrderFilters() {
         zone: null,
         courier: null,
         filial: null,
+        center: null,
         region: null,
         district: null,
         products: null,

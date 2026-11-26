@@ -15,9 +15,9 @@ import type { SheetRange } from "../period";
  * «Excel yuklab olish» — ochiq turgan davr bilan (hujjat 83 §5). Fayl egasi
  * jadvali ko'rinishida serverda yasaladi; sayt o'zi yig'maydi — format bitta joyda.
  */
-export function SheetExcelButton({ range }: { range: SheetRange }) {
+export function SheetExcelButton({ range, salesFilial = null }: { range: SheetRange; salesFilial?: string | null }) {
   const download = useMutation({
-    mutationFn: () => downloadSalesSheetExcel(range),
+    mutationFn: () => downloadSalesSheetExcel(range, salesFilial),
     onSuccess: (name) => toast.success(`Yuklab olindi: ${name}`),
     onError: (error) =>
       toast.error(isEndpointMissing(error) ? "Excel serverda hali yoqilmagan" : errorMessage(error, "Excel faylini yuklab bo'lmadi")),

@@ -13,6 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchChiefCouriers } from "@/features/chief/api";
 import type { ChiefMe } from "@/features/chief/types";
 import { regionLabel } from "@/features/orders/regions";
+import { CenterSelect } from "@/features/sales-centers/components/center-select";
+import { useSalesFilialParam } from "@/features/sales-centers/use-sales-centers";
 import { errorMessage } from "@/lib/api-client";
 import { isAccessDenied, isEndpointMissing } from "@/lib/api-availability";
 import { formatDateTime, groupThousands } from "@/lib/format";
@@ -33,15 +35,19 @@ function useRatingFilters() {
     stars: parseAsArrayOf(parseAsInteger),
     courier: parseAsInteger,
     region: parseAsString,
+    /** Markaz (136-javob). */
+    center: parseAsInteger,
     comment: parseAsStringLiteral(COMMENT_STATES),
     page: parseAsInteger,
   });
+  const salesFilial = useSalesFilialParam(state.center);
   const filters: RatingFilters = {
     dateFrom: state.from || null,
     dateTo: state.to || null,
     stars: (state.stars ?? []).filter((value) => value >= 1 && value <= 5),
     courierId: state.courier,
     region: state.region || null,
+    salesFilial,
     hasComment: state.comment === null ? null : state.comment === "yes",
     page: Math.max(1, state.page ?? 1),
   };
@@ -49,9 +55,10 @@ function useRatingFilters() {
   const patch = (next: Partial<typeof state>) => void setState({ ...next, page: null });
   return {
     filters,
+    center: state.center,
     patch,
     setPage: (page: number) => void setState({ page: page > 1 ? page : null }),
-    clear: () => void setState({ from: null, to: null, stars: null, courier: null, region: null, comment: null, page: null }),
+    clear: () => void setState({ from: null, to: null, stars: null, courier: null, region: null, center: null, comment: null, page: null }),
   };
 }
 
@@ -60,7 +67,7 @@ function useRatingFilters() {
  * bo'yicha va qatorlar. Hamma son serverdan (formula ham), `null` → «—».
  */
 export function RatingsView({ me }: { me: ChiefMe }) {
-  const { filters, patch, setPage, clear } = useRatingFilters();
+  const { filters, center, patch, setPage, clear } = useRatingFilters();
   const ratings = useChiefRatings(filters);
   const couriers = useQuery({ queryKey: queryKeys.chiefCouriers, queryFn: ({ signal }) => fetchChiefCouriers(signal) });
   const filtered = hasActiveRatingFilters(filters);
@@ -75,6 +82,7 @@ export function RatingsView({ me }: { me: ChiefMe }) {
           onClear={() => patch({ from: null, to: null })}
           className="self-start"
         />
+        <CenterSelect value={center} onChange={(next) => patch({ center: next })} className="w-48 self-start" />
         <StarToggles
           value={filters.stars}
           onChange={(stars) => patch({ stars: stars.length ? stars : null })}

@@ -7,20 +7,24 @@ import type { SheetRange } from "./period";
 import { mapIssuePlan, mapSalesSheet } from "./types";
 import type { IssuePlan, SalesSheet } from "./types";
 
-/** Kunma-kun qatorlar (`days=1`) faqat oraliqda so'raladi — bitta kunda `days[]` bo'sh (§2.9). */
-export function salesSheetParams(range: SheetRange): Record<string, QueryValue> {
+/**
+ * Kunma-kun qatorlar (`days=1`) faqat oraliqda so'raladi — bitta kunda `days[]` bo'sh (§2.9).
+ * `salesFilial` — markaz (136-javob); berilmasa kalit yo'q (umumiy).
+ */
+export function salesSheetParams(range: SheetRange, salesFilial: string | null = null): Record<string, QueryValue> {
   return {
     date_from: range.dateFrom,
     date_to: range.dateTo,
     days: isSingleDay(range) ? null : 1,
+    ...(salesFilial ? { sales_filial: salesFilial } : {}),
   };
 }
 
 /** Sotuv jadvali (hujjat 83 §2) — bosh kuryerning o'z kuryerlari, kun yoki oraliq. */
-export async function fetchSalesSheet(range: SheetRange, signal?: AbortSignal): Promise<SalesSheet> {
+export async function fetchSalesSheet(range: SheetRange, salesFilial: string | null, signal?: AbortSignal): Promise<SalesSheet> {
   return mapSalesSheet(
     await api.get<unknown>(ENDPOINTS.chiefSalesSheet, {
-      searchParams: salesSheetParams(range),
+      searchParams: salesSheetParams(range, salesFilial),
       signal,
       fallbackError: "Sotuv jadvalini yuklashda xatolik",
     }),
@@ -114,10 +118,10 @@ function saveBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** Excel (§5) — fayl serverda yasaladi, sayt o'zi yig'maydi. Qaytaradi: fayl nomi. */
-export async function downloadSalesSheetExcel(range: SheetRange): Promise<string> {
+/** Excel (§5) — fayl serverda yasaladi, sayt o'zi yig'maydi. Markaz — jadvaldagi bilan bir xil. Qaytaradi: fayl nomi. */
+export async function downloadSalesSheetExcel(range: SheetRange, salesFilial: string | null = null): Promise<string> {
   const file = await api.download(ENDPOINTS.chiefSalesSheetExport, {
-    searchParams: { date_from: range.dateFrom, date_to: range.dateTo },
+    searchParams: { date_from: range.dateFrom, date_to: range.dateTo, sales_filial: salesFilial },
     fallbackError: "Excel faylini yuklab bo'lmadi",
   });
   const name = file.fileName ?? salesSheetFileName(range);
