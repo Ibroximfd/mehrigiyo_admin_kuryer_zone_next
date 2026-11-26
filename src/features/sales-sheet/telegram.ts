@@ -68,9 +68,14 @@ function figureLines(figures: SheetFigures, products: readonly SheetProduct[], t
     ...itemLines(figures.gift, products, t),
     ...moneyLines(figures, t),
     ...(withAddresses
-      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(figures.refusedAddresses)}`]
+      ? [`🚚 ${t("Manzil soni")}: ${groupThousands(figures.addresses)}${pendingAddressText(figures, t)} · ${t("Borganda atkaz")}: ${groupThousands(figures.refusedAddresses)}${extraAddressText(figures, t)}`]
       : []),
   ];
+}
+
+/** Qo'shimcha manzil (2026-11-26) — faqat noldan katta bo'lsa: « · Qo'shimcha manzil: N». */
+function extraAddressText(figures: SheetFigures, t: Translate): string {
+  return figures.extraAddresses ? ` · ${t("Qo'shimcha manzil")}: ${groupThousands(figures.extraAddresses)}` : "";
 }
 
 /** Hujjat 108: manzil soniga kirgan, logist hali tasdiqlamagani — « (shundan N tasdiqlanmagan)». */

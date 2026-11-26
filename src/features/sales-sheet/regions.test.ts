@@ -187,3 +187,19 @@ describe("sumFigures — tasdiqlanmagan manzil (hujjat 108)", () => {
     expect(sum.pendingAddresses).toBe(3);
   });
 });
+
+describe("viloyat yig'indisi — qo'shimcha manzil (2026-11-26)", () => {
+  it("server bergan kuryerlarnikigina qo'shiladi; hech biri bermasa — `null`", () => {
+    const sheet = mapSalesSheet({
+      products: [],
+      couriers: [
+        { courier: { id: 1, full_name: "A" }, extra_addresses: 2 },
+        { courier: { id: 2, full_name: "B" }, extra_addresses: 1 },
+        { courier: { id: 3, full_name: "C" } },
+      ],
+      totals: {},
+    });
+    expect(sumFigures(sheet.couriers, []).extraAddresses).toBe(3);
+    expect(sumFigures([sheet.couriers[2]!], []).extraAddresses).toBeNull();
+  });
+});

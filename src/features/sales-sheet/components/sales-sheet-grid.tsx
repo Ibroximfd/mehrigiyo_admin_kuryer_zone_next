@@ -2,7 +2,7 @@
 
 import { ArrowDownToLine, ChevronDown, HandCoins, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, createContext, useContext, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { CourierDocumentMode } from "@/features/sklad/courier-document";
@@ -131,6 +131,12 @@ function storeIssueRow(plan: IssuePlan | null): ExtraRow | null {
 const MONEY_COLUMNS = 8;
 
 /**
+ * «Qo'shimcha» ustuni (qo'shimcha manzil, 2026-11-26) — server `extra_addresses`
+ * bersagina. Jadval bo'ylab bitta qaror: sarlavha, blok va kun qatorlari mos.
+ */
+const ExtraAddressColumn = createContext(false);
+
+/**
  * Jadvaldagi amallar (egasi, 2026-11-20: «Pul olish» va «Berish rejasi»
  * tablari shu jadvalga qo'shildi). Berilmasa — jadval faqat o'qish uchun.
  */
@@ -175,7 +181,8 @@ export function SalesSheetGrid({
   actions?: SheetActions | null;
 }) {
   const single = isSingleDay(range);
-  const columns = 2 + sheet.products.length + MONEY_COLUMNS;
+  const withExtra = sheet.totals.extraAddresses !== null;
+  const columns = 2 + sheet.products.length + MONEY_COLUMNS + (withExtra ? 1 : 0);
   const plan = actions?.today?.plan ?? null;
   const idle = actions?.today ? idleCouriers(plan, sheet, actions.today.couriers) : [];
   // Davr almashsa blok yangidan quriladi — tahrirdagi summa boshqa kunga o'tib ketmaydi.
@@ -192,93 +199,96 @@ export function SalesSheetGrid({
     />
   );
   return (
-    <SheetScroll label="Sotuv jadvali">
-      <thead>
-        <tr>
-          <LeadHeads lead={regions && !single ? "Viloyat" : "Kuryer"} label="Qator" />
-          <ProductHeads products={sheet.products} />
-          <HeadCell align="right" className="min-w-28">
-            Umumiy summa
-          </HeadCell>
-          {/* Bitta kunda — qo'lda yoziladi (maydon), oraliqda — faqat yig'indi. */}
-          <HeadCell align="right" className="min-w-32">
-            {single ? "Click / onlayn (qo'lda)" : "Click / onlayn"}
-          </HeadCell>
-          <HeadCell align="right" className="min-w-32">
-            {single ? "Skidka (qo'lda)" : "Skidka"}
-          </HeadCell>
-          <HeadCell align="right" className="min-w-36">
-            {single ? "Kuryer xizmati (qo'lda)" : "Kuryer xizmati"}
-          </HeadCell>
-          <HeadCell align="right" className="min-w-32">
-            Topshirishi kerak
-          </HeadCell>
-          <HeadCell align="right" className="min-w-32">
-            Topshirdi
-          </HeadCell>
-          <HeadCell className="min-w-16">Manzil soni</HeadCell>
-          <HeadCell className="min-w-16">Borganda atkaz</HeadCell>
-        </tr>
-      </thead>
-      {regions === null
-        ? sheet.couriers.map((courier) => courierBlock(courier))
-        : regions.map((region) =>
-            single ? (
-              <Fragment key={region.code ?? ""}>
-                <GroupHead title={region.name} couriers={region.couriers.length} columns={columns} />
-                {region.couriers.map((courier) => courierBlock(courier))}
-                <tbody>
+    <ExtraAddressColumn.Provider value={withExtra}>
+      <SheetScroll label="Sotuv jadvali">
+        <thead>
+          <tr>
+            <LeadHeads lead={regions && !single ? "Viloyat" : "Kuryer"} label="Qator" />
+            <ProductHeads products={sheet.products} />
+            <HeadCell align="right" className="min-w-28">
+              Umumiy summa
+            </HeadCell>
+            {/* Bitta kunda — qo'lda yoziladi (maydon), oraliqda — faqat yig'indi. */}
+            <HeadCell align="right" className="min-w-32">
+              {single ? "Click / onlayn (qo'lda)" : "Click / onlayn"}
+            </HeadCell>
+            <HeadCell align="right" className="min-w-32">
+              {single ? "Skidka (qo'lda)" : "Skidka"}
+            </HeadCell>
+            <HeadCell align="right" className="min-w-36">
+              {single ? "Kuryer xizmati (qo'lda)" : "Kuryer xizmati"}
+            </HeadCell>
+            <HeadCell align="right" className="min-w-32">
+              Topshirishi kerak
+            </HeadCell>
+            <HeadCell align="right" className="min-w-32">
+              Topshirdi
+            </HeadCell>
+            <HeadCell className="min-w-16">Manzil soni</HeadCell>
+            <HeadCell className="min-w-16">Borganda atkaz</HeadCell>
+            {withExtra ? <HeadCell className="min-w-16">Qo&apos;shimcha</HeadCell> : null}
+          </tr>
+        </thead>
+        {regions === null
+          ? sheet.couriers.map((courier) => courierBlock(courier))
+          : regions.map((region) =>
+              single ? (
+                <Fragment key={region.code ?? ""}>
+                  <GroupHead title={region.name} couriers={region.couriers.length} columns={columns} />
+                  {region.couriers.map((courier) => courierBlock(courier))}
+                  <tbody>
+                    <FigureRows
+                      figures={region.totals}
+                      products={sheet.products}
+                      variant="region"
+                      lead={<RegionLead title={`${region.name} jami`} couriers={region.couriers.length} />}
+                      fee={<FeeSum fee={region.totals.fee} hint="qo'lda yozilgan" />}
+                    />
+                  </tbody>
+                </Fragment>
+              ) : (
+                <tbody key={region.code ?? ""}>
                   <FigureRows
                     figures={region.totals}
                     products={sheet.products}
-                    variant="region"
-                    lead={<RegionLead title={`${region.name} jami`} couriers={region.couriers.length} />}
-                    fee={<FeeSum fee={region.totals.fee} hint="qo'lda yozilgan" />}
+                    lead={<RegionLead title={region.name} couriers={region.couriers.length} />}
+                    fee={<FeeSum fee={region.totals.fee} hint="kunma-kun yoziladi" />}
                   />
                 </tbody>
-              </Fragment>
-            ) : (
-              <tbody key={region.code ?? ""}>
-                <FigureRows
-                  figures={region.totals}
-                  products={sheet.products}
-                  lead={<RegionLead title={region.name} couriers={region.couriers.length} />}
-                  fee={<FeeSum fee={region.totals.fee} hint="kunma-kun yoziladi" />}
-                />
-              </tbody>
-            ),
-          )}
-      {idle.length > 0 ? (
-        <>
-          <GroupHead title="Bugun harakati yo'q kuryerlar" couriers={idle.length} columns={columns} />
-          {idle.map((courier) => courierBlock(idleCourierSheet(courier), true))}
-        </>
-      ) : null}
-      {sheet.courierless && hasCourierlessActivity(sheet.courierless) ? (
-        <CourierlessBlock
-          key={`courierless:${range.dateFrom}:${range.dateTo}`}
-          block={sheet.courierless}
-          products={sheet.products}
-          columns={columns}
-          onOpenDay={onOpenDay}
-        />
-      ) : null}
-      <tfoot>
-        <FigureRows
-          figures={sheet.totals}
-          products={sheet.products}
-          variant="total"
-          extra={storeIssueRow(plan)}
-          lead={
-            <>
-              <span className="text-ink block text-title">JAMI</span>
-              <span className="text-ink-muted block text-fine">{`${sheet.couriers.length} ta kuryer`}</span>
-            </>
-          }
-          fee={<FeeSum fee={sheet.totals.fee} hint="qo'lda yozilgan" />}
-        />
-      </tfoot>
-    </SheetScroll>
+              ),
+            )}
+        {idle.length > 0 ? (
+          <>
+            <GroupHead title="Bugun harakati yo'q kuryerlar" couriers={idle.length} columns={columns} />
+            {idle.map((courier) => courierBlock(idleCourierSheet(courier), true))}
+          </>
+        ) : null}
+        {sheet.courierless && hasCourierlessActivity(sheet.courierless) ? (
+          <CourierlessBlock
+            key={`courierless:${range.dateFrom}:${range.dateTo}`}
+            block={sheet.courierless}
+            products={sheet.products}
+            columns={columns}
+            onOpenDay={onOpenDay}
+          />
+        ) : null}
+        <tfoot>
+          <FigureRows
+            figures={sheet.totals}
+            products={sheet.products}
+            variant="total"
+            extra={storeIssueRow(plan)}
+            lead={
+              <>
+                <span className="text-ink block text-title">JAMI</span>
+                <span className="text-ink-muted block text-fine">{`${sheet.couriers.length} ta kuryer`}</span>
+              </>
+            }
+            fee={<FeeSum fee={sheet.totals.fee} hint="qo'lda yozilgan" />}
+          />
+        </tfoot>
+      </SheetScroll>
+    </ExtraAddressColumn.Provider>
   );
 }
 
@@ -567,6 +577,7 @@ function MoneyCells({
   const money = sheetMoney(figures);
   const cash = figures.cash;
   const editing = edit !== null && cash !== null;
+  const withExtra = useContext(ExtraAddressColumn);
   return (
     <>
       <td rowSpan={rowSpan} className={cn(MONEY, surface, "text-right")}>
@@ -606,6 +617,15 @@ function MoneyCells({
       >
         {groupThousands(figures.refusedAddresses)}
       </td>
+      {withExtra ? (
+        <td
+          rowSpan={rowSpan}
+          className={cn(MONEY, surface, "tabular text-center text-lg2 font-semibold", figures.extraAddresses ? "text-ink" : "text-ink-faint")}
+          title="Kuryer borgan, zakaz topshirilmagan — logist izoh bilan qo'shgan"
+        >
+          {groupThousands(figures.extraAddresses ?? 0)}
+        </td>
+      ) : null}
     </>
   );
 }
@@ -693,6 +713,7 @@ const DAY_CELL = cn(CELL, "bg-surface text-ink-muted tabular whitespace-nowrap")
  */
 function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly SheetProduct[]; onOpen: () => void }) {
   const money = sheetMoney(day);
+  const withExtra = useContext(ExtraAddressColumn);
   return (
     <tr>
       <th scope="row" className="border-line bg-surface sticky left-0 z-10 border-r border-b px-3 py-2 text-left font-normal">
@@ -717,6 +738,7 @@ function DayRow({ day, products, onOpen }: { day: SheetDay; products: readonly S
         <AddressCount figures={day} />
       </td>
       <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.refusedAddresses)}</td>
+      {withExtra ? <td className={cn(DAY_CELL, "text-center")}>{groupThousands(day.extraAddresses ?? 0)}</td> : null}
     </tr>
   );
 }

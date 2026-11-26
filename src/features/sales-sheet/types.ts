@@ -116,6 +116,13 @@ export type SheetFigures = Record<SheetFlow, CellMap> & {
   pendingAddresses: number;
   /** Kuryer borgan, mijoz rad etgan manzillar. */
   refusedAddresses: number;
+  /**
+   * Qo'shimcha manzil (2026-11-26): kuryer borgan, zakaz topshirilmagan —
+   * holat o'zgarmagan, logist izoh bilan qo'shgan. Manzil jamiga va kuryer
+   * xizmatiga server qo'shadi (sayt qo'shmaydi). Kalit yo'q — `null`
+   * (eski server: ustun chizilmaydi).
+   */
+  extraAddresses: number | null;
   /** Davr oxirida kuryerda yetkazilmay qolgan zakazlar. */
   openOrders: number;
   /** `null` — yozilmagan. Oraliqda — kunlik yozuvlar yig'indisi. */
@@ -261,6 +268,7 @@ function mapFigures(raw: unknown): SheetFigures {
     addresses: asInt(json.addresses),
     pendingAddresses: json.pending_in_addresses === true ? asInt(json.pending_addresses) : 0,
     refusedAddresses: asInt(json.refused_addresses),
+    extraAddresses: asOptionalInt(json.extra_addresses),
     openOrders: asInt(json.open_orders),
     fee: mapFee(json.fee),
     handoverDue: asOptionalNumber(json.handover_due),

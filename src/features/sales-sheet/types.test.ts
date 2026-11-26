@@ -328,3 +328,17 @@ describe("«Kuryersiz (bosh kuryer)» bloki — `courierless` (hujjat 125 C §4)
     expect(sheet.totals.handoverDue).toBe(10_565_000);
   });
 });
+
+describe("qo'shimcha manzil (2026-11-26)", () => {
+  it("kalit bor — son; yo'q — `null` (ustun chizilmaydi)", () => {
+    const sheet = mapSalesSheet({
+      products: [],
+      couriers: [{ courier: { id: 1, full_name: "A" }, extra_addresses: 2 }, { courier: { id: 2, full_name: "B" } }],
+      totals: { extra_addresses: 2 },
+    });
+    expect(sheet.totals.extraAddresses).toBe(2);
+    expect(sheet.couriers[0]!.extraAddresses).toBe(2);
+    expect(sheet.couriers[1]!.extraAddresses).toBeNull();
+    expect(mapSalesSheet({ products: [], couriers: [], totals: {} }).totals.extraAddresses).toBeNull();
+  });
+});

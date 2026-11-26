@@ -91,6 +91,16 @@ describe("Telegram matni — tasdiqlanmagan manzil (hujjat 108)", () => {
     );
     expect(build({ addresses: 3, pending_addresses: 1, refused_addresses: 0 })).toContain("🚚 Manzil soni: 3 · Borganda atkaz: 0");
   });
+
+  it("qo'shimcha manzil (2026-11-26) — faqat noldan katta bo'lsa qatorda", () => {
+    const build = (totals: Record<string, unknown>) => {
+      const sheet = mapSalesSheet({ date_from: "2026-11-26", date_to: "2026-11-26", products: [], couriers: [], totals });
+      return salesSheetTelegram({ title: "Filial", range: { dateFrom: "2026-11-26", dateTo: "2026-11-26" }, products: [], couriers: [], totals: sheet.totals, regions: null });
+    };
+    expect(build({ addresses: 3, refused_addresses: 1, extra_addresses: 2 })).toContain("🚚 Manzil soni: 3 · Borganda atkaz: 1 · Qo'shimcha manzil: 2");
+    expect(build({ addresses: 3, refused_addresses: 1, extra_addresses: 0 })).not.toContain("Qo'shimcha manzil");
+    expect(build({ addresses: 3, refused_addresses: 1 })).not.toContain("Qo'shimcha manzil");
+  });
 });
 
 describe("Telegram matni — oraliq va bitta viloyat", () => {

@@ -58,6 +58,7 @@ export function idleCourierSheet(courier: CourierRef): CourierSheet {
     addresses: 0,
     pendingAddresses: 0,
     refusedAddresses: 0,
+    extraAddresses: null,
     openOrders: 0,
     fee: null,
     handoverDue: null,

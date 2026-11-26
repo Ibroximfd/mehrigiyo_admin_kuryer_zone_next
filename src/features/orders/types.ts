@@ -19,6 +19,8 @@ import { mapChangeRequest } from "./change-request";
 import type { ChangeRequest } from "./change-request";
 import type { OrderCashback } from "./cashback";
 import { mapDeliveryProof, mapDeliveryStage } from "./delivery-proof";
+import { mapExtraAddresses } from "./extra-address";
+import type { ExtraAddress } from "./extra-address";
 import type { DeliveryProof, DeliveryStage } from "./delivery-proof";
 import { mapNeedsReview, mapOrderGeocode } from "./geocode";
 import type { OrderGeocode } from "./geocode";
@@ -139,6 +141,8 @@ export type LogistOrder = {
   urgent: OrderUrgent | null;
   /** Server `urgent` kalitini yuborganmi (`null` ham) — yubormasa eski server (§11). */
   urgentFromServer: boolean;
+  /** Qo'shimcha manzillar (2026-11-26, `extra-address.ts`); server bermasa — bo'sh. */
+  extraAddresses: ExtraAddress[];
 
   // ── Yagona domain model (`02_DOMAIN_MODEL` §2.2, §5) ─────────────────────
   // Backend hali chiqarmagan bo'lsa hammasi `null`/bo'sh — UI badge'larni
@@ -1131,6 +1135,7 @@ export function mapLogistOrder(raw: unknown): LogistOrder {
     tagsFromServer: Array.isArray(json.tags),
     urgent: mapOrderUrgent(json.urgent),
     urgentFromServer: hasUrgentKey(json),
+    extraAddresses: mapExtraAddresses(json.extra_addresses),
 
     pendingReason: mapPendingReason(json.pending_reason),
     confirmation: mapConfirmation(json.confirmation),

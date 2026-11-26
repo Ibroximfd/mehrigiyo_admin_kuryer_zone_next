@@ -67,7 +67,6 @@ function ChipRow({
     <div
       role="group"
       aria-label={label}
-      data-wheel-x
       className={cn(
         "scrollbar-thin fade-edges -mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5",
         className,

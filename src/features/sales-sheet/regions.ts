@@ -67,6 +67,12 @@ function sumNullable(values: ReadonlyArray<number | null>): number | null {
 
 const sumOf = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0);
 
+/** Server bergan qiymatlar yig'indisi; hech biri bermagan bo'lsa — `null` (qo'shimcha manzil kabi). */
+function sumKnown(values: ReadonlyArray<number | null>): number | null {
+  const known = values.filter((value): value is number => value !== null);
+  return known.length > 0 ? sumOf(known) : null;
+}
+
 /** «Pul olish» bloki: bitta kuryerda blok yo'q bo'lsa — viloyatda ham yo'q; maydonlar `sumNullable`. */
 function sumCash(blocks: ReadonlyArray<CourierCash | null>): CourierCash | null {
   if (blocks.length === 0 || blocks.some((block) => block === null)) return null;
@@ -109,6 +115,7 @@ export function sumFigures(list: readonly SheetFigures[], products: readonly She
     addresses: sumOf(list.map((figures) => figures.addresses)),
     pendingAddresses: sumOf(list.map((figures) => figures.pendingAddresses)),
     refusedAddresses: sumOf(list.map((figures) => figures.refusedAddresses)),
+    extraAddresses: sumKnown(list.map((figures) => figures.extraAddresses)),
     openOrders: sumOf(list.map((figures) => figures.openOrders)),
     fee: fees.length > 0 ? { amount: sumOf(fees), note: "" } : null,
     handoverDue: sumNullable(list.map((figures) => figures.handoverDue)),

@@ -232,4 +232,8 @@ export const SALES_SHEET: Dictionary = {
     "Не подтверждено: доставленных адресов — {x} (уже в счёте), отказов на месте — {x2}",
   "Sotuv, pul va manzil soni kuryer «yetkazdim» bosgan zahoti hisoblangan — manzil soni logist tasdig'ida aniqlashadi. Borganda atkaz — logist tasdiqlagandan keyin qo'shiladi.":
     "Продажа, деньги и число адресов засчитаны, как только курьер нажал «доставил» — число адресов уточнится при подтверждении логиста. Отказ на месте — добавляется после подтверждения логиста.",
+  // Qo'shimcha manzil (2026-11-26): kuryer borgan, zakaz topshirilmagan.
+  "Qo'shimcha": "Доп. адреса",
+  "Qo'shimcha manzil": "Дополнительный адрес",
+  "Kuryer borgan, zakaz topshirilmagan — logist izoh bilan qo'shgan": "Курьер приезжал, заказ не вручён — логист добавил с комментарием",
 };

@@ -33,6 +33,7 @@ import { needsDistrictAction } from "../district-view";
 import { addressChangedBy, isOpenOrder, paymentLabel, shortOrderNumber } from "../order-view";
 import { DistrictPrompt } from "./district-prompt";
 import { AddressFixDialog, ReturnDialog } from "./order-actions";
+import { ExtraAddressList } from "./extra-address-list";
 import { UrgentDetail } from "./urgent-detail";
 
 /**
@@ -316,6 +317,8 @@ function DetailBody({
             ) : null}
           </dl>
         </Block>
+
+        <ExtraAddressList items={order.extraAddresses} />
 
         <Block title="Tarix">
           {detail.isPending ? (

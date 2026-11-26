@@ -54,8 +54,8 @@ const LABEL_LEFT = "sm:left-40";
  * `isolate` — yopishgan kataklarning `z-index` i kartadan tashqariga chiqmaydi
  * (sahifa sarlavhasi ustiga chiqib qolmasin). `scroll-p*` — klaviatura bilan
  * o'tilgan maydon yopishgan shapka va kuryer ustuni ostida qolmaydi.
- * `data-wheel-x` — sichqoncha g'ildiragi: avval tepa-pastga, chetda yon
- * tomonga, yon chetda — sahifaga (`lib/mouse-scroll`).
+ * G'ildirak faqat tepa-pastga suradi; yon tomonga — Shift + g'ildirak yoki
+ * trackpad (brauzerniki, egasi 2026-11-26: «Google Sheet kabi»).
  * `relative` — SHART: katak ichidagi `sr-only` yorliqlar `position: absolute`.
  * Konteyner joylashuv bloki bo'lmasa ular sahifaga (`main`) nisbatan turadi,
  * kesilmaydi va sahifaga jadvalning yashirin balandligicha bo'sh joy qo'shadi
@@ -67,7 +67,6 @@ export function SheetScroll({ label, children }: { label: string; children: Reac
       role="region"
       aria-label={label}
       tabIndex={0}
-      data-wheel-x
       className="border-line bg-surface scrollbar-thin focus-visible:ring-brand/45 relative isolate max-h-(--sheet-max-h) scroll-pt-20 scroll-pl-28 overflow-auto rounded-2xl border outline-none focus-visible:ring-2 sm:scroll-pl-64"
     >
       <table className="w-full border-separate border-spacing-0 text-dense">{children}</table>

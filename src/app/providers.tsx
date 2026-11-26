@@ -9,7 +9,6 @@ import { Toaster } from "sonner";
 import { LocaleProvider } from "@/components/locale-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useLocaleRefetch } from "@/hooks/use-locale-refetch";
-import { MouseScrollSupport } from "@/components/mouse-scroll-support";
 
 /**
  * Global provayderlar — `main.dart` dagi `MultiBlocProvider` ning o'rni.
@@ -60,7 +59,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         <NuqsAdapter>
           <TooltipProvider delayDuration={300}>
-            <MouseScrollSupport />
             {children}
             <Toaster
               position="bottom-right"
