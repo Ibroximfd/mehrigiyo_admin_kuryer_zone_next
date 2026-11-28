@@ -202,7 +202,12 @@ export const SALES_SHEET: Dictionary = {
   "— sovg'a qilib berilgan; pulga qo'shilmaydi": "— отдано в подарок; в деньги не входит",
   "= zakazlarga kerak − qo'lida; «Berish» bosilsa shu sonlar bilan ochiladi, o'zgartirsa bo'ladi":
     "= нужно для заказов − на руках; «Выдать» открывается с этими числами, их можно изменить",
-  "= umumiy summa − Click − skidka − kuryer xizmati + o'tgan qarz": "= общая сумма − Click − скидка − курьерская услуга + прошлый долг",
+  // Javob 140 §5: xizmat 28.11 dan qarzdan ayirilmaydi.
+  "= umumiy summa − Click − skidka + o'tgan qarz": "= общая сумма − Click − скидка + прошлый долг",
+  "= umumiy summa − Click − skidka − kuryer xizmati (28.11 gacha) + o'tgan qarz":
+    "= общая сумма − Click − скидка − курьерская услуга (до 28.11) + прошлый долг",
+  "— kuryerga alohida beriladi, qarzdan ayirilmaydi (28.11 dan)": "— выдаётся курьеру отдельно, из долга не вычитается (с 28.11)",
+  "alohida beriladi, qarzdan ayirilmaydi": "выдаётся отдельно, из долга не вычитается",
   "— «Oldim» bilan kuryerdan olingan; qolgani ertangi kunga qarz bo'lib o'tadi":
     "— получено от курьера через «Получил»; остаток переходит долгом на следующий день",
   "Boshida {x} + berildi {x2}, qaytarish va tuzatish {x3}": "На начало {x} + выдано {x2}, возврат и корректировка {x3}",

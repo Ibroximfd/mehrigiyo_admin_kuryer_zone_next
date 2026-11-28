@@ -134,6 +134,7 @@ describe("Telegram matni — oraliq va bitta viloyat", () => {
       discountManual: 0,
       giftAmount: 0,
       feeAmount: 0,
+      feeDeducted: 0,
       openingDebt: 0,
       dueTotal: 10_565_000,
       received: null,

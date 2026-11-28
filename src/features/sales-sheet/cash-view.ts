@@ -69,6 +69,8 @@ export type SheetMoney = {
   online: number;
   discount: number;
   fee: number | null;
+  /** Xizmatning qarzdan ayirilgan qismi (28.11 gacha kunlar); 0/`null` — ayirilmaydi. */
+  feeDeducted: number | null;
   /** Kuryer topshirishi kerak (o'tgan qarz bilan). */
   due: number | null;
   received: number | null;
@@ -84,6 +86,7 @@ export function sheetMoney(figures: SheetFigures): SheetMoney {
     online: cash?.onlineAmount ?? figures.onlineAmount,
     discount: cash?.discountAmount ?? figures.discountAmount,
     fee: cash?.feeAmount ?? figures.fee?.amount ?? null,
+    feeDeducted: cash?.feeDeducted ?? null,
     due: cash?.dueTotal ?? null,
     received: cash?.received ?? null,
     debt: cash?.closingDebt ?? null,

@@ -79,13 +79,15 @@ describe("sotuv jadvalidagi pul — ko'rinish qoidalari", () => {
       online: 2_000_000,
       discount: 300_000,
       fee: 150_000,
+      // Javob 140 §5: server `fee_deducted` bermagan — taxmin qilinmaydi.
+      feeDeducted: null,
       due: 6_685_000,
       received: 5_000_000,
       debt: 1_685_000,
       openingDebt: 135_000,
     });
     const old = mapSalesSheet({ totals: { sales_amount: 1_000, online_amount: 100, discount_amount: 50, fee: { amount: 20 } } });
-    expect(sheetMoney(old.totals)).toEqual({ sales: 1_000, online: 100, discount: 50, fee: 20, due: null, received: null, debt: null, openingDebt: null });
+    expect(sheetMoney(old.totals)).toEqual({ sales: 1_000, online: 100, discount: 50, fee: 20, feeDeducted: null, due: null, received: null, debt: null, openingDebt: null });
   });
 
   it("javob 104: pul zanjiri boshidan oldingi kunga yozilmaydi; boshi noma'lum — ochiq", () => {

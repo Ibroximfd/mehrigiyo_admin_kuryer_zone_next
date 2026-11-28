@@ -88,6 +88,7 @@ function sumCash(blocks: ReadonlyArray<CourierCash | null>): CourierCash | null 
     discountManual: field((cash) => cash.discountManual),
     giftAmount: field((cash) => cash.giftAmount),
     feeAmount: field((cash) => cash.feeAmount),
+    feeDeducted: field((cash) => cash.feeDeducted),
     openingDebt: field((cash) => cash.openingDebt),
     dueTotal: field((cash) => cash.dueTotal),
     received: field((cash) => cash.received),

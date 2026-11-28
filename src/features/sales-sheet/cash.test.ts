@@ -88,3 +88,12 @@ describe("pul olish — xato matni", () => {
     expect(cashErrorText("nimadir", TEXTS)).toBe("Pulni yozib bo'lmadi");
   });
 });
+
+describe("javob 140 §5 — xizmat qarzdan ayirilmaydi (28.11 dan)", () => {
+  it("`fee_deducted` o'qiladi; kalit yo'q — null (taxmin qilinmaydi)", () => {
+    expect(mapCourierCash({ fee_amount: 40000, fee_deducted: 0 })).toMatchObject({ feeAmount: 40000, feeDeducted: 0 });
+    expect(mapCourierCash({ fee_amount: 40000, fee_deducted: 40000 }).feeDeducted).toBe(40000);
+    expect(mapCourierCash({ fee_amount: 40000 }).feeDeducted).toBeNull();
+  });
+});
+

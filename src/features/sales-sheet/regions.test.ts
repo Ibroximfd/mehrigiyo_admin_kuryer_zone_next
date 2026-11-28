@@ -151,6 +151,7 @@ describe("yig'indi qoidalari", () => {
     discountManual: 5,
     giftAmount: 0,
     feeAmount: 20,
+    feeDeducted: 0,
     openingDebt: 0,
     dueTotal: 65,
     received: 60,

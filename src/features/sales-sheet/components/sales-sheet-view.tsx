@@ -183,7 +183,8 @@ export function SalesSheetBody({
           { label: "Click / onlayn", value: moneyText(money.online), hint: "qo'lda + ilovada oldindan" },
           { label: "Skidka", value: moneyText(money.discount), hint: "qo'lda + ball" },
           // Markaz filtrida xizmat haqi, topshiriq va qarz umumiy (136-javob §4) — izohda aytiladi.
-          { label: "Kuryer xizmati", value: moneyText(money.fee), hint: readOnly ? "umumiy" : "bosh kuryer qo'lda yozgan" },
+          // Javob 140 §5: xizmat 28.11 dan qarzdan ayirilmaydi — kuryerga alohida beriladi.
+          { label: "Kuryer xizmati", value: moneyText(money.fee), hint: readOnly ? "umumiy" : "alohida beriladi, qarzdan ayirilmaydi" },
           { label: "Topshirishi kerak", value: moneyText(money.due), hint: readOnly ? "umumiy" : "kuryerlar topshiradigan pul" },
           {
             label: "Topshirdi",
@@ -206,7 +207,7 @@ export function SalesSheetBody({
       {/* Daftar (sklad) markazga bo'linmaydi — markaz filtrida solishtirish yolg'on farq ko'rsatardi. */}
       {readOnly ? null : <ChecksNote sheet={sheet} />}
       <SalesSheetGrid sheet={gridSheet} range={range} regions={regions} onOpenDay={onOpenDay} actions={readOnly ? null : actions} />
-      <SheetLegend today={today !== null} addressesOnPress={sheet.addressesOnPress} />
+      <SheetLegend today={today !== null} addressesOnPress={sheet.addressesOnPress} feeDeducted={(money.feeDeducted ?? 0) > 0} />
       {open?.kind === "receipt" ? <ReceiptDialog sheet={sheet} courier={open.courier} date={range.dateFrom} canAccept={canAccept} onClose={close} /> : null}
       {open?.kind === "document" && sklad ? (
         <CourierDocumentDialog
@@ -397,7 +398,11 @@ function ChecksNote({ sheet }: { sheet: SalesSheet }) {
 }
 
 /** Qatorlar va ustunlar ma'nosi — rang yagona signal bo'lmasin. */
-function SheetLegend({ today, addressesOnPress }: { today: boolean; addressesOnPress: boolean }) {
+/**
+ * `feeDeducted` — oraliqda 28.11 dan oldingi kun bor va o'sha kunlarda xizmat
+ * qarzdan ayirilgan (javob 140 §5): formulada «− kuryer xizmati (28.11 gacha)».
+ */
+function SheetLegend({ today, addressesOnPress, feeDeducted }: { today: boolean; addressesOnPress: boolean; feeDeducted: boolean }) {
   return (
     <ul className="text-ink-muted flex flex-col gap-x-6 gap-y-1 text-meta lg:flex-row lg:flex-wrap">
       <li>
@@ -432,7 +437,15 @@ function SheetLegend({ today, addressesOnPress }: { today: boolean; addressesOnP
       </li>
       <li>
         <strong className="text-brand font-semibold">Topshirishi kerak</strong>
-        <span> = umumiy summa − Click − skidka − kuryer xizmati + o&apos;tgan qarz</span>
+        <span>
+          {feeDeducted
+            ? " = umumiy summa − Click − skidka − kuryer xizmati (28.11 gacha) + o'tgan qarz"
+            : " = umumiy summa − Click − skidka + o'tgan qarz"}
+        </span>
+      </li>
+      <li>
+        <strong className="text-ink font-semibold">Kuryer xizmati</strong>
+        <span> — kuryerga alohida beriladi, qarzdan ayirilmaydi (28.11 dan)</span>
       </li>
       <li>
         <strong className="text-ink font-semibold">Topshirdi</strong>

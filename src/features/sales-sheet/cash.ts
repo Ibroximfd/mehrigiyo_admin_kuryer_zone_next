@@ -7,10 +7,14 @@ import { asArray, asInt, asOptionalBool, asOptionalNumber, asOptionalString, asR
 /**
  * Kuryerdan pul olish (hujjat 85 §2) — `sales-sheet` javobidagi har kuryer va
  * `totals` dagi `cash` bloki. Hisob faqat serverda:
- * `due_total = sales − online − discount − fee + opening_debt` (sovg'a sotuvga kirmaydi:
+ * `due_total = sales − online − discount − fee_deducted + opening_debt` (sovg'a sotuvga kirmaydi:
  * `gift_in_sales: false`), onlayn va skidka — tizimdagi + bosh kuryer qo'lda yozgani,
  * `closing_debt = due_total − received`; kam olingan pul ertaga `opening_debt`
  * bo'lib o'tadi. Frontend qo'shmaydi va ayirmaydi — kelmagan maydon ekranda «—».
+ *
+ * Javob 140 §5 (egasi, 2026-11-28): kuryer xizmati 28.11 dan qarzdan
+ * AYIRILMAYDI — kuryerga alohida beriladi. `fee_deducted` — xizmatning qarzdan
+ * ayirilgan qismi: 28.11 dan 0, eski kunlarda `fee_amount` ga teng.
  */
 
 /** «Oldim» yozuvi — bir kunda bir nechta bo'lishi mumkin, serverda yig'iladi. */
@@ -53,8 +57,10 @@ export type CourierCash = {
    */
   discountManual: number | null;
   giftAmount: number | null;
-  /** Kuryer xizmati (hujjat 83 §3) — bosh kuryer yozgani. */
+  /** Kuryer xizmati (hujjat 83 §3) — bosh kuryer yozgani; ma'lumot, alohida beriladi. */
   feeAmount: number | null;
+  /** Xizmatning qarzdan ayirilgan qismi (javob 140 §5): 28.11 dan 0; kalit yo'q — `null`. */
+  feeDeducted: number | null;
   /** O'tgan kunlardan qolgan qarz; oraliqda — davr boshidagi. */
   openingDebt: number | null;
   /** Olinishi kerak. */
@@ -99,6 +105,7 @@ export function mapCourierCash(raw: unknown): CourierCash {
     discountManual: asOptionalNumber(json.discount_manual) ?? (discountSystem === null ? discountAmount : null),
     giftAmount: asOptionalNumber(json.gift_amount),
     feeAmount: asOptionalNumber(json.fee_amount),
+    feeDeducted: asOptionalNumber(json.fee_deducted),
     openingDebt: asOptionalNumber(json.opening_debt),
     dueTotal: asOptionalNumber(json.due_total),
     received: asOptionalNumber(json.received),
